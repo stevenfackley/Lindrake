@@ -4,12 +4,12 @@
 
 ## The conflict
 
-Two mechanisms both provision the OmniSift schema on a fresh database:
+Two mechanisms both provision the Lindrake schema on a fresh database:
 
 | Mechanism | Runs as | When | Owns |
 |-----------|---------|------|------|
-| `infra/db/init.sql` | The image's bootstrap superuser (`POSTGRES_USER`, `omnisift` in the compose files) | `docker-entrypoint-initdb.d` at container first-boot (empty data volume only) | Every extension (`uuid-ossp`, `vector`, `pg_trgm`), role creation, GRANTs. |
-| EF migrations (`InitialCreate` and later) | `omnisift_app` (non-superuser) | `InitializeOmniSift` (`Extensions/WebApplicationExtensions.cs`) → `Database.Migrate()` at API startup | Tables, indexes (HNSW, `pg_trgm` GIN), RLS policies, seed tenant. (`InitialCreate` and `AddPgTrgmExtensionAndIndex` also emit `CREATE EXTENSION IF NOT EXISTS` for the three extensions — those no-op because `init.sql` created them first.) |
+| `infra/db/init.sql` | The image's bootstrap superuser (`POSTGRES_USER`, `lindrake` in the compose files) | `docker-entrypoint-initdb.d` at container first-boot (empty data volume only) | Every extension (`uuid-ossp`, `vector`, `pg_trgm`), role creation, GRANTs. |
+| EF migrations (`InitialCreate` and later) | `lindrake_app` (non-superuser) | `InitializeLindrake` (`Extensions/WebApplicationExtensions.cs`) → `Database.Migrate()` at API startup | Tables, indexes (HNSW, `pg_trgm` GIN), RLS policies, seed tenant. (`InitialCreate` and `AddPgTrgmExtensionAndIndex` also emit `CREATE EXTENSION IF NOT EXISTS` for the three extensions — those no-op because `init.sql` created them first.) |
 
 Migrations after `InitialCreate`: `AddPgTrgmExtensionAndIndex` (extension + GIN trigram index on `document_chunks.content`), `AddAuditLogAndUsers` (`audit_log`, `users`), `AddDataSourcePiiFlags` (`has_pii`, `pii_flags`), `AddAuditLogRowLevelSecurity` (append-only RLS on `audit_log`).
 
@@ -24,26 +24,26 @@ EF wins because:
 
 ## What init.sql keeps (and why it must)
 
-`omnisift_app` is a non-superuser login role. In PostgreSQL 16, `CREATE EXTENSION` for an untrusted extension requires superuser, and a trusted one (such as `pg_trgm`) requires the `CREATE` privilege on the database, which `omnisift_app` does not have: either way `omnisift_app` cannot create the extensions it uses. The superuser is only available during `docker-entrypoint-initdb.d`. So the split is:
+`lindrake_app` is a non-superuser login role. In PostgreSQL 16, `CREATE EXTENSION` for an untrusted extension requires superuser, and a trusted one (such as `pg_trgm`) requires the `CREATE` privilege on the database, which `lindrake_app` does not have: either way `lindrake_app` cannot create the extensions it uses. The superuser is only available during `docker-entrypoint-initdb.d`. So the split is:
 
 1. `init.sql` (superuser, runs first):
-   - `CREATE EXTENSION IF NOT EXISTS` for `uuid-ossp`, `vector` and `pg_trgm` — **must be here** because `omnisift_app` can create none of them. A migration that needs a new extension needs a matching line in `init.sql` (and a one-off superuser `CREATE EXTENSION` on databases that already exist).
-   - Creates the `omnisift_app` role (idempotent), with the password in the db container's `POSTGRES_APP_PASSWORD` environment variable, read with psql's `\getenv` (the image runs init files through psql). Dev: `omnisift_dev` from `.env.dev`. Unset (production): the role has no password and cannot log in until the superuser sets one. The API must connect as this role: the superuser bypasses RLS.
-   - `GRANT USAGE, CREATE ON SCHEMA public TO omnisift_app` — in PG15+, the public schema no longer grants CREATE to PUBLIC by default. `omnisift_app` needs CREATE to run EF's `CREATE TABLE` statements (including `__EFMigrationsHistory`).
-   - GRANTs current + future table/sequence privileges via `ALTER DEFAULT PRIVILEGES FOR ROLE omnisift_app`.
+   - `CREATE EXTENSION IF NOT EXISTS` for `uuid-ossp`, `vector` and `pg_trgm` — **must be here** because `lindrake_app` can create none of them. A migration that needs a new extension needs a matching line in `init.sql` (and a one-off superuser `CREATE EXTENSION` on databases that already exist).
+   - Creates the `lindrake_app` role (idempotent), with the password in the db container's `POSTGRES_APP_PASSWORD` environment variable, read with psql's `\getenv` (the image runs init files through psql). Dev: `lindrake_dev` from `.env.dev`. Unset (production): the role has no password and cannot log in until the superuser sets one. The API must connect as this role: the superuser bypasses RLS.
+   - `GRANT USAGE, CREATE ON SCHEMA public TO lindrake_app` — in PG15+, the public schema no longer grants CREATE to PUBLIC by default. `lindrake_app` needs CREATE to run EF's `CREATE TABLE` statements (including `__EFMigrationsHistory`).
+   - GRANTs current + future table/sequence privileges via `ALTER DEFAULT PRIVILEGES FOR ROLE lindrake_app`.
 
-2. EF `InitialCreate` and later migrations (omnisift_app, run second):
+2. EF `InitialCreate` and later migrations (lindrake_app, run second):
    - `InitialCreate`'s `AlterDatabase().Annotation(...)` calls and `AddPgTrgmExtensionAndIndex`'s raw SQL emit `CREATE EXTENSION IF NOT EXISTS` — those are safe because Postgres short-circuits the `IF NOT EXISTS` check before the privilege check when the extension already exists, so the non-superuser migration succeeds without error.
    - All tables, indexes (including HNSW), RLS policies.
    - Seed tenant row.
 
 ## ALTER DEFAULT PRIVILEGES — what it actually does
 
-The `ALTER DEFAULT PRIVILEGES FOR ROLE omnisift_app` block sets the privilege template that Postgres applies when `omnisift_app` creates future objects. Since `omnisift_app` owns the tables it creates via EF Migrate(), it already has full rights on those tables. These defaults are **future-proofing stubs**: if a second role (e.g. a read-only reporting role) is added later, granting it rights on existing tables and adding a matching default privilege ensures newly migrated tables are covered automatically without another superuser script. The `FOR ROLE omnisift_app` clause requires the caller to be a superuser or a member of `omnisift_app` — init scripts run as the bootstrap superuser, so this runs fine in `docker-entrypoint-initdb.d`.
+The `ALTER DEFAULT PRIVILEGES FOR ROLE lindrake_app` block sets the privilege template that Postgres applies when `lindrake_app` creates future objects. Since `lindrake_app` owns the tables it creates via EF Migrate(), it already has full rights on those tables. These defaults are **future-proofing stubs**: if a second role (e.g. a read-only reporting role) is added later, granting it rights on existing tables and adding a matching default privilege ensures newly migrated tables are covered automatically without another superuser script. The `FOR ROLE lindrake_app` clause requires the caller to be a superuser or a member of `lindrake_app` — init scripts run as the bootstrap superuser, so this runs fine in `docker-entrypoint-initdb.d`.
 
 ## What was removed from init.sql (2026-06-18 correction)
 
-The original refactor removed the `CREATE EXTENSION` blocks with the intent that EF would handle them. This was incorrect: in PG16, `CREATE EXTENSION` requires superuser, and EF runs as the non-superuser `omnisift_app`. On a fresh `docker compose up`, the migration would fail with `must be superuser to create this extension`. The extensions are now back in `init.sql` where they belong.
+The original refactor removed the `CREATE EXTENSION` blocks with the intent that EF would handle them. This was incorrect: in PG16, `CREATE EXTENSION` requires superuser, and EF runs as the non-superuser `lindrake_app`. On a fresh `docker compose up`, the migration would fail with `must be superuser to create this extension`. The extensions are now back in `init.sql` where they belong.
 
 The following were correctly removed and remain owned by EF:
 - `CREATE TABLE` blocks for all four tables — EF handles these.
@@ -57,7 +57,7 @@ The `tenants` table in the old `init.sql` was missing the `api_key_hash VARCHAR(
 
 ## pg_trgm moved into init.sql (2026-10-14)
 
-Until 2026-10-14 `init.sql` created `uuid-ossp` and `vector` but not `pg_trgm`, so on a fresh database the `AddPgTrgmExtensionAndIndex` migration (`CREATE EXTENSION IF NOT EXISTS pg_trgm` as `omnisift_app`) failed and the API did not start:
+Until 2026-10-14 `init.sql` created `uuid-ossp` and `vector` but not `pg_trgm`, so on a fresh database the `AddPgTrgmExtensionAndIndex` migration (`CREATE EXTENSION IF NOT EXISTS pg_trgm` as `lindrake_app`) failed and the API did not start:
 
 ```
 ERROR:  permission denied to create extension "pg_trgm"
@@ -85,15 +85,15 @@ docker run -d --name pg-test \
   -p 5433:5432 \
   pgvector/pgvector:pg16
 
-# The omnisift_app role won't exist, so connect as postgres.
+# The lindrake_app role won't exist, so connect as postgres.
 # Set connection string to use postgres user for the migrate step:
 dotnet ef database update \
-  --project src/OmniSift.Api \
-  --connection "Host=localhost;Port=5433;Database=omnisift;Username=postgres;Password=test"
+  --project src/Lindrake.Api \
+  --connection "Host=localhost;Port=5433;Database=lindrake;Username=postgres;Password=test"
 ```
-This proves EF can stand alone without init.sql. The tradeoff: in production you'd still need init.sql (or a one-time superuser script) to create `omnisift_app` before the app starts.
+This proves EF can stand alone without init.sql. The tradeoff: in production you'd still need init.sql (or a one-time superuser script) to create `lindrake_app` before the app starts.
 
 ## TODO: production hardening
 
-- Production does not set `POSTGRES_APP_PASSWORD`, so `omnisift_app` starts without a password; the operator runs `ALTER ROLE omnisift_app WITH PASSWORD '...'` as the superuser and puts that password in the `ConnectionStrings__DefaultConnection` secret (see `docs/DEPLOY.md`, First-time database setup). Reading it from a Docker secret in `init.sql` would remove that manual step.
+- Production does not set `POSTGRES_APP_PASSWORD`, so `lindrake_app` starts without a password; the operator runs `ALTER ROLE lindrake_app WITH PASSWORD '...'` as the superuser and puts that password in the `ConnectionStrings__DefaultConnection` secret (see `docs/DEPLOY.md`, First-time database setup). Reading it from a Docker secret in `init.sql` would remove that manual step.
 - Consider extracting the role-creation block into a separate `infra/db/create-role.sql` script that can be run by a DBA without re-running the full init sequence.

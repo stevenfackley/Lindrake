@@ -1,0 +1,150 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject LindrakeApiClient Api
+@inject AuthStateService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Lindrake — Sign In</PageTitle>
+
+<div style="display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 120px); padding: 2rem;">
+    <div style="width: 100%; max-width: 420px;">
+        <div class="page-header" style="position: static; border: none; padding: 0; margin-bottom: 1.75rem; background: transparent; backdrop-filter: none;">
+            <span class="kicker">Account</span>
+            <h1>Sign In</h1>
+        </div>
+
+        <div class="card">
+            <div class="form-group">
+                <label class="form-label" for="tenant">Tenant ID</label>
+                <input id="tenant" type="text" class="form-input"
+                       @bind="_tenantId" @bind:event="oninput"
+                       placeholder="00000000-0000-0000-0000-000000000000"
+                       disabled="@_busy" />
+                <p style="font-size: 0.78rem; color: var(--text-faint); margin-top: 0.3rem;">
+                    The tenant ID shown when your account was created.
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="email">Email</label>
+                <input id="email" type="email" class="form-input"
+                       @bind="_email" @bind:event="oninput"
+                       placeholder="you@example.com"
+                       disabled="@_busy" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input id="password" type="password" class="form-input"
+                       @bind="_password" @bind:event="oninput"
+                       placeholder="••••••••"
+                       disabled="@_busy"
+                       @onkeydown="HandleKeyDown" />
+            </div>
+
+            <Alert Message="@_error" />
+
+            <button class="btn btn-primary" style="width: 100%;"
+                    @onclick="DoLogin"
+                    disabled="@(_busy || !CanSubmit)">
+                @if (_busy)
+                {
+                    <span class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></span>
+                    <span>Signing in…</span>
+                }
+                else
+                {
+                    <span>Sign in</span>
+                }
+            </button>
+
+            <p style="margin-top: 1.25rem; font-size: 0.88rem; color: var(--text-muted); text-align: center;">
+                No account? <a href="register">Create one →</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Prefills the tenant (e.g. straight after registration).</summary>
+    [SupplyParameterFromQuery(Name = "tenant")]
+    public string? TenantQuery { get; set; }
+
+    /// <summary>Where to go after signing in (set by RedirectToLogin).</summary>
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _tenantId = string.Empty;
+    private bool _busy;
+    private string? _error;
+
+    private bool CanSubmit =>
+        !string.IsNullOrWhiteSpace(_email) &&
+        !string.IsNullOrWhiteSpace(_password) &&
+        TryGetTenantId(out _);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo(PageAccess.SafeReturnUrl(ReturnUrl));
+            return;
+        }
+
+        if (Guid.TryParse(TenantQuery, out var fromQuery) && fromQuery != Guid.Empty)
+            _tenantId = fromQuery.ToString();
+        else if (await Auth.GetLastTenantIdAsync() is { } last)
+            _tenantId = last.ToString();
+    }
+
+    private bool TryGetTenantId(out Guid tenantId) =>
+        Guid.TryParse(_tenantId.Trim(), out tenantId) && tenantId != Guid.Empty;
+
+    private async Task DoLogin()
+    {
+        if (_busy || !CanSubmit || !TryGetTenantId(out var tenantId))
+            return;
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var req = new LoginRequest
+            {
+                Email = _email.Trim(),
+                Password = _password,
+                TenantId = tenantId
+            };
+
+            var result = await Api.LoginAsync(req);
+            if (!result.IsSuccess)
+            {
+                _error = result.Error.IsUnauthorized
+                    ? "Invalid email, password or tenant ID."
+                    : $"Sign-in failed: {result.Error.Message}";
+                return;
+            }
+
+            if (!await Auth.SignInAsync(result.Value.Token, result.Value.TenantId))
+            {
+                _error = "Sign-in failed: the server returned a token this app cannot read.";
+                return;
+            }
+
+            Nav.NavigateTo(PageAccess.SafeReturnUrl(ReturnUrl));
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await DoLogin();
+    }
+}

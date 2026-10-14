@@ -1,4 +1,4 @@
-# Contributing to OmniSift
+# Contributing to Lindrake
 
 ## Getting Started
 
@@ -11,8 +11,8 @@
 ### Local Setup
 
 ```bash
-git clone https://github.com/stevenfackley/OmniSift.git
-cd OmniSift
+git clone https://github.com/stevenfackley/Lindrake.git
+cd Lindrake
 ```
 
 `.env.dev` is committed with safe defaults. Optionally fill in your personal API keys:
@@ -28,14 +28,14 @@ Start the database and build:
 
 ```bash
 docker compose up -d db
-dotnet restore OmniSift.sln
-dotnet build OmniSift.sln
+dotnet restore Lindrake.sln
+dotnet build Lindrake.sln
 ```
 
 ### Running Tests
 
 ```bash
-dotnet test OmniSift.sln
+dotnet test Lindrake.sln
 ```
 
 Integration tests use EF Core InMemory and a fake chat-completion service — no running PostgreSQL instance or API keys are required.
@@ -61,8 +61,8 @@ The compose file defaults every value it interpolates to its `.env.dev` value, s
 See `secrets/README.md` for how to populate the required secret files and write a `.env.prod` (see `docs/DEPLOY.md`). The overlay removes `build` and runs the GHCR images; to run locally built ones instead, build with the base file and point the overlay at them:
 
 ```bash
-docker compose build api web    # tags omnisift-api:latest and omnisift-web:latest
-IMAGE_API=omnisift-api IMAGE_WEB=omnisift-web \
+docker compose build api web    # tags lindrake-api:latest and lindrake-web:latest
+IMAGE_API=lindrake-api IMAGE_WEB=lindrake-web \
   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
@@ -82,11 +82,11 @@ IMAGE_API=omnisift-api IMAGE_WEB=omnisift-web \
 ## Project Structure
 
 ```
-src/OmniSift.Api/               # ASP.NET Core backend
-src/OmniSift.Web/               # Blazor WebAssembly frontend
-src/OmniSift.Shared/            # Shared DTOs and contracts
-tests/OmniSift.UnitTests/       # xUnit unit tests
-tests/OmniSift.IntegrationTests/ # xUnit integration tests
+src/Lindrake.Api/               # ASP.NET Core backend
+src/Lindrake.Web/               # Blazor WebAssembly frontend
+src/Lindrake.Shared/            # Shared DTOs and contracts
+tests/Lindrake.UnitTests/       # xUnit unit tests
+tests/Lindrake.IntegrationTests/ # xUnit integration tests
 infra/db/                       # Superuser-only database setup (extensions, app role, grants)
 docs/                           # PDD, SDD, deploy guide, schema provisioning, roadmap
 secrets/                        # Docker secret files (*.txt gitignored)

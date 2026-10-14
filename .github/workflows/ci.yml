@@ -13,7 +13,7 @@ jobs:
   ci:
     uses: stevenfackley/gh-actions/.github/workflows/ci-dotnet.yml@v1
     with:
-      project-name: OmniSift
+      project-name: Lindrake
       # Not an AOT target (EF Core, Semantic Kernel, Swashbuckle; JIT aspnet image).
       # The reusable AOT lane fell back to the Blazor WASM csproj and failed NETSDK1203.
       aot-rid: ""

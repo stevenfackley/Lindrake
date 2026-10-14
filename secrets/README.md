@@ -10,7 +10,7 @@ Create each file containing only the secret value (no trailing newline needed):
 
 | File | Content |
 |---|---|
-| `postgres_password.txt` | PostgreSQL password for the `omnisift` superuser |
+| `postgres_password.txt` | PostgreSQL password for the `lindrake` superuser |
 | `Anthropic__ApiKey.txt` | Anthropic API key (`sk-ant-...`) |
 | `OpenAI__ApiKey.txt` | OpenAI API key (`sk-...`); only used with `Embedding__Provider=OpenAi`, may be empty |
 | `Tavily__ApiKey.txt` | Tavily search API key (`tvly-...`) |
@@ -20,10 +20,10 @@ Create each file containing only the secret value (no trailing newline needed):
 ### Connection string format
 
 ```
-Host=db;Port=5432;Database=omnisift;Username=omnisift_app;Password=<omnisift_app password>
+Host=db;Port=5432;Database=lindrake;Username=lindrake_app;Password=<lindrake_app password>
 ```
 
-The app connects as `omnisift_app` (not the superuser) so Row-Level Security applies. `infra/db/init.sql` creates that role with the password in `POSTGRES_APP_PASSWORD`, which production does not set, so the role starts without a password, independent of `postgres_password.txt`. Set it with `ALTER ROLE omnisift_app WITH PASSWORD '...'` before the first API start (see `docs/DEPLOY.md`, First-time database setup).
+The app connects as `lindrake_app` (not the superuser) so Row-Level Security applies. `infra/db/init.sql` creates that role with the password in `POSTGRES_APP_PASSWORD`, which production does not set, so the role starts without a password, independent of `postgres_password.txt`. Set it with `ALTER ROLE lindrake_app WITH PASSWORD '...'` before the first API start (see `docs/DEPLOY.md`, First-time database setup).
 
 ## Quick setup for local prod testing
 
@@ -34,11 +34,11 @@ echo "sk-ant-..."                          > secrets/Anthropic__ApiKey.txt
 echo "sk-..."                              > secrets/OpenAI__ApiKey.txt
 echo "tvly-..."                            > secrets/Tavily__ApiKey.txt
 openssl rand -base64 48                    > secrets/Jwt__Secret.txt
-echo "Host=db;Port=5432;Database=omnisift;Username=omnisift_app;Password=your_app_password" \
+echo "Host=db;Port=5432;Database=lindrake;Username=lindrake_app;Password=your_app_password" \
                                            > secrets/ConnectionStrings__DefaultConnection.txt
 ```
 
-Then follow `docs/DEPLOY.md`: write `.env.prod` (at least `POSTGRES_USER`, `POSTGRES_DB`, and `Supabase__Url` or `JWT__ALLOWLOCALIDENTITYPROVIDER=true`), start `db`, set the `omnisift_app` password to `your_app_password` as the superuser, then:
+Then follow `docs/DEPLOY.md`: write `.env.prod` (at least `POSTGRES_USER`, `POSTGRES_DB`, and `Supabase__Url` or `JWT__ALLOWLOCALIDENTITYPROVIDER=true`), start `db`, set the `lindrake_app` password to `your_app_password` as the superuser, then:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d

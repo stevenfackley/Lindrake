@@ -1,4 +1,4 @@
-# OmniSift — Software Design Document (SDD)
+# Lindrake — Software Design Document (SDD)
 
 **Version:** 2.0
 **Date:** 2026-10-14 (first issued 2026-02-25)
@@ -27,7 +27,7 @@ The 1.0 document described the February 2026 plan. This revision brings it in li
 
 ## 1. System Overview
 
-OmniSift is a containerized, multi-tenant SaaS application on .NET 10. A Blazor WebAssembly client (served by nginx) talks to an ASP.NET Core Web API; AI orchestration is Microsoft Semantic Kernel; storage is PostgreSQL with pgvector and pg_trgm.
+Lindrake is a containerized, multi-tenant SaaS application on .NET 10. A Blazor WebAssembly client (served by nginx) talks to an ASP.NET Core Web API; AI orchestration is Microsoft Semantic Kernel; storage is PostgreSQL with pgvector and pg_trgm.
 
 ### High-Level Architecture
 
@@ -48,7 +48,7 @@ OmniSift is a containerized, multi-tenant SaaS application on .NET 10. A Blazor 
                                                        │  │  web URL → SSRF-guarded    │  │
                                                        │  └────────────────────────────┘  │
                                                        └───────────────┬──────────────────┘
-                                                                       │ omnisift_app role
+                                                                       │ lindrake_app role
                                                                ┌───────▼─────────┐
                                                                │ PostgreSQL 16   │
                                                                │ pgvector, pg_trgm│
@@ -68,7 +68,7 @@ OmniSift is a containerized, multi-tenant SaaS application on .NET 10. A Blazor 
 | ORM | Entity Framework Core + Npgsql | 10.x |
 | Database | PostgreSQL | 16 (`pgvector/pgvector:pg16`) |
 | Vector / keyword search | pgvector (HNSW), pg_trgm (GIN) | Extensions |
-| Document parsing | PdfPig, HtmlAgilityPack, DocumentFormat.OpenXml, MimeKit | See `OmniSift.Api.csproj` |
+| Document parsing | PdfPig, HtmlAgilityPack, DocumentFormat.OpenXml, MimeKit | See `Lindrake.Api.csproj` |
 | Embeddings | ONNX Runtime + Microsoft.ML.Tokenizers, `bge-small-en-v1.5` | Local model |
 | LLM Provider | Anthropic Claude (`Anthropic:ModelId`, default `claude-sonnet-4-20250514`) via SK's OpenAI connector | API |
 | Web search | Tavily | API |
@@ -81,7 +81,7 @@ OmniSift is a containerized, multi-tenant SaaS application on .NET 10. A Blazor 
 
 ### 3.1 Strategy: Shared Database, Shared Schema with RLS
 
-OmniSift uses a **shared database, shared schema** multi-tenancy model. Isolation is enforced in the application (EF Core global query filters, authorization policy) and in the database (PostgreSQL Row-Level Security).
+Lindrake uses a **shared database, shared schema** multi-tenancy model. Isolation is enforced in the application (EF Core global query filters, authorization policy) and in the database (PostgreSQL Row-Level Security).
 
 **Why this approach:**
 - Cost-efficient — single database instance serves all tenants
@@ -122,11 +122,11 @@ CREATE POLICY tenant_isolation_{table} ON {table}
 
 `users` deliberately has no RLS: HS256 registration must check email uniqueness across all tenants before a tenant exists. `tenants` has no RLS and no query filter.
 
-RLS only applies because the API connects as the non-superuser `omnisift_app` role (`infra/db/init.sql`); a superuser bypasses it.
+RLS only applies because the API connects as the non-superuser `lindrake_app` role (`infra/db/init.sql`); a superuser bypasses it.
 
 ### 3.4 Database Schema
 
-Owned by EF Core migrations (`src/OmniSift.Api/Data/Migrations/`); column names are snake_case, mapped explicitly in `OmniSiftDbContext`.
+Owned by EF Core migrations (`src/Lindrake.Api/Data/Migrations/`); column names are snake_case, mapped explicitly in `LindrakeDbContext`.
 
 ```
 tenants
@@ -227,7 +227,7 @@ Known limitation: the channel is in-memory, so uploads that are queued but not y
 | **email** (`.eml`, `.mbox`) | MimeKit (+ HtmlAgilityPack for HTML bodies) | Per message: subject, from, to, date, body; `.msg` rejected |
 | plain text (`.txt`, `.md`) | — | Plain-text extractor (added in batch 6) |
 
-Adding a format is one `ITextExtractor` registration in `AddOmniSiftIngestion` plus its MIME/extension mapping in `TextExtractorRegistry`.
+Adding a format is one `ITextExtractor` registration in `AddLindrakeIngestion` plus its MIME/extension mapping in `TextExtractorRegistry`.
 
 ### 4.3 Chunking Algorithm
 
@@ -248,7 +248,7 @@ Output: List<TextChunk>
 
 ### 4.4 Embeddings
 
-`OnnxEmbeddingService` loads one thread-safe ONNX Runtime session for the process. It applies the configured pooling (CLS for the BGE family) and L2 normalization, and prepends `Embedding:QueryInstruction` to query text only. The model is loaded eagerly at startup (`InitializeOmniSift`), so a missing model fails the boot. `EmbeddingOptionsValidator` refuses `Provider=OpenAi` unless `OpenAI:EmbeddingDimensions` equals `Embedding:Dimensions` (the column width) and an OpenAI key is set.
+`OnnxEmbeddingService` loads one thread-safe ONNX Runtime session for the process. It applies the configured pooling (CLS for the BGE family) and L2 normalization, and prepends `Embedding:QueryInstruction` to query text only. The model is loaded eagerly at startup (`InitializeLindrake`), so a missing model fails the boot. `EmbeddingOptionsValidator` refuses `Provider=OpenAi` unless `OpenAI:EmbeddingDimensions` equals `Embedding:Dimensions` (the column width) and an OpenAI key is set.
 
 ## 5. Semantic Kernel Agent Architecture
 
@@ -346,7 +346,7 @@ Every controller endpoint requires the default policy (authenticated + `tenant_i
 
 ### 6.2 Request/Response Contracts
 
-No tenant header: requests carry `Authorization: Bearer <jwt>` and the tenant comes from its `tenant_id` claim. JSON is camelCase (source-generated `OmniSiftJsonContext`).
+No tenant header: requests carry `Authorization: Bearer <jwt>` and the tenant comes from its `tenant_id` claim. JSON is camelCase (source-generated `LindrakeJsonContext`).
 
 **Upload Request:** `multipart/form-data` with `file` and optional `sourceType`
 
@@ -380,7 +380,7 @@ No tenant header: requests carry `Authorization: Bearer <jwt>` and the tenant co
 }
 ```
 
-**Errors:** RFC 7807 ProblemDetails (`application/problem+json`) for every error, including `401`/`403`. `GlobalExceptionHandler` maps `OmniSiftException` subclasses to their status and message (e.g. `UnsupportedSourceTypeException` → 400, `BlockedUrlException` → 400, `TenantContextMissingException` → 403, `LlmNotConfiguredException` → 503), `BadHttpRequestException` to its status, `HttpRequestException` to a generic 502 and anything else to a generic 500. Every body carries a `traceId`.
+**Errors:** RFC 7807 ProblemDetails (`application/problem+json`) for every error, including `401`/`403`. `GlobalExceptionHandler` maps `LindrakeException` subclasses to their status and message (e.g. `UnsupportedSourceTypeException` → 400, `BlockedUrlException` → 400, `TenantContextMissingException` → 403, `LlmNotConfiguredException` → 503), `BadHttpRequestException` to its status, `HttpRequestException` to a generic 502 and anything else to a generic 500. Every body carries a `traceId`.
 
 ## 7. Security Architecture
 
@@ -394,7 +394,7 @@ No tenant header: requests carry `Authorization: Bearer <jwt>` and the tenant co
 | **Data Isolation** | EF global query filters (fail closed) + RLS via `app.current_tenant` set per connection open |
 | **Abuse limits** | Per-tenant token-bucket rate limiting after authentication; request size and field-length limits |
 | **Outbound requests** | Web ingestion SSRF guard: http(s) only, public addresses only (loopback, private, CGNAT, link-local incl. metadata, unique-local, multicast and reserved blocked), checked per connection and redirect, no proxy |
-| **Errors** | ProblemDetails; exception messages never returned except for `OmniSiftException` |
+| **Errors** | ProblemDetails; exception messages never returned except for `LindrakeException` |
 | **Audit** | `audit_log` with acting user, append-only under RLS |
 | **Secret Management** | Environment variables in dev; Docker file secrets (`/run/secrets`, `AddKeyPerFile`) in prod |
 
@@ -408,7 +408,7 @@ No tenant header: requests carry `Authorization: Bearer <jwt>` and the tenant co
 
 ### 7.3 Configuration validation
 
-Options are bound with data-annotation validation and `ValidateOnStart`; `InitializeOmniSift` runs the startup validator before migrating. Custom validators: `JwtOptionsValidator` (auth mode), `EmbeddingOptionsValidator` (provider/column width), `ResearchProfileOptionsValidator` (plugin names), `ChunkingOptions` (overlap < max).
+Options are bound with data-annotation validation and `ValidateOnStart`; `InitializeLindrake` runs the startup validator before migrating. Custom validators: `JwtOptionsValidator` (auth mode), `EmbeddingOptionsValidator` (provider/column width), `ResearchProfileOptionsValidator` (plugin names), `ChunkingOptions` (overlap < max).
 
 ## 8. Deployment Architecture
 
@@ -429,7 +429,7 @@ Production uses the `docker-compose.prod.yml` overlay with GHCR images built by 
 
 ### 8.3 Web Client
 
-- `OmniSiftApiClient` is a typed `HttpClient` whose base address comes from `ApiBaseAddress.Resolve(ApiBaseUrl, host origin)`; every call returns `ApiResult`, with `ApiProblemReader` turning ProblemDetails into user messages.
+- `LindrakeApiClient` is a typed `HttpClient` whose base address comes from `ApiBaseAddress.Resolve(ApiBaseUrl, host origin)`; every call returns `ApiResult`, with `ApiProblemReader` turning ProblemDetails into user messages.
 - `AuthHandler` adds `Authorization: Bearer` from `AuthStateService` (JWT in `localStorage`, expiry from the `exp` claim). No tenant header is sent.
 - `AuthRouteView` + `PageAccess` send anonymous users to the login page for pages that require authentication; sign-out, a 401 or token expiry re-evaluates the route.
 - `DataSourcesViewModel` pages the list and polls upload status after a `202`; `AgentChatViewModel` streams answers through `SseParser`, supports Stop, surfaces `error` frames and does not re-run a failed query.
@@ -451,7 +451,7 @@ CI runs the full unit and integration suites on every pull request and push to `
 - Data and tenancy: `TenantQueryFilterTests`, `TenantConnectionInterceptorTests`, `AuditLogRowLevelSecurityMigrationTests`, `DataSourceProjectionsTests`, `TimestampInterceptorTests`, `TenantMiddlewareTests`
 - Configuration: `JwtOptionsValidatorTests`, `EmbeddingOptionsValidatorTests`, `ResearchProfileOptionsTests`, `CorsOptionsTests`
 - Deployment: `DockerModelPackagingTests`
-- Web client: `OmniSiftApiClientTests`, `AuthHandlerTests`, `AuthStateServiceTests`, `SseParserTests`, `AgentChatViewModelTests`, `DataSourcesViewModelTests`, `ApiBaseAddressTests`, `PageAccessTests`
+- Web client: `LindrakeApiClientTests`, `AuthHandlerTests`, `AuthStateServiceTests`, `SseParserTests`, `AgentChatViewModelTests`, `DataSourcesViewModelTests`, `ApiBaseAddressTests`, `PageAccessTests`
 
 ### 9.2 Integration Test Coverage
 

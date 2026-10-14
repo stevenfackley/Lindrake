@@ -1,0 +1,202 @@
+@page "/datasources"
+@implements IDisposable
+@inject LindrakeApiClient Api
+
+<PageTitle>Lindrake — Data Sources</PageTitle>
+
+<div class="page-header">
+    <span class="kicker">Your Corpus</span>
+    <h1>Data Sources</h1>
+</div>
+
+<div style="margin-top: 1.5rem;">
+    @* ── Upload Section ──────────────────────────────────── *@
+    <div class="card">
+        <div class="card-title">Upload File</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div>
+                <InputFile OnChange="HandleFileSelected" class="form-input"
+                           accept=".pdf,.csv,.json,.html,.htm,.docx,.eml,.mbox,.txt,.md"
+                           disabled="@_vm.IsSubmitting" />
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;">
+                    Supported: PDF, DOCX, CSV/JSON (SMS), HTML, Email (EML/MBOX), Text (TXT/MD) — Max 50 MB
+                </p>
+                @if (_selectedFile is not null)
+                {
+                    <button class="btn btn-primary" style="margin-top: 0.75rem;"
+                            @onclick="UploadFile" disabled="@_vm.IsSubmitting">
+                        @if (_vm.IsSubmitting)
+                        {
+                            <span class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></span>
+                            <span>Uploading...</span>
+                        }
+                        else
+                        {
+                            <span>Upload @_selectedFile.Name</span>
+                        }
+                    </button>
+                }
+            </div>
+
+            <div>
+                <div class="form-group">
+                    <label class="form-label">Or ingest a web page URL:</label>
+                    <input class="form-input" @bind="_webUrl" placeholder="https://example.com/page"
+                           disabled="@_vm.IsSubmitting" />
+                </div>
+                <button class="btn btn-outline" @onclick="IngestWeb"
+                        disabled="@(_vm.IsSubmitting || string.IsNullOrWhiteSpace(_webUrl))">
+                    Ingest Web Page
+                </button>
+            </div>
+        </div>
+
+        <Alert Status="_vm.SubmitStatus" Style="margin-top: 1rem;" />
+    </div>
+
+    @* ── Data Source List ─────────────────────────────────── *@
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div class="card-title" style="margin-bottom: 0;">Your Data Sources</div>
+            <button class="btn btn-outline btn-sm" @onclick="_vm.LoadAsync" disabled="@_vm.IsLoading">
+                🔄 Refresh
+            </button>
+        </div>
+
+        <AsyncStatus IsLoading="@(_vm.IsLoading && _vm.Items.Count == 0)"
+                     Error="@_vm.LoadError"
+                     IsEmpty="@(_vm.Items.Count == 0)"
+                     LoadingText="Loading data sources…"
+                     EmptyText="No data sources yet. Upload a file or ingest a web page to get started.">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Name / URL</th>
+                        <th>Status</th>
+                        <th>Chunks</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var source in _vm.Items)
+                    {
+                        <tr @key="source.Id">
+                            <td>
+                                @switch (source.SourceType)
+                                {
+                                    case "pdf": <span>📄 PDF</span> break;
+                                    case "docx": <span>📝 Word</span> break;
+                                    case "text": <span>📃 Text</span> break;
+                                    case "email": <span>✉️ Email</span> break;
+                                    case "sms": <span>💬 SMS</span> break;
+                                    case "web": <span>🌐 Web</span> break;
+                                    default: <span>📎 @source.SourceType</span> break;
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(source.FileName))
+                                {
+                                    @source.FileName
+                                }
+                                else if (!string.IsNullOrWhiteSpace(source.OriginalUrl))
+                                {
+                                    <span style="font-size: 0.85rem;">@TruncateUrl(source.OriginalUrl)</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--text-muted);">—</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge badge-@source.Status">@source.Status</span>
+                                @if (source.HasPii)
+                                {
+                                    var tooltip = source.PiiFlags is { Count: > 0 }
+                                        ? string.Join(", ", source.PiiFlags)
+                                        : "PII detected";
+                                    <span class="badge badge-pending" style="margin-left: 0.4rem; cursor: default;"
+                                          title="@tooltip">PII</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(source.ErrorMessage))
+                                {
+                                    <span style="font-size: 0.75rem; color: var(--danger); display: block;">
+                                        @source.ErrorMessage
+                                    </span>
+                                }
+                            </td>
+                            <td>@source.ChunkCount</td>
+                            <td style="font-size: 0.85rem;">@source.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                <button class="btn btn-danger btn-sm"
+                                        @onclick="() => _vm.DeleteAsync(source.Id)"
+                                        disabled="@(_vm.DeletingId is not null)">
+                                    @(_vm.DeletingId == source.Id ? "Deleting…" : "Delete")
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (_vm.HasMore)
+            {
+                <button class="btn btn-outline btn-sm" style="margin-top: 1rem;"
+                        @onclick="_vm.LoadMoreAsync" disabled="@_vm.IsLoading">
+                    Load more
+                </button>
+            }
+        </AsyncStatus>
+    </div>
+
+    <Alert Message="@_vm.DeleteError" />
+</div>
+
+@code {
+    private DataSourcesViewModel _vm = default!;
+    private IBrowserFile? _selectedFile;
+    private string _webUrl = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        _vm = new DataSourcesViewModel(Api);
+        _vm.Changed += HandleChanged;
+    }
+
+    protected override Task OnInitializedAsync() => _vm.LoadAsync();
+
+    private void HandleChanged() => InvokeAsync(StateHasChanged);
+
+    private void HandleFileSelected(InputFileChangeEventArgs e) => _selectedFile = e.File;
+
+    private async Task UploadFile()
+    {
+        if (_selectedFile is not { } file)
+            return;
+
+        var upload = new UploadFile(
+            file.Name,
+            file.Size,
+            file.ContentType,
+            () => file.OpenReadStream(maxAllowedSize: DataSourcesViewModel.MaxUploadBytes));
+
+        if (await _vm.UploadAsync(upload))
+            _selectedFile = null;
+    }
+
+    private async Task IngestWeb()
+    {
+        if (await _vm.IngestWebAsync(_webUrl))
+            _webUrl = string.Empty;
+    }
+
+    private static string TruncateUrl(string url) =>
+        url.Length > 60 ? url[..57] + "..." : url;
+
+    public void Dispose()
+    {
+        _vm.Changed -= HandleChanged;
+        _vm.Dispose();
+    }
+}

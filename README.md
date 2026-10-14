@@ -1,15 +1,17 @@
-# OmniSift <sub>`>o)`</sub>
+# Lindrake <sub>`>o)`</sub>
 
 ![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white) ![C#](https://img.shields.io/badge/c%23-%23239120.svg?style=for-the-badge&logo=c-sharp&logoColor=white) ![CSS3](https://img.shields.io/badge/css3-%231572B6.svg?style=for-the-badge&logo=css3&logoColor=white) ![Docker](https://img.shields.io/badge/docker-%232496ED.svg?style=for-the-badge&logo=docker&logoColor=white) ![HTML5](https://img.shields.io/badge/html5-%23E34F26.svg?style=for-the-badge&logo=html5&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 
 
 
 
-[![CI](https://github.com/stevenfackley/OmniSift/actions/workflows/ci.yml/badge.svg)](https://github.com/stevenfackley/OmniSift/actions/workflows/ci.yml)
+[![CI](https://github.com/stevenfackley/Lindrake/actions/workflows/ci.yml/badge.svg)](https://github.com/stevenfackley/Lindrake/actions/workflows/ci.yml)
 
 **AI-Powered Multi-Tenant Research SaaS for Personal & Family History**
 
-OmniSift is an agentic research application that aggregates, parses, and synthesizes personal and family history data. It searches internal user-provided documents, live web search results and web archives to build comprehensive personal profiles and timelines.
+Lindrake is an agentic research application that aggregates, parses, and synthesizes personal and family history data. It searches internal user-provided documents, live web search results and web archives to build comprehensive personal profiles and timelines.
+
+Lindrake was called OmniSift until 2026-10-14 ([why](DECISIONS.md#2026-10-14--renamed-omnisift-to-lindrake)).
 
 ---
 
@@ -37,8 +39,8 @@ OmniSift is an agentic research application that aggregates, parses, and synthes
 ### 1. Clone & Configure
 
 ```bash
-git clone https://github.com/stevenfackley/OmniSift.git
-cd OmniSift
+git clone https://github.com/stevenfackley/Lindrake.git
+cd Lindrake
 ```
 
 Optionally fill in your API keys in `.env.dev` (committed with safe defaults; only the keys need updating):
@@ -58,7 +60,7 @@ docker compose up --build
 
 `docker-compose.yml` defaults every value it interpolates (database name and passwords, JWT secret, API keys) to its `.env.dev` value, so this runs as is, with no API keys. Compose interpolation does not read `.env.dev` by itself: to apply your edits to it (your API keys), add `--env-file .env.dev` to compose commands, e.g. `docker compose --env-file .env.dev up --build`.
 
-The API image downloads the ONNX embedding model (about 127 MB, pinned and checksummed) during the build. On first start of an empty volume, `db` runs `infra/db/init.sql` (extensions, `omnisift_app` role); the API then applies EF Core migrations and loads the model. A missing model is a startup failure, not a degraded mode.
+The API image downloads the ONNX embedding model (about 127 MB, pinned and checksummed) during the build. On first start of an empty volume, `db` runs `infra/db/init.sql` (extensions, `lindrake_app` role); the API then applies EF Core migrations and loads the model. A missing model is a startup failure, not a degraded mode.
 
 ### 3. Access
 
@@ -78,8 +80,8 @@ Locally there is no Supabase project, so the API runs the in-house HS256 identit
 ## 📂 Project Structure
 
 ```
-OmniSift/
-├── OmniSift.sln                       # Solution file
+Lindrake/
+├── Lindrake.sln                       # Solution file
 ├── docker-compose.yml                 # Dev stack: db + api + web (defaults = .env.dev values)
 ├── docker-compose.prod.yml            # Prod overlay: GHCR images, Docker secrets, healthchecks
 ├── .env.example                       # Environment variable reference
@@ -93,13 +95,13 @@ OmniSift/
 │       ├── deploy.yml                 # Manual: build + push GHCR images, SSH deploy
 │       └── dependabot-auto-merge.yml
 ├── docs/                              # PDD, SDD, deploy guide, schema provisioning, roadmap
-├── infra/db/init.sql                  # Superuser-only setup: extensions, omnisift_app role, grants
+├── infra/db/init.sql                  # Superuser-only setup: extensions, lindrake_app role, grants
 ├── landing/                           # Static marketing site served at /
 ├── scripts/                           # Test runner, embedding-model fetch, secret scan
 ├── secrets/README.md                  # How to populate Docker secret files
 ├── src/
-│   ├── OmniSift.Shared/               # DTOs, contracts, source-generated JSON context
-│   ├── OmniSift.Api/                  # ASP.NET Core Web API
+│   ├── Lindrake.Shared/               # DTOs, contracts, source-generated JSON context
+│   ├── Lindrake.Api/                  # ASP.NET Core Web API
 │   │   ├── Controllers/               # Thin HTTP adapters
 │   │   ├── Data/                      # DbContext, migrations, interceptors, Projections/
 │   │   ├── Extensions/                # Composition root: service modules + pipeline
@@ -110,7 +112,7 @@ OmniSift/
 │   │   ├── Plugins/                   # Semantic Kernel plugins
 │   │   ├── Services/                  # Ingestion/, Extraction/, Search/, Agent/, Reports/
 │   │   └── Dockerfile
-│   └── OmniSift.Web/                  # Blazor WebAssembly frontend
+│   └── Lindrake.Web/                  # Blazor WebAssembly frontend
 │       ├── Pages/                     # Routable pages
 │       ├── Components/                # Route guard, alerts, async status
 │       ├── ViewModels/                # Page state and behaviour (unit-tested)
@@ -119,15 +121,15 @@ OmniSift/
 │       ├── docker-entrypoint.d/       # Renders appsettings.json from API_BASE_URL at start
 │       └── Dockerfile
 └── tests/
-    ├── OmniSift.UnitTests/            # xUnit + Moq + FluentAssertions (API and Web)
-    └── OmniSift.IntegrationTests/     # WebApplicationFactory + EF Core InMemory
+    ├── Lindrake.UnitTests/            # xUnit + Moq + FluentAssertions (API and Web)
+    └── Lindrake.IntegrationTests/     # WebApplicationFactory + EF Core InMemory
 ```
 
 ---
 
 ## 🧠 AI Agent Capabilities
 
-OmniSift uses **Microsoft Semantic Kernel** to orchestrate a research agent that decides which plugins to call:
+Lindrake uses **Microsoft Semantic Kernel** to orchestrate a research agent that decides which plugins to call:
 
 | Plugin | Function | Description |
 |---|---|---|
@@ -177,7 +179,7 @@ The default provider is the local ONNX model (`Embedding:Provider=Onnx`), so emb
 - **Production:** set `Supabase:Url`; the API validates Supabase-issued ES256/RS256 tokens via OIDC discovery (audience `authenticated`), and the Supabase project must emit a `tenant_id` custom claim. `/api/auth/*` does not exist in this mode.
 - **Development / Testing:** with `Supabase:Url` empty, the in-house HS256 identity provider (`/api/auth/register`, `/api/auth/login`) issues tokens signed with `Jwt:Secret` (at least 32 bytes). Outside Development/Testing it starts only with `Jwt:AllowLocalIdentityProvider=true` and a unique secret; otherwise the API refuses to start.
 - Every controller requires an authenticated identity with a `tenant_id` claim unless it is marked `[AllowAnonymous]`.
-- Isolation is enforced twice: an EF Core global query filter on every tenant-owned entity (an unbound scope matches no rows) and PostgreSQL Row-Level Security keyed on `app.current_tenant`, which an EF connection interceptor sets each time a connection opens. The app connects as the non-superuser `omnisift_app` role so RLS applies.
+- Isolation is enforced twice: an EF Core global query filter on every tenant-owned entity (an unbound scope matches no rows) and PostgreSQL Row-Level Security keyed on `app.current_tenant`, which an EF connection interceptor sets each time a connection opens. The app connects as the non-superuser `lindrake_app` role so RLS applies.
 
 ## 🌐 API Conventions
 
@@ -210,8 +212,8 @@ The default provider is the local ONNX model (`Embedding:Provider=Onnx`), so emb
 pwsh ./scripts/run-tests.ps1
 
 # Or run the projects directly
-dotnet test tests/OmniSift.UnitTests/OmniSift.UnitTests.csproj -f net10.0
-dotnet test tests/OmniSift.IntegrationTests/OmniSift.IntegrationTests.csproj -f net10.0
+dotnet test tests/Lindrake.UnitTests/Lindrake.UnitTests.csproj -f net10.0
+dotnet test tests/Lindrake.IntegrationTests/Lindrake.IntegrationTests.csproj -f net10.0
 ```
 
 Integration tests run the API in the `Testing` environment on EF Core InMemory with a fake chat-completion service; no PostgreSQL or API keys are needed. CI runs the full unit and integration suites on every pull request and push to `main`.

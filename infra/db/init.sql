@@ -1,14 +1,14 @@
 -- ============================================================
--- OmniSift Database Initialization Script
+-- Lindrake Database Initialization Script
 -- PostgreSQL 16 + pgvector
 -- ============================================================
 --
 -- SCOPE — what this file owns:
 --   Only what EF Core's migrations cannot do as a non-superuser:
 --     1. Every extension the migrations use (uuid-ossp, vector, pg_trgm).
---        omnisift_app can create none of them: untrusted extensions need
+--        lindrake_app can create none of them: untrusted extensions need
 --        superuser, trusted ones (pg_trgm) need CREATE on the database.
---     2. The `omnisift_app` application role (password from the
+--     2. The `lindrake_app` application role (password from the
 --        POSTGRES_APP_PASSWORD environment variable) + its GRANTs.
 --     3. Default privilege rules so future tables auto-grant.
 --
@@ -19,7 +19,7 @@
 --
 -- WHAT RUNS SECOND:
 --   Program.cs calls Database.Migrate() at startup, which runs
---   EF's InitialCreate migration as the omnisift_app user.
+--   EF's InitialCreate migration as the lindrake_app user.
 --   InitialCreate (uuid-ossp, vector) and AddPgTrgmExtensionAndIndex
 --   (pg_trgm) also emit `CREATE EXTENSION IF NOT EXISTS` — those are safe
 --   only because this file created the extensions first: Postgres
@@ -34,8 +34,8 @@
 -- ============================================================
 -- Extensions
 -- Must run as superuser. The migrations emit CREATE EXTENSION IF NOT
--- EXISTS for each of these (OmniSiftDbContext.HasPostgresExtension), but
--- as omnisift_app that only succeeds when the extension already exists:
+-- EXISTS for each of these (LindrakeDbContext.HasPostgresExtension), but
+-- as lindrake_app that only succeeds when the extension already exists:
 -- Postgres short-circuits before the privilege check. Add any extension a
 -- new migration needs here as well.
 -- ============================================================
@@ -50,11 +50,11 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- keyword arm of hybrid search (GIN t
 -- role for RLS to be enforced.
 --
 -- Password: the db container's POSTGRES_APP_PASSWORD (dev value
--- omnisift_dev, set by docker-compose.yml / .env.dev). The image's
+-- lindrake_dev, set by docker-compose.yml / .env.dev). The image's
 -- init runner executes this file with psql, which reads it with
 -- \getenv. Unset or empty, as in production (docker-compose.prod.yml):
 -- the role is created WITHOUT a password and cannot log in until the
--- superuser runs ALTER ROLE omnisift_app WITH PASSWORD '...'
+-- superuser runs ALTER ROLE lindrake_app WITH PASSWORD '...'
 -- (docs/DEPLOY.md, First-time database setup).
 -- Idempotent: nothing happens when the role already exists.
 -- ============================================================
@@ -62,13 +62,13 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- keyword arm of hybrid search (GIN t
 \getenv app_password POSTGRES_APP_PASSWORD
 
 -- format(%L) quotes the value; NULLIF turns '' into PASSWORD NULL.
-SELECT format('CREATE ROLE omnisift_app WITH LOGIN PASSWORD %L', NULLIF(:'app_password', ''))
-WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'omnisift_app')
+SELECT format('CREATE ROLE lindrake_app WITH LOGIN PASSWORD %L', NULLIF(:'app_password', ''))
+WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'lindrake_app')
 \gexec
 
 SELECT :'app_password' = '' AS app_password_unset \gset
 \if :app_password_unset
-\warn 'init.sql: POSTGRES_APP_PASSWORD is not set. omnisift_app has no password and cannot log in until the superuser sets one (docs/DEPLOY.md).'
+\warn 'init.sql: POSTGRES_APP_PASSWORD is not set. lindrake_app has no password and cannot log in until the superuser sets one (docs/DEPLOY.md).'
 \endif
 \unset app_password
 \unset app_password_unset
@@ -76,14 +76,14 @@ SELECT :'app_password' = '' AS app_password_unset \gset
 -- USAGE   : required to reference schema-qualified names.
 -- CREATE  : required for EF Migrate() to CREATE TABLE (including __EFMigrationsHistory).
 -- In PG15+ the public schema no longer grants CREATE to PUBLIC by default;
--- omnisift_app needs it explicitly since it runs all EF migrations.
-GRANT USAGE, CREATE ON SCHEMA public TO omnisift_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO omnisift_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO omnisift_app;
+-- lindrake_app needs it explicitly since it runs all EF migrations.
+GRANT USAGE, CREATE ON SCHEMA public TO lindrake_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO lindrake_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO lindrake_app;
 
--- ALTER DEFAULT PRIVILEGES FOR ROLE omnisift_app seeds the privilege
--- template that Postgres applies whenever omnisift_app creates a new
--- object. Since omnisift_app runs EF's Migrate() and therefore owns the
+-- ALTER DEFAULT PRIVILEGES FOR ROLE lindrake_app seeds the privilege
+-- template that Postgres applies whenever lindrake_app creates a new
+-- object. Since lindrake_app runs EF's Migrate() and therefore owns the
 -- tables it creates, it already has full rights on those tables by
 -- virtue of ownership. These defaults are future-proofing stubs: if a
 -- second role (e.g. a read-only reporting role) is added later, granting
@@ -91,10 +91,10 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO omnisift_app;
 -- ensures newly migrated tables are covered automatically — without
 -- requiring another superuser script at that point.
 --
--- NOTE: `FOR ROLE omnisift_app` requires the caller (postgres) to be
--- superuser OR a member of omnisift_app — postgres is superuser, so
+-- NOTE: `FOR ROLE lindrake_app` requires the caller (postgres) to be
+-- superuser OR a member of lindrake_app — postgres is superuser, so
 -- this runs fine in docker-entrypoint-initdb.d.
-ALTER DEFAULT PRIVILEGES FOR ROLE omnisift_app IN SCHEMA public
-    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO omnisift_app;
-ALTER DEFAULT PRIVILEGES FOR ROLE omnisift_app IN SCHEMA public
-    GRANT USAGE, SELECT ON SEQUENCES TO omnisift_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE lindrake_app IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO lindrake_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE lindrake_app IN SCHEMA public
+    GRANT USAGE, SELECT ON SEQUENCES TO lindrake_app;

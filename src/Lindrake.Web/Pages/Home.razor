@@ -1,0 +1,236 @@
+@page "/"
+@inject IJSRuntime JS
+
+<PageTitle>Lindrake — Home</PageTitle>
+
+@if (!_roleChosen)
+{
+    <div class="page-header">
+        <span class="kicker">Welcome</span>
+        <h1>How will you use Lindrake?</h1>
+        <p class="page-sub">Pick your focus area to tailor the experience. You can change this anytime.</p>
+    </div>
+
+    <div style="margin-top: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem;">
+        @foreach (var r in _roles)
+        {
+            <button class="card" style="text-align: left; cursor: pointer; border-color: @(_pendingRole == r.Key ? "var(--primary)" : "var(--border)");"
+                    @onclick="() => _pendingRole = r.Key">
+                <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">@r.Icon</div>
+                <div class="card-title" style="margin-bottom: 0.25rem;">@r.Label</div>
+                <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">@r.Description</p>
+            </button>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(_pendingRole))
+    {
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+            <button class="btn btn-primary" @onclick="ConfirmRole">
+                Continue as @CurrentRole?.Label →
+            </button>
+        </div>
+    }
+}
+else
+{
+    <div class="page-header">
+        <span class="kicker">@CurrentRole?.Label ?? "AI Research Platform"</span>
+        <h1>@(CurrentRole?.Headline ?? "Every source. One answer.")</h1>
+        <p class="page-sub">@(CurrentRole?.Sub ?? "Analyze your documents, the live web, and the archive — through one agent that connects the dots.")</p>
+    </div>
+
+    <div style="margin-top: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+            <div class="card">
+                <span class="kicker">/01 — Ingest</span>
+                <div class="card-title">Upload your documents</div>
+                <p style="color: var(--text-muted); margin-bottom: 1.25rem;">
+                    Drop in PDFs, Word docs, SMS exports (CSV/JSON), email, or HTML. Lindrake extracts,
+                    chunks, and embeds everything for search by meaning — not just keywords.
+                </p>
+
+                @if (!_sampleLoaded && !_sampleLoading)
+                {
+                    <button class="btn btn-outline btn-sm" style="margin-bottom: 0.75rem;" @onclick="LoadSampleCorpus">
+                        Load sample corpus →
+                    </button>
+                    <br />
+                }
+                @if (_sampleLoading)
+                {
+                    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                        <span class="spinner" style="width: 12px; height: 12px; border-width: 2px; display: inline-block; vertical-align: middle; margin-right: 0.4rem;"></span>
+                        Uploading samples…
+                    </p>
+                }
+                <Alert Kind="@(_sampleOk ? AlertKind.Success : AlertKind.Error)"
+                       Message="@_sampleMessage"
+                       Style="font-size: 0.82rem; margin-bottom: 0.75rem;" />
+
+                <a href="datasources" class="btn btn-outline">Manage data sources</a>
+            </div>
+
+            <div class="card">
+                <span class="kicker">/02 — Sift</span>
+                <div class="card-title">Ask the agent</div>
+                <p style="color: var(--text-muted); margin-bottom: 1.25rem;">
+                    Query in plain language. The agent picks its own tools across your library,
+                    the live web, and the Wayback Machine — no manual switching.
+                </p>
+                <a href="agent" class="btn btn-primary">Start researching →</a>
+            </div>
+
+            <div class="card">
+                <span class="kicker">/03 — Answer</span>
+                <div class="card-title">Web &amp; archive search</div>
+                <p style="color: var(--text-muted); margin-bottom: 1.25rem;">
+                    Live web via Tavily and historical snapshots from the Internet Archive —
+                    synthesized into one cited answer.
+                </p>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span class="kicker" style="margin-bottom: 0;">System Status</span>
+                <button class="btn btn-outline btn-sm" style="font-size: 0.72rem;" @onclick="ResetRole">
+                    Change role
+                </button>
+            </div>
+            @if (_checking)
+            {
+                <p style="color: var(--text-muted);">Checking API health…</p>
+            }
+            else if (_healthy)
+            {
+                <Alert Kind="AlertKind.Success" Message="API is healthy and connected." />
+            }
+            else
+            {
+                <Alert Message="API is unreachable. Ensure the backend is running and ApiBaseUrl points at it." />
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Inject] private LindrakeApiClient Api { get; set; } = default!;
+
+    private bool _checking = true;
+    private bool _healthy;
+    private bool _roleChosen;
+    private string _pendingRole = string.Empty;
+    private bool _sampleLoading;
+    private bool _sampleLoaded;
+    private string? _sampleMessage;
+    private bool _sampleOk;
+
+    private static readonly RoleInfo[] _roles =
+    [
+        new("genealogist", "Genealogist", "⚙",
+            "Genealogist",
+            "Trace lineages, locate records, verify relationships.",
+            "Search census records, obituaries, and vital records by name, date, or location."),
+        new("journalist", "Journalist", "✎",
+            "Journalist",
+            "Investigate stories across sources and time.",
+            "Cross-reference documents, web pages, and archived news."),
+        new("legal", "Legal", "⚖",
+            "Legal Research",
+            "Find precedents, statutes, and case documents.",
+            "Analyse contracts, court records, and legislative text side-by-side."),
+        new("investigator", "Investigator", "◆",
+            "Investigator",
+            "Connect dots across a complex document corpus.",
+            "Surface hidden links across people, places, and timelines."),
+    ];
+
+    private RoleInfo? CurrentRole => _roles.FirstOrDefault(r => r.Key == _pendingRole)
+        ?? (_roles.Length > 0 ? _roles[0] : null);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var savedRole = await JS.InvokeAsync<string?>("localStorage.getItem", "lindrake_role");
+        if (!string.IsNullOrEmpty(savedRole))
+        {
+            _pendingRole = savedRole;
+            _roleChosen = true;
+        }
+
+        var sampleDone = await JS.InvokeAsync<string?>("localStorage.getItem", "lindrake_sample_loaded");
+        _sampleLoaded = sampleDone == "1";
+
+        _healthy = await Api.CheckHealthAsync();
+        _checking = false;
+    }
+
+    private async Task ConfirmRole()
+    {
+        if (string.IsNullOrEmpty(_pendingRole))
+            return;
+
+        await JS.InvokeVoidAsync("localStorage.setItem", "lindrake_role", _pendingRole);
+        _roleChosen = true;
+    }
+
+    private async Task ResetRole()
+    {
+        await JS.InvokeVoidAsync("localStorage.removeItem", "lindrake_role");
+        _roleChosen = false;
+        _pendingRole = string.Empty;
+    }
+
+    private static readonly (string FileName, string Content, string Mime)[] SampleFiles =
+    [
+        ("sample-investigation.txt",
+            "INVESTIGATION NOTES\nSubject: John Doe\nDOB: 1975-03-12\nLast known address: 42 Elm St, Springfield\n\nTimeline:\n- 2018-06: Subject opened business at 99 Commerce Blvd\n- 2020-01: Business dissolved after regulatory inquiry\n- 2021-09: Subject reappeared in property records under alias J. Donahue",
+            "text/plain"),
+        ("sample-news-clipping.md",
+            "# Springfield Gazette — 14 September 2021\n\n## Local businessman resurfaces after two-year absence\n\nA man believed to be John Doe, whose Springfield venture collapsed in early 2020, was spotted at a county zoning meeting last week under the name **J. Donahue**. Officials say they are reviewing property records submitted by Donahue, as several addresses match prior filings by Doe.",
+            "text/markdown"),
+        ("sample-record.html",
+            "<!DOCTYPE html><html><body><h1>Vital Records — Springfield County</h1><table><tr><th>Name</th><th>DOB</th><th>Event</th><th>Date</th></tr><tr><td>John Allen Doe</td><td>1975-03-12</td><td>Marriage</td><td>1999-06-05</td></tr><tr><td>Jane M. Doe (née Smith)</td><td>1977-11-28</td><td>Marriage</td><td>1999-06-05</td></tr></table></body></html>",
+            "text/html"),
+    ];
+
+    private async Task LoadSampleCorpus()
+    {
+        if (_sampleLoading || _sampleLoaded)
+            return;
+
+        _sampleLoading = true;
+        _sampleMessage = null;
+        StateHasChanged();
+
+        var uploaded = 0;
+        foreach (var (fileName, content, mime) in SampleFiles)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+            var result = await Api.UploadFileAsync(new MemoryStream(bytes), fileName, mime);
+            if (!result.IsSuccess)
+            {
+                _sampleOk = false;
+                _sampleMessage = $"Upload failed after {uploaded} files: {result.Error.Message}";
+                _sampleLoading = false;
+                return;
+            }
+
+            uploaded++;
+        }
+
+        _sampleLoaded = true;
+        _sampleOk = true;
+        _sampleMessage = $"{uploaded} sample documents uploaded. Head to the Research Agent to try a query!";
+        _sampleLoading = false;
+        await JS.InvokeVoidAsync("localStorage.setItem", "lindrake_sample_loaded", "1");
+    }
+
+    private sealed record RoleInfo(
+        string Key,
+        string Label,
+        string Icon,
+        string Headline,
+        string Sub,
+        string Description);
+}

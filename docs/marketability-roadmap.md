@@ -1,6 +1,6 @@
-# OmniSift — Marketability Roadmap
+# Lindrake — Marketability Roadmap
 
-Ten upgrades that move OmniSift from internal prototype to shippable product.
+Ten upgrades that move Lindrake from internal prototype to shippable product.
 
 | # | Feature | Description | Status |
 |---|---------|-------------|--------|

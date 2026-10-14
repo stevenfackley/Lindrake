@@ -5,11 +5,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 
 Push-Location $repoRoot
 try {
-    Write-Host "Running OmniSift unit tests..."
-    dotnet test tests/OmniSift.UnitTests/OmniSift.UnitTests.csproj -f net10.0
+    Write-Host "Running Lindrake unit tests..."
+    dotnet test tests/Lindrake.UnitTests/Lindrake.UnitTests.csproj -f net10.0
 
-    Write-Host "Running OmniSift integration tests..."
-    dotnet test tests/OmniSift.IntegrationTests/OmniSift.IntegrationTests.csproj -f net10.0
+    Write-Host "Running Lindrake integration tests..."
+    dotnet test tests/Lindrake.IntegrationTests/Lindrake.IntegrationTests.csproj -f net10.0
 }
 finally {
     Pop-Location

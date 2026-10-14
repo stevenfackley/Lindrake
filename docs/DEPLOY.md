@@ -1,4 +1,4 @@
-# OmniSift — Deploy Guide
+# Lindrake — Deploy Guide
 
 Stack: ASP.NET Core Web API (`api`) + Blazor WASM served by nginx (`web`) + Postgres 16/pgvector (`db`).
 
@@ -13,7 +13,7 @@ Stack: ASP.NET Core Web API (`api`) + Blazor WASM served by nginx (`web`) + Post
 | `/app/appsettings.json` | Client runtime config, rendered from `API_BASE_URL` at container start, never cached |
 | `http://api:8080` | ASP.NET Core API (host port 5000; on `127.0.0.1` only with the prod overlay, see [Ports](#ports)) |
 
-The nginx config (`src/OmniSift.Web/nginx.conf`) routes `/app/` to `/usr/share/nginx/html/app/` and falls back to `index.html` for SPA deep-links. `landing/` is copied to the nginx root so `/` serves the marketing site. The web container does **not** proxy `/api`.
+The nginx config (`src/Lindrake.Web/nginx.conf`) routes `/app/` to `/usr/share/nginx/html/app/` and falls back to `index.html` for SPA deep-links. `landing/` is copied to the nginx root so `/` serves the marketing site. The web container does **not** proxy `/api`.
 
 How the browser reaches the API is decided by `API_BASE_URL` (web container):
 
@@ -30,8 +30,8 @@ The deploy workflow pushes to GitHub Container Registry under the repo owner's n
 
 | Service | Image |
 |---------|-------|
-| Web (nginx + Blazor WASM) | `ghcr.io/stevenfackley/omnisift-web` |
-| API (ASP.NET Core) | `ghcr.io/stevenfackley/omnisift-api` |
+| Web (nginx + Blazor WASM) | `ghcr.io/stevenfackley/lindrake-web` |
+| API (ASP.NET Core) | `ghcr.io/stevenfackley/lindrake-api` |
 
 Each run tags images with:
 - `latest` — always the most recent build
@@ -46,8 +46,8 @@ Each run tags images with:
 ### Job 1 — `build-push` (no live host needed)
 
 1. Logs in to GHCR with the built-in `GITHUB_TOKEN` (`packages: write` permission).
-2. Builds `src/OmniSift.Web/Dockerfile` (build context: repo root) → pushes as `omnisift-web`.
-3. Builds `src/OmniSift.Api/Dockerfile` (build context: repo root) → pushes as `omnisift-api`.
+2. Builds `src/Lindrake.Web/Dockerfile` (build context: repo root) → pushes as `lindrake-web`.
+3. Builds `src/Lindrake.Api/Dockerfile` (build context: repo root) → pushes as `lindrake-api`.
 4. Uses GitHub Actions cache (`type=gha`) per image to speed up layer reuse.
 
 ### Job 2 — `deploy` (no-op until secrets are set)
@@ -79,7 +79,7 @@ None beyond the built-in `GITHUB_TOKEN` — it has `packages: write` automatical
 | `DEPLOY_HOST` | SSH hostname or IP of the production server |
 | `DEPLOY_USER` | SSH username (must be in the `docker` group) |
 | `DEPLOY_SSH_KEY` | PEM-encoded private SSH key (passphrase-free) |
-| `DEPLOY_WORK_DIR` | Absolute path on host where compose files live, e.g. `/srv/omnisift` |
+| `DEPLOY_WORK_DIR` | Absolute path on host where compose files live, e.g. `/srv/lindrake` |
 
 Until these are set, the `deploy` job's SSH step is skipped; `build-push` still runs and images are pushed to GHCR.
 
@@ -111,8 +111,8 @@ secrets/
 | Key in `.env.prod` | Why |
 |---|---|
 | `Supabase__Url=https://<project>.supabase.co` | Production auth. The Supabase project must emit a `tenant_id` custom claim. |
-| *or* `JWT__ALLOWLOCALIDENTITYPROVIDER=true` | Run the in-house HS256 provider deliberately instead. Requires a unique `Jwt__Secret` of at least 32 bytes (`secrets/Jwt__Secret.txt`); the public development default is rejected. With neither key the API refuses to start in Production. `Jwt__Issuer` / `Jwt__Audience` default to `OmniSift` (`appsettings.json`); set them here to change that. |
-| `POSTGRES_USER=omnisift`, `POSTGRES_DB=omnisift` | Superuser and database the postgres image creates on the first start of an empty volume; without them it uses `postgres`/`postgres`. Must match the database in `ConnectionStrings__DefaultConnection.txt`. |
+| *or* `JWT__ALLOWLOCALIDENTITYPROVIDER=true` | Run the in-house HS256 provider deliberately instead. Requires a unique `Jwt__Secret` of at least 32 bytes (`secrets/Jwt__Secret.txt`); the public development default is rejected. With neither key the API refuses to start in Production. `Jwt__Issuer` / `Jwt__Audience` default to `Lindrake` (`appsettings.json`); set them here to change that. |
+| `POSTGRES_USER=lindrake`, `POSTGRES_DB=lindrake` | Superuser and database the postgres image creates on the first start of an empty volume; without them it uses `postgres`/`postgres`. Must match the database in `ConnectionStrings__DefaultConnection.txt`. |
 | `API_BASE_URL=https://api.example.com` | Only when the API is on a different origin. Unset or empty = same origin, the recommended setup. |
 | `Cors__AllowedOrigins__0=...` | Only when `API_BASE_URL` is a different origin from the web app. |
 
@@ -129,7 +129,7 @@ echo -n "$ANTHROPIC_KEY"       > secrets/Anthropic__ApiKey.txt
 echo -n "$OPENAI_KEY"          > secrets/OpenAI__ApiKey.txt    # may be empty with ONNX embeddings
 echo -n "$TAVILY_KEY"          > secrets/Tavily__ApiKey.txt
 echo -n "$(openssl rand -hex 32)" > secrets/Jwt__Secret.txt     # used only by the HS256 provider
-echo -n "Host=db;Port=5432;Database=omnisift;Username=omnisift_app;Password=$APP_DB_PASSWORD" \
+echo -n "Host=db;Port=5432;Database=lindrake;Username=lindrake_app;Password=$APP_DB_PASSWORD" \
                                 > secrets/ConnectionStrings__DefaultConnection.txt
 chmod 600 secrets/*.txt
 ```
@@ -138,14 +138,14 @@ chmod 600 secrets/*.txt
 
 ### First-time database setup
 
-`infra/db/init.sql` runs once, on an empty data volume, as the superuser. It creates every extension the migrations use (`uuid-ossp`, `vector`, `pg_trgm`) and the `omnisift_app` role, whose password it takes from `POSTGRES_APP_PASSWORD`. The prod overlay does not set that variable, so in production the role is created **without a password** and cannot log in (the init log says so) until you set one by hand, as the superuser, before the API starts for the first time:
+`infra/db/init.sql` runs once, on an empty data volume, as the superuser. It creates every extension the migrations use (`uuid-ossp`, `vector`, `pg_trgm`) and the `lindrake_app` role, whose password it takes from `POSTGRES_APP_PASSWORD`. The prod overlay does not set that variable, so in production the role is created **without a password** and cannot log in (the init log says so) until you set one by hand, as the superuser, before the API starts for the first time:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d db
-# wait until healthy, then (POSTGRES_USER defaults to omnisift):
+# wait until healthy, then (POSTGRES_USER defaults to lindrake):
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec db \
-  psql -U omnisift -d omnisift \
-  -c "ALTER ROLE omnisift_app WITH PASSWORD '<APP_DB_PASSWORD>';"
+  psql -U lindrake -d lindrake \
+  -c "ALTER ROLE lindrake_app WITH PASSWORD '<APP_DB_PASSWORD>';"
 ```
 
 The password must match the one in `ConnectionStrings__DefaultConnection.txt`. See [schema-provisioning.md](./schema-provisioning.md).
@@ -197,8 +197,8 @@ See `.env.example` for the full reference with comments.
 
 | Variable | Purpose |
 |----------|---------|
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Local Postgres superuser and database (`omnisift` / `omnisift_dev` / `omnisift`) |
-| `POSTGRES_APP_PASSWORD` | Password `init.sql` gives the RLS-bound `omnisift_app` role, and the one the `api` service connects with (`omnisift_dev`; `appsettings.Development.json` uses the same for a host-run API) |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Local Postgres superuser and database (`lindrake` / `lindrake_dev` / `lindrake`) |
+| `POSTGRES_APP_PASSWORD` | Password `init.sql` gives the RLS-bound `lindrake_app` role, and the one the `api` service connects with (`lindrake_dev`; `appsettings.Development.json` uses the same for a host-run API) |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `TAVILY_API_KEY` | LLM, optional OpenAI embeddings, web search |
 | `JWT_SECRET` / `JWT_ISSUER` / `JWT_AUDIENCE` | HS256 identity provider settings (mapped to `Jwt__*` by `docker-compose.yml`) |
 | `ASPNETCORE_ENVIRONMENT` | `Development` in dev (enables Swagger and the dev CORS origins) |
@@ -256,13 +256,13 @@ docker compose up -d --no-deps web api
 
 ## Database migrations
 
-EF Core migrations are applied automatically when the API starts: `InitializeOmniSift` (`src/OmniSift.Api/Extensions/WebApplicationExtensions.cs`) validates options, then calls `Database.Migrate()` as the connection-string user (`omnisift_app`). A failed migration fails the boot. There is no `--migrate` flag; restarting the `api` container is how migrations are applied. The `Testing` environment skips this.
+EF Core migrations are applied automatically when the API starts: `InitializeLindrake` (`src/Lindrake.Api/Extensions/WebApplicationExtensions.cs`) validates options, then calls `Database.Migrate()` as the connection-string user (`lindrake_app`). A failed migration fails the boot. There is no `--migrate` flag; restarting the `api` container is how migrations are applied. The `Testing` environment skips this.
 
 To apply them from a workstation instead (requires the `dotnet-ef` tool, which is not in a tool manifest: `dotnet tool install --global dotnet-ef`):
 
 ```bash
-ConnectionStrings__DefaultConnection="Host=localhost;Database=omnisift;Username=omnisift_app;Password=<password>" \
-  dotnet ef database update --project src/OmniSift.Api
+ConnectionStrings__DefaultConnection="Host=localhost;Database=lindrake;Username=lindrake_app;Password=<password>" \
+  dotnet ef database update --project src/Lindrake.Api
 ```
 
 ---
@@ -271,11 +271,11 @@ ConnectionStrings__DefaultConnection="Host=localhost;Database=omnisift;Username=
 
 The API embeds text locally with **bge-small-en-v1.5** (384-dim, CLS pooling) — no
 OpenAI calls, no per-token cost. `appsettings.json` ships `Embedding:Provider=Onnx`
-and `InitializeOmniSift` resolves the embedding service during startup, so a missing model
+and `InitializeLindrake` resolves the embedding service during startup, so a missing model
 is a **startup crash**, not a degraded mode. That is deliberate: the alternative is
 silently falling back to a paid API.
 
-**In the image.** `src/OmniSift.Api/Dockerfile` has a `model-fetch` stage that
+**In the image.** `src/Lindrake.Api/Dockerfile` has a `model-fetch` stage that
 downloads `model.onnx` + `vocab.txt` from HuggingFace at build time, pinned to
 immutable commit revisions and verified with `sha256sum`. The files land at
 `/app/models/bge-small-en-v1.5/`, which is where the ContentRoot-relative

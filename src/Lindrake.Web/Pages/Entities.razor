@@ -1,0 +1,159 @@
+@page "/entities"
+@inject IJSRuntime JS
+
+<PageTitle>Lindrake — Entity Graph</PageTitle>
+
+<div class="page-header">
+    <span class="kicker">Entity Intelligence</span>
+    <h1>Relationship Graph</h1>
+</div>
+
+<div style="margin-top: 1.5rem;">
+
+    @* ── Build Graph Card ──────────────────────────────────── *@
+    <div class="card">
+        <div class="card-title">Build Entity Graph</div>
+        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+            Analyze your document corpus to extract named entities, relationships, and a chronological timeline.
+        </p>
+        <button class="btn btn-primary"
+                @onclick="BuildGraph"
+                disabled="@(_state == PageState.Loading)">
+            @if (_state == PageState.Loading)
+            {
+                <span class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></span>
+                <span>Analyzing...</span>
+            }
+            else
+            {
+                <span>Build graph</span>
+            }
+        </button>
+
+        @if (_state == PageState.Error)
+        {
+            <Alert Message="@_errorMessage" Style="margin-top: 1rem;" />
+        }
+    </div>
+
+    @* ── Graph Canvas ──────────────────────────────────────── *@
+    @if (_state == PageState.Idle)
+    {
+        <div class="card">
+            <div class="empty-state">
+                <span class="kicker">&#x25B8; no graph</span>
+                <p>Click "Build graph" to extract entities from your data sources.</p>
+            </div>
+        </div>
+    }
+    else if (_state == PageState.Loading)
+    {
+        <div class="card">
+            <p style="color: var(--text-muted);">Extracting entities — this may take a moment...</p>
+        </div>
+    }
+    else if (_state is PageState.Loaded or PageState.Error && _graph is not null)
+    {
+        <div class="card">
+            <div class="card-title">
+                Relationship Graph
+                @if (_graph.ChunksAnalyzed > 0)
+                {
+                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 400; margin-left: 0.5rem;">
+                        (@_graph.ChunksAnalyzed chunks analyzed)
+                    </span>
+                }
+            </div>
+            <div id="entity-graph-container" style="width:100%;height:520px;background:var(--surface-2);border-radius:var(--radius);"></div>
+        </div>
+
+        @* ── Timeline ──────────────────────────────────────────── *@
+        @if (_graph.Timeline.Count > 0)
+        {
+            <div class="card">
+                <div class="card-title">Timeline</div>
+                <div class="timeline" style="position: relative; padding-left: 1.5rem; border-left: 2px solid var(--primary);">
+                    @foreach (var entry in _graph.Timeline)
+                    {
+                        <div class="timeline-entry" style="margin-bottom: 1.25rem; position: relative;">
+                            <div class="timeline-date" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--primary); margin-bottom: 0.2rem;">
+                                @entry.Date
+                            </div>
+                            <div class="timeline-label" style="color: var(--text); margin-bottom: 0.4rem;">
+                                @entry.Label
+                            </div>
+                            @if (entry.Entities.Count > 0)
+                            {
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+                                    @foreach (var entityId in entry.Entities)
+                                    {
+                                        var node = _graph.Nodes.FirstOrDefault(n => n.Id == entityId);
+                                        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; padding: 0.15rem 0.4rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px; color: var(--text-muted);">
+                                            @(node?.Label ?? entityId)
+                                        </span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Inject] private LindrakeApiClient Api { get; set; } = default!;
+
+    private enum PageState { Idle, Loading, Loaded, Error }
+
+    private PageState _state = PageState.Idle;
+    private EntityGraphResponse? _graph;
+    private string? _errorMessage;
+    private IJSObjectReference? _graphModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            _graphModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/entityGraph.js");
+    }
+
+    private async Task BuildGraph()
+    {
+        _state = PageState.Loading;
+        _errorMessage = null;
+        StateHasChanged();
+
+        var result = await Api.ExtractEntitiesAsync();
+        if (!result.IsSuccess)
+        {
+            _state = PageState.Error;
+            _errorMessage = $"Failed to build entity graph: {result.Error.Message}";
+            return;
+        }
+
+        _graph = result.Value;
+        _state = PageState.Loaded;
+        StateHasChanged();
+
+        // Give Blazor one render cycle so the DOM container exists before calling vis
+        await Task.Yield();
+
+        if (_graphModule is not null)
+        {
+            try
+            {
+                await _graphModule.InvokeVoidAsync(
+                    "renderGraph",
+                    "entity-graph-container",
+                    _graph.Nodes,
+                    _graph.Edges);
+            }
+            catch (JSException ex)
+            {
+                _state = PageState.Error;
+                _errorMessage = $"Failed to draw the entity graph: {ex.Message}";
+            }
+        }
+    }
+}

@@ -7,7 +7,7 @@ Requirements (Python 3.10–3.12, NOT 3.14 — no torch wheels yet):
 
 Usage:
     python tools/generate_reference_vectors.py \
-        > tests/OmniSift.UnitTests/Services/Fixtures/bge_small_en_v1_5_reference_vectors.json
+        > tests/Lindrake.UnitTests/Services/Fixtures/bge_small_en_v1_5_reference_vectors.json
 
 The output is a JSON array where each element has:
     "text":   the raw document text (no query instruction prefix)
