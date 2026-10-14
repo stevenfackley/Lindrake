@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -19,12 +20,16 @@ using OmniSift.Api.Middleware;
 using OmniSift.Api.Options;
 using OmniSift.Api.Plugins;
 using OmniSift.Api.Services;
+using OmniSift.Api.Services.Agent;
 using OmniSift.Api.Services.Extraction;
 using OmniSift.Api.Services.Ingestion;
+using OmniSift.Api.Services.Reports;
+using OmniSift.Api.Services.Search;
 using OmniSift.Shared;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using QuestPDF.Infrastructure;
 using Serilog;
 using Serilog.Events;
 using CorsPolicyOptions = Microsoft.AspNetCore.Cors.Infrastructure.CorsOptions;
@@ -224,8 +229,17 @@ public static class ServiceCollectionExtensions
     {
         services.AddValidatedOptions<AnthropicOptions>(AnthropicOptions.Section);
         services.AddValidatedOptions<TavilyOptions>(TavilyOptions.Section);
+        services.AddValidatedOptions<AgentOptions>(AgentOptions.Section);
+        services.AddValidatedOptions<ResearchProfileOptions>(ResearchProfileOptions.Section);
+        services.AddSingleton<IValidateOptions<ResearchProfileOptions>, ResearchProfileOptionsValidator>();
 
         services.AddScoped<ICitationAccumulator, CitationAccumulator>();
+        services.AddScoped<IInvocationTracker, InvocationTracker>();
+        services.AddScoped<PluginInvocationTrackingFilter>();
+        services.AddSingleton<ChatHistoryFactory>();
+        services.AddScoped<IQueryHistoryRecorder, QueryHistoryRecorder>();
+        services.AddScoped<IResearchAgentService, ResearchAgentService>();
+        services.AddSingleton<AgentSseWriter>();
         services.AddScoped<IEntityExtractionService, EntityExtractionService>();
 
         // Named HttpClient for the Anthropic-compatible endpoint (avoids leaked HttpClient)
@@ -273,22 +287,49 @@ public static class ServiceCollectionExtensions
             client.BaseAddress = WaybackMachinePlugin.BaseAddress)
         .AddStandardResilienceHandler();
 
+        services.AddScoped<IHybridSearchService, HybridSearchService>();
         services.AddScoped<VectorSearchPlugin>();
 
-        // Register a scoped Kernel that includes plugins for each request.
+        // Register a scoped Kernel with the research profile's plugins for each request.
         services.AddScoped(sp =>
         {
             var kernel = sp.GetRequiredService<Func<Kernel>>()();
+            var profile = sp.GetRequiredService<IOptions<ResearchProfileOptions>>().Value;
 
-            kernel.ImportPluginFromObject(sp.GetRequiredService<VectorSearchPlugin>(), "VectorSearch");
-            kernel.ImportPluginFromObject(sp.GetRequiredService<WebScraperPlugin>(), "WebScraper");
-            kernel.ImportPluginFromObject(sp.GetRequiredService<WaybackMachinePlugin>(), "WaybackMachine");
+            foreach (var plugin in profile.ResolvedPlugins)
+                kernel.ImportPluginFromObject(ResolvePlugin(sp, plugin), plugin);
+
+            // Feeds IInvocationTracker → AgentRunResult.PluginsUsed.
+            kernel.AutoFunctionInvocationFilters.Add(sp.GetRequiredService<PluginInvocationTrackingFilter>());
 
             return kernel;
         });
 
         return services;
     }
+
+    /// <summary>Research report rendering (Markdown, PDF) and the clock it stamps reports with.</summary>
+    public static IServiceCollection AddOmniSiftReports(this IServiceCollection services)
+    {
+        // QuestPDF refuses to render until a license is chosen. Process-wide; set once, here.
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<IReportRenderer<string>, MarkdownReportRenderer>();
+        services.AddSingleton<IReportRenderer<byte[]>, PdfReportRenderer>();
+
+        return services;
+    }
+
+    /// <summary>The plugin instance behind an <see cref="AgentPlugins"/> name.</summary>
+    private static object ResolvePlugin(IServiceProvider sp, string name) => name switch
+    {
+        AgentPlugins.VectorSearch => sp.GetRequiredService<VectorSearchPlugin>(),
+        AgentPlugins.WebScraper => sp.GetRequiredService<WebScraperPlugin>(),
+        AgentPlugins.WaybackMachine => sp.GetRequiredService<WaybackMachinePlugin>(),
+        // Unreachable once ResearchProfileOptionsValidator has run at startup.
+        _ => throw new InvalidOperationException($"Unknown agent plugin '{name}'.")
+    };
 
     /// <summary>
     /// JWT bearer authentication.

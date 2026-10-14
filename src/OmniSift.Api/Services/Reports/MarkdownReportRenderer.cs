@@ -1,62 +1,28 @@
 // ============================================================
-// OmniSift.Api — Research Report Builder
+// OmniSift.Api — Markdown report renderer
 // Pure function: (conversation, citations) → Markdown string.
-// No I/O, no DI dependencies — fully unit-testable.
+// No I/O, no dependencies — fully unit-testable.
 // ============================================================
 
+using System.Globalization;
 using System.Text;
 using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Services;
+namespace OmniSift.Api.Services.Reports;
 
-/// <summary>
-/// A single turn in the conversation to export.
-/// </summary>
-public sealed record ReportMessage
+/// <summary>Renders a <see cref="ReportDocument"/> as a Markdown report.</summary>
+public sealed class MarkdownReportRenderer : IReportRenderer<string>
 {
-    /// <summary>"user" or "assistant"</summary>
-    public string Role { get; init; } = string.Empty;
-    public string Content { get; init; } = string.Empty;
-    public IReadOnlyList<SourceCitation> Citations { get; init; } = [];
-}
-
-/// <summary>
-/// Input model for <see cref="ResearchReportBuilder.Build"/>.
-/// </summary>
-public sealed record ReportRequest
-{
-    public string Title { get; init; } = "Research Report";
-    public IReadOnlyList<ReportMessage> Messages { get; init; } = [];
-    /// <summary>
-    /// ISO 8601 timestamp string.  If null the builder uses UTC now.
-    /// </summary>
-    public string? Timestamp { get; init; }
-}
-
-/// <summary>
-/// Stateless Markdown report builder.
-/// </summary>
-public static class ResearchReportBuilder
-{
-    /// <summary>
-    /// Builds a Markdown research report from the supplied conversation.
-    /// </summary>
-    /// <param name="request">Conversation + metadata.</param>
-    /// <param name="utcNow">
-    /// UTC timestamp to embed in the report.  Passed explicitly so tests
-    /// can pin the value and make assertions deterministic.
-    /// </param>
-    public static string Build(ReportRequest request, DateTime? utcNow = null)
+    public string Render(ReportDocument document)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(document);
 
-        var timestamp = request.Timestamp
-            ?? (utcNow ?? DateTime.UtcNow).ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var timestamp = document.Timestamp;
 
         var sb = new StringBuilder(2048);
 
         // ── Title block ────────────────────────────────────────
-        sb.AppendLine($"# {EscapeMarkdown(request.Title)}");
+        sb.AppendLine($"# {EscapeMarkdown(document.Title)}");
         sb.AppendLine();
         sb.AppendLine($"*Generated: {timestamp}*");
         sb.AppendLine();
@@ -64,7 +30,7 @@ public static class ResearchReportBuilder
         sb.AppendLine();
 
         // ── Conversation turns ─────────────────────────────────
-        var assistantTurns = request.Messages
+        var assistantTurns = document.Messages
             .Where(m => string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
@@ -80,7 +46,7 @@ public static class ResearchReportBuilder
             var footnoteLookup = new Dictionary<string, int>(StringComparer.Ordinal);
 
             // First pass: assign footnote numbers globally
-            foreach (var msg in request.Messages)
+            foreach (var msg in document.Messages)
             {
                 foreach (var c in msg.Citations)
                 {
@@ -96,7 +62,7 @@ public static class ResearchReportBuilder
 
             // Second pass: render turns
             var turnNumber = 0;
-            foreach (var msg in request.Messages)
+            foreach (var msg in document.Messages)
             {
                 if (string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase))
                 {
@@ -158,7 +124,7 @@ public static class ResearchReportBuilder
     {
         var label = c.Title ?? c.Url ?? "(unknown)";
         var scoreStr = c.RelevanceScore.HasValue
-            ? $" — score: {c.RelevanceScore:F3}"
+            ? " — score: " + c.RelevanceScore.Value.ToString("F3", CultureInfo.InvariantCulture)
             : string.Empty;
         var linkPart = c.Url is not null
             ? $" [link]({c.Url})"
@@ -182,7 +148,7 @@ public static class ResearchReportBuilder
             parts.Add($"**DataSourceId:** {c.DataSourceId}");
 
         if (c.RelevanceScore.HasValue)
-            parts.Add($"**Relevance:** {c.RelevanceScore:F4}");
+            parts.Add("**Relevance:** " + c.RelevanceScore.Value.ToString("F4", CultureInfo.InvariantCulture));
 
         if (c.Snippet is not null)
             parts.Add($"*{EscapeMarkdown(c.Snippet.Length > 200 ? c.Snippet[..200] + "…" : c.Snippet)}*");

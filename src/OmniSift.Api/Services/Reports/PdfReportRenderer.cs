@@ -1,25 +1,27 @@
+// ============================================================
+// OmniSift.Api — PDF report renderer (QuestPDF)
+// The QuestPDF license is set once, in AddOmniSiftReports().
+// ============================================================
+
+using System.Globalization;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
-namespace OmniSift.Api.Services;
+namespace OmniSift.Api.Services.Reports;
 
-/// <summary>
-/// Stateless PDF report builder backed by QuestPDF (community license).
-/// Consumes the same <see cref="ReportRequest"/> model as <see cref="ResearchReportBuilder"/>.
-/// </summary>
-public static class PdfReportBuilder
+/// <summary>Renders a <see cref="ReportDocument"/> as a PDF.</summary>
+public sealed class PdfReportRenderer : IReportRenderer<byte[]>
 {
-    public static byte[] Build(ReportRequest request, DateTime? utcNow = null)
+    public const string ContentType = "application/pdf";
+
+    public byte[] Render(ReportDocument document)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(document);
 
-        QuestPDF.Settings.License = LicenseType.Community;
+        var timestamp = document.Timestamp;
 
-        var timestamp = request.Timestamp
-            ?? (utcNow ?? DateTime.UtcNow).ToString("yyyy-MM-ddTHH:mm:ssZ");
-
-        var doc = Document.Create(container =>
+        var pdf = Document.Create(container =>
         {
             container.Page(page =>
             {
@@ -32,7 +34,7 @@ public static class PdfReportBuilder
                     col.Spacing(8);
 
                     // Title
-                    col.Item().Text(request.Title)
+                    col.Item().Text(document.Title)
                         .FontSize(22).Bold();
 
                     // Generated-at
@@ -43,7 +45,7 @@ public static class PdfReportBuilder
 
                     // Messages
                     var turnNumber = 0;
-                    foreach (var msg in request.Messages)
+                    foreach (var msg in document.Messages)
                     {
                         if (string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase))
                         {
@@ -68,7 +70,7 @@ public static class PdfReportBuilder
                                 {
                                     var label = c.Title ?? c.Url ?? "(unknown)";
                                     var scoreStr = c.RelevanceScore.HasValue
-                                        ? $" — {c.RelevanceScore:F3}"
+                                        ? " — " + c.RelevanceScore.Value.ToString("F3", CultureInfo.InvariantCulture)
                                         : string.Empty;
                                     col.Item().PaddingLeft(12).Text($"• {label}{scoreStr}")
                                         .FontSize(9).FontColor(Colors.Grey.Darken3);
@@ -82,6 +84,6 @@ public static class PdfReportBuilder
             });
         });
 
-        return doc.GeneratePdf();
+        return pdf.GeneratePdf();
     }
 }

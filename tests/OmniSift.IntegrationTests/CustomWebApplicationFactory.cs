@@ -53,6 +53,15 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public IReadOnlyDictionary<string, string?> ExtraSettings { get; init; } =
         new Dictionary<string, string?>();
 
+    /// <summary>
+    /// Adds services (e.g. a fake chat-completion backend) to the base Semantic Kernel.
+    /// Left null, the kernel has no LLM and agent endpoints answer 503.
+    /// </summary>
+    public Action<IKernelBuilder>? ConfigureKernel { get; init; }
+
+    /// <summary>Last-word service overrides for a test (runs after the defaults below).</summary>
+    public Action<IServiceCollection>? ConfigureTestServices { get; init; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -126,11 +135,18 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<ITokenCounter>();
             services.AddSingleton<ITokenCounter, WordHeuristicTokenCounter>();
 
-            // Replace Semantic Kernel with a simple empty kernel (no LLM)
+            // Replace the base kernel: no LLM unless a test supplies one via
+            // ConfigureKernel. The scoped per-request Kernel (plugins + invocation
+            // filter) stays the production registration and builds on top of it.
             services.RemoveAll<Func<Kernel>>();
-            services.RemoveAll<Kernel>();
-            services.AddSingleton<Func<Kernel>>(_ => () => Kernel.CreateBuilder().Build());
-            services.AddScoped(_ => Kernel.CreateBuilder().Build());
+            services.AddSingleton<Func<Kernel>>(_ => () =>
+            {
+                var kernelBuilder = Kernel.CreateBuilder();
+                ConfigureKernel?.Invoke(kernelBuilder);
+                return kernelBuilder.Build();
+            });
+
+            ConfigureTestServices?.Invoke(services);
 
         });
     }

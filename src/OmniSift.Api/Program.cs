@@ -4,7 +4,6 @@
 // ============================================================
 
 using OmniSift.Api.Extensions;
-using QuestPDF.Infrastructure;
 using Serilog;
 using Serilog.Events;
 
@@ -19,8 +18,6 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
-    QuestPDF.Settings.License = LicenseType.Community;
-
     var builder = WebApplication.CreateBuilder(args);
 
     // In production, docker-compose.prod.yml mounts secrets as files under /run/secrets/.
@@ -34,6 +31,7 @@ try
         .AddOmniSiftEmbeddings()
         .AddOmniSiftIngestion()
         .AddOmniSiftAgent()
+        .AddOmniSiftReports()
         .AddOmniSiftAuth()
         .AddOmniSiftRateLimiting()
         .AddOmniSiftApi();
