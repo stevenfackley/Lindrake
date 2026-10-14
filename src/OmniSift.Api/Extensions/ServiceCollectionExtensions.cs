@@ -383,6 +383,7 @@ public static class ServiceCollectionExtensions
                 .Build());
 
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<JwtTokenService>();
 
         return services;
