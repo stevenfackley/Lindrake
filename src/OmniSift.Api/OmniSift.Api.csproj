@@ -42,7 +42,7 @@
     <PackageReference Include="QuestPDF" Version="2025.7.0" />
 
     <!-- OpenAPI / Swagger -->
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.0" />
 
     <!-- HTTP Resilience (retry, timeout, circuit breaker via Polly) -->
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
