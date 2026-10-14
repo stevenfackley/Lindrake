@@ -204,7 +204,7 @@ See `.env.example` for the full reference with comments.
 | `ASPNETCORE_ENVIRONMENT` | `Development` in dev (enables Swagger and the dev CORS origins) |
 | `API_BASE_URL` | API URL as the browser sees it; rendered into the web container's `app/appsettings.json` at start |
 
-The base compose file maps the UPPER_CASE names through `${...}` interpolation, so local runs need `docker compose --env-file .env.dev ...`.
+The base compose file maps the UPPER_CASE names through `${...}` interpolation, with each value's `.env.dev` setting as the default, so local runs need no `--env-file`; pass `--env-file .env.dev` to apply edits to the file (e.g. API keys). `ASPNETCORE_ENVIRONMENT` and `API_BASE_URL` reach the containers through `env_file` either way.
 
 ### `.env.prod` (gitignored — keys come from Docker secrets)
 
@@ -234,10 +234,10 @@ Nothing in the prod stack listens on a public interface. Put a reverse proxy (ng
 
 ## Local dev (docker compose only)
 
-`.env.dev` is committed with safe defaults; only fill in your API keys.
+`.env.dev` is committed with safe defaults; only fill in your API keys (and then add `--env-file .env.dev` to the commands below).
 
 ```bash
-docker compose --env-file .env.dev up -d
+docker compose up -d
 # API:    http://localhost:5000  (Swagger at /swagger)
 # Web:    http://localhost:5080  (landing page)
 # App:    http://localhost:5080/app/
@@ -248,8 +248,8 @@ docker compose --env-file .env.dev up -d
 ## Rebuilding after code changes
 
 ```bash
-docker compose --env-file .env.dev build web api
-docker compose --env-file .env.dev up -d --no-deps web api
+docker compose build web api
+docker compose up -d --no-deps web api
 ```
 
 ---

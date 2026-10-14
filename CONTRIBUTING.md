@@ -15,7 +15,7 @@ git clone https://github.com/stevenfackley/OmniSift.git
 cd OmniSift
 ```
 
-`.env.dev` is committed with safe defaults. Fill in your personal API keys:
+`.env.dev` is committed with safe defaults. Optionally fill in your personal API keys:
 
 ```bash
 # Open .env.dev and set:
@@ -43,10 +43,10 @@ Integration tests use EF Core InMemory and a fake chat-completion service — no
 ### Running the Full Stack
 
 ```bash
-docker compose --env-file .env.dev up --build
+docker compose up --build
 ```
 
-`--env-file .env.dev` is required: the compose file interpolates the database name, password and JWT secret from the Compose environment, and without it the API cannot start.
+The compose file defaults every value it interpolates to its `.env.dev` value, so this needs no `--env-file`. Compose does not read your edits to `.env.dev` (API keys, passwords) unless you pass `--env-file .env.dev` to the compose command.
 
 | Service | URL |
 |---|---|

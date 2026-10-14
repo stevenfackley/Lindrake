@@ -41,7 +41,7 @@ git clone https://github.com/stevenfackley/OmniSift.git
 cd OmniSift
 ```
 
-Fill in your API keys in `.env.dev` (committed with safe defaults; only the keys need updating):
+Optionally fill in your API keys in `.env.dev` (committed with safe defaults; only the keys need updating):
 
 ```bash
 # Edit .env.dev and set your personal dev keys
@@ -53,10 +53,10 @@ OPENAI_API_KEY=sk-...          # only needed with Embedding:Provider=OpenAi
 ### 2. Build & Run
 
 ```bash
-docker compose --env-file .env.dev up --build
+docker compose up --build
 ```
 
-`--env-file .env.dev` is required: `docker-compose.yml` interpolates `${POSTGRES_DB}`, `${POSTGRES_PASSWORD}`, `${JWT_SECRET}` and the API keys from the Compose environment. Without it (or a `.env` file) they are blank, so the API gets an unusable connection string and an empty JWT secret and refuses to start.
+`docker-compose.yml` defaults every value it interpolates (database name and passwords, JWT secret, API keys) to its `.env.dev` value, so this runs as is, with no API keys. Compose interpolation does not read `.env.dev` by itself: to apply your edits to it (your API keys), add `--env-file .env.dev` to compose commands, e.g. `docker compose --env-file .env.dev up --build`.
 
 The API image downloads the ONNX embedding model (about 127 MB, pinned and checksummed) during the build. On first start of an empty volume, `db` runs `infra/db/init.sql` (extensions, `omnisift_app` role); the API then applies EF Core migrations and loads the model. A missing model is a startup failure, not a degraded mode.
 
@@ -80,7 +80,7 @@ Locally there is no Supabase project, so the API runs the in-house HS256 identit
 ```
 OmniSift/
 ├── OmniSift.sln                       # Solution file
-├── docker-compose.yml                 # Dev stack: db + api + web (use --env-file .env.dev)
+├── docker-compose.yml                 # Dev stack: db + api + web (defaults = .env.dev values)
 ├── docker-compose.prod.yml            # Prod overlay: GHCR images, Docker secrets, healthchecks
 ├── .env.example                       # Environment variable reference
 ├── .env.dev                           # Development defaults (committed)

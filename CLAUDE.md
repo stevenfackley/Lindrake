@@ -54,8 +54,9 @@ dotnet test --filter "FullyQualifiedName~SomeTestClass.SomeTest"
 # Format check (CI runs it but does not fail on it)
 dotnet format --verify-no-changes --no-restore
 
-# Full local stack (the --env-file is required; compose interpolates DB and JWT values from it)
-docker compose --env-file .env.dev up --build
+# Full local stack. Compose defaults every interpolated value to .env.dev's;
+# add --env-file .env.dev to apply edits to it (e.g. your API keys)
+docker compose up --build
 
 # Database only
 docker compose up -d db
