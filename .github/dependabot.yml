@@ -16,7 +16,7 @@ updates:
         patterns: ["xunit*", "coverlet.*", "Microsoft.NET.Test.*"]
 
   - package-ecosystem: docker
-    directory: /src/OmniSift.Api
+    directory: /src/Lindrake.Api
     schedule: { interval: monthly }
     open-pull-requests-limit: 3
     groups:
@@ -24,7 +24,7 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: docker
-    directory: /src/OmniSift.Web
+    directory: /src/Lindrake.Web
     schedule: { interval: monthly }
     open-pull-requests-limit: 3
     groups:

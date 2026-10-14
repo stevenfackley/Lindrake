@@ -67,7 +67,7 @@ __pycache__/
 *$py.class
 .venv/
 
-# OmniSift
+# Lindrake
 # Local ONNX embedding model (~130 MB) — fetched via scripts/fetch-embedding-model.ps1
 /models/
 infra/db/data/

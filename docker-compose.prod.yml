@@ -35,8 +35,8 @@
 #     ConnectionStrings__DefaultConnection.txt
 #
 # GHCR image names (pushed by .github/workflows/deploy.yml):
-#   ghcr.io/<owner>/omnisift-web:<tag>
-#   ghcr.io/<owner>/omnisift-api:<tag>
+#   ghcr.io/<owner>/lindrake-web:<tag>
+#   ghcr.io/<owner>/lindrake-api:<tag>
 # The deploy workflow uses the 'latest' tag by default.
 
 services:
@@ -56,7 +56,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     ports: !reset []
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omnisift} -d ${POSTGRES_DB:-omnisift}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lindrake} -d ${POSTGRES_DB:-lindrake}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -64,7 +64,7 @@ services:
 
   api:
     # Pre-built image from GHCR; override with IMAGE_API / IMAGE_TAG env vars
-    image: ${IMAGE_API:-ghcr.io/stevenfackley/omnisift-api}:${IMAGE_TAG:-latest}
+    image: ${IMAGE_API:-ghcr.io/stevenfackley/lindrake-api}:${IMAGE_TAG:-latest}
     build: !reset null
     restart: always
     env_file: !override
@@ -100,7 +100,7 @@ services:
     # Pre-built image from GHCR. API_BASE_URL (from .env.prod) is rendered into
     # app/appsettings.json at container start. Unset or empty: the client calls
     # api/... on its own origin (reverse proxy in front).
-    image: ${IMAGE_WEB:-ghcr.io/stevenfackley/omnisift-web}:${IMAGE_TAG:-latest}
+    image: ${IMAGE_WEB:-ghcr.io/stevenfackley/lindrake-web}:${IMAGE_TAG:-latest}
     build: !reset null
     restart: always
     env_file: !override

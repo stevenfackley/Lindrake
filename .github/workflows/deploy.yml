@@ -7,7 +7,7 @@ name: deploy
 #   DEPLOY_USER        — SSH username (must be in the docker group)
 #   DEPLOY_SSH_KEY     — PEM-encoded SSH private key (passphrase-free)
 #   DEPLOY_WORK_DIR    — Absolute path on host where docker-compose files live
-#                        e.g. /srv/omnisift
+#                        e.g. /srv/lindrake
 #
 # These four secrets are ONLY needed for the `deploy` job (SSH step).
 # The `build-push` job works without them — it uses only GITHUB_TOKEN.
@@ -35,8 +35,8 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_WEB: ghcr.io/${{ github.repository_owner }}/omnisift-web
-  IMAGE_API: ghcr.io/${{ github.repository_owner }}/omnisift-api
+  IMAGE_WEB: ghcr.io/${{ github.repository_owner }}/lindrake-web
+  IMAGE_API: ghcr.io/${{ github.repository_owner }}/lindrake-api
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: src/OmniSift.Web/Dockerfile
+          file: src/Lindrake.Web/Dockerfile
           push: true
           tags: |
             ${{ env.IMAGE_WEB }}:latest
@@ -93,7 +93,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: src/OmniSift.Api/Dockerfile
+          file: src/Lindrake.Api/Dockerfile
           push: true
           tags: |
             ${{ env.IMAGE_API }}:latest

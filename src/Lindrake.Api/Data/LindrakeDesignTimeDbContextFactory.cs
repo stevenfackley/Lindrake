@@ -20,9 +20,9 @@ public sealed class LindrakeDesignTimeDbContextFactory : IDesignTimeDbContextFac
             .Build();
 
         // Fallback = appsettings.Development.json's value: the compose db's
-        // omnisift_app role with the .env.dev password.
+        // lindrake_app role with the .env.dev password.
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=omnisift;Username=omnisift_app;Password=omnisift_dev";
+            ?? "Host=localhost;Port=5432;Database=lindrake;Username=lindrake_app;Password=lindrake_dev";
 
         var options = new DbContextOptionsBuilder<LindrakeDbContext>()
             .UseNpgsql(connectionString, npgsql =>

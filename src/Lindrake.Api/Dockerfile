@@ -1,5 +1,5 @@
 # ============================================================
-# OmniSift.Api — Multi-stage Docker Build
+# Lindrake.Api — Multi-stage Docker Build
 # Stage 1 (model-fetch): Download the bge-small-en-v1.5 ONNX model
 # Stage 2 (build):       Build + publish the .NET app
 # Stage 3 (runtime):     Minimal ASP.NET runtime image
@@ -66,19 +66,19 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and project files first (layer caching)
-COPY OmniSift.sln ./
+COPY Lindrake.sln ./
 COPY global.json ./
-COPY src/OmniSift.Api/OmniSift.Api.csproj src/OmniSift.Api/
-COPY src/OmniSift.Shared/OmniSift.Shared.csproj src/OmniSift.Shared/
+COPY src/Lindrake.Api/Lindrake.Api.csproj src/Lindrake.Api/
+COPY src/Lindrake.Shared/Lindrake.Shared.csproj src/Lindrake.Shared/
 
 # Restore dependencies
-RUN dotnet restore src/OmniSift.Api/OmniSift.Api.csproj
+RUN dotnet restore src/Lindrake.Api/Lindrake.Api.csproj
 
 # Copy all source code
 COPY src/ src/
 
 # Build and publish (single step — avoids stale asset mismatch from --no-restore)
-RUN dotnet publish src/OmniSift.Api/OmniSift.Api.csproj -c Release -o /app/publish
+RUN dotnet publish src/Lindrake.Api/Lindrake.Api.csproj -c Release -o /app/publish
 
 # -- Runtime Stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
@@ -120,4 +120,4 @@ EXPOSE 8080
 
 USER appuser
 
-ENTRYPOINT ["dotnet", "OmniSift.Api.dll"]
+ENTRYPOINT ["dotnet", "Lindrake.Api.dll"]

@@ -7,28 +7,32 @@
 # (API keys, passwords), run `docker compose --env-file .env.dev up --build`.
 # Production: docker-compose.prod.yml replaces these dev values (docs/DEPLOY.md).
 
+# Fixed project name: container, network and volume names do not depend on
+# the checkout folder name.
+name: lindrake
+
 services:
   # ──────────────────────────────────────────────
   # PostgreSQL with pgvector extension
   # ──────────────────────────────────────────────
   db:
     image: pgvector/pgvector:pg16
-    container_name: omnisift-db
+    container_name: lindrake-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-omnisift}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-omnisift_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-omnisift}
-      # infra/db/init.sql gives this password to omnisift_app, the RLS-bound
+      POSTGRES_USER: ${POSTGRES_USER:-lindrake}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lindrake_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-lindrake}
+      # infra/db/init.sql gives this password to lindrake_app, the RLS-bound
       # role the api connects as (first start of an empty volume only).
-      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-omnisift_dev}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-lindrake_dev}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omnisift} -d ${POSTGRES_DB:-omnisift}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lindrake} -d ${POSTGRES_DB:-lindrake}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -39,8 +43,8 @@ services:
   api:
     build:
       context: .
-      dockerfile: src/OmniSift.Api/Dockerfile
-    container_name: omnisift-api
+      dockerfile: src/Lindrake.Api/Dockerfile
+    container_name: lindrake-api
     restart: unless-stopped
     env_file: .env.dev
     environment:
@@ -51,10 +55,10 @@ services:
       OpenAI__ApiKey: ${OPENAI_API_KEY:-}
       Tavily__ApiKey: ${TAVILY_API_KEY:-}
       Jwt__Secret: ${JWT_SECRET:-dev-only-hs256-secret-not-for-production-use}
-      Jwt__Issuer: ${JWT_ISSUER:-https://omnisift.local}
-      Jwt__Audience: ${JWT_AUDIENCE:-omnisift-api}
-      # Use the omnisift_app role (not superuser) so RLS policies are enforced
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-omnisift};Username=omnisift_app;Password=${POSTGRES_APP_PASSWORD:-omnisift_dev}"
+      Jwt__Issuer: ${JWT_ISSUER:-https://lindrake.local}
+      Jwt__Audience: ${JWT_AUDIENCE:-lindrake-api}
+      # Use the lindrake_app role (not superuser) so RLS policies are enforced
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-lindrake};Username=lindrake_app;Password=${POSTGRES_APP_PASSWORD:-lindrake_dev}"
     ports:
       - "5000:8080"
     depends_on:
@@ -67,8 +71,8 @@ services:
   web:
     build:
       context: .
-      dockerfile: src/OmniSift.Web/Dockerfile
-    container_name: omnisift-web
+      dockerfile: src/Lindrake.Web/Dockerfile
+    container_name: lindrake-web
     restart: unless-stopped
     env_file: .env.dev
     ports:

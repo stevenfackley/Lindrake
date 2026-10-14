@@ -1,6 +1,6 @@
 #!/bin/sh
 # ============================================================
-# OmniSift.Web — render the Blazor client's runtime config
+# Lindrake.Web — render the Blazor client's runtime config
 # Run by the nginx image's /docker-entrypoint.sh before nginx starts.
 #
 # API_BASE_URL  absolute http(s) URL of the API as the browser sees it
@@ -9,7 +9,7 @@
 # ============================================================
 set -eu
 
-target="${OMNISIFT_APPSETTINGS_PATH:-/usr/share/nginx/html/app/appsettings.json}"
+target="${LINDRAKE_APPSETTINGS_PATH:-/usr/share/nginx/html/app/appsettings.json}"
 url="${API_BASE_URL:-}"
 
 case "$url" in
