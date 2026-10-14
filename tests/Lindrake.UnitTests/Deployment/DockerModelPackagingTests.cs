@@ -24,9 +24,9 @@ namespace OmniSift.UnitTests.Deployment;
 
 public sealed class DockerModelPackagingTests
 {
-    private const string SolutionFile = "OmniSift.sln";
-    private const string DockerfileRelativePath = "src/OmniSift.Api/Dockerfile";
-    private const string AppSettingsRelativePath = "src/OmniSift.Api/appsettings.json";
+    private const string SolutionFile = "Lindrake.sln";
+    private const string DockerfileRelativePath = "src/Lindrake.Api/Dockerfile";
+    private const string AppSettingsRelativePath = "src/Lindrake.Api/appsettings.json";
 
     /// <summary>
     /// ASP.NET Core sets ContentRootPath to the app's working directory, which is

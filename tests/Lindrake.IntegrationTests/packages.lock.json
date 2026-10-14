@@ -1221,12 +1221,13 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
-      "omnisift.api": {
+      "lindrake.api": {
         "type": "Project",
         "dependencies": {
           "BCrypt.Net-Next": "[4.2.0, )",
           "DocumentFormat.OpenXml": "[3.5.1, )",
           "HtmlAgilityPack": "[1.13.1, )",
+          "Lindrake.Shared": "[1.0.0, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.13, )",
           "Microsoft.EntityFrameworkCore": "[10.0.13, )",
           "Microsoft.EntityFrameworkCore.Relational": "[10.0.13, )",
@@ -1237,7 +1238,6 @@
           "Microsoft.SemanticKernel": "[1.80.1, )",
           "MimeKit": "[4.18.1, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
-          "OmniSift.Shared": "[1.0.0, )",
           "OpenTelemetry.Exporter.Console": "[1.*, )",
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.*, )",
           "OpenTelemetry.Extensions.Hosting": "[1.*, )",
@@ -1254,7 +1254,7 @@
           "System.Security.Cryptography.Pkcs": "[10.0.13, )"
         }
       },
-      "omnisift.shared": {
+      "lindrake.shared": {
         "type": "Project"
       }
     }

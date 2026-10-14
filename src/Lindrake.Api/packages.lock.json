@@ -826,7 +826,7 @@
         "resolved": "10.0.10",
         "contentHash": "9Ildb4Y9maDztB0ZRGxsNShbpCQ2Tjv2dr4IjskBxpTGhH7aIz1+oC+Hl833ASs/htWwsH6myNe+sRpeyCzeMQ=="
       },
-      "omnisift.shared": {
+      "lindrake.shared": {
         "type": "Project"
       }
     }

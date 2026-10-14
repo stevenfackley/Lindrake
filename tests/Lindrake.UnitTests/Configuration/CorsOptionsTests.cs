@@ -59,11 +59,11 @@ public sealed class CorsOptionsTests
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            var candidate = Path.Combine(dir.FullName, "src", "OmniSift.Api", name);
+            var candidate = Path.Combine(dir.FullName, "src", "Lindrake.Api", name);
             if (File.Exists(candidate))
                 return candidate;
         }
 
-        throw new FileNotFoundException($"Could not locate src/OmniSift.Api/{name}.");
+        throw new FileNotFoundException($"Could not locate src/Lindrake.Api/{name}.");
     }
 }

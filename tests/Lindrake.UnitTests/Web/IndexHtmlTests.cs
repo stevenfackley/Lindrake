@@ -9,7 +9,7 @@ public sealed partial class IndexHtmlTests
     [Fact]
     public void ExternalScripts_ArePinnedWithIntegrity()
     {
-        var html = File.ReadAllText(Path.Combine(RepoRoot(), "src", "OmniSift.Web", "wwwroot", "index.html"));
+        var html = File.ReadAllText(Path.Combine(RepoRoot(), "src", "Lindrake.Web", "wwwroot", "index.html"));
 
         var external = ScriptTag().Matches(html)
             .Select(m => m.Value)
@@ -32,10 +32,10 @@ public sealed partial class IndexHtmlTests
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "OmniSift.sln")))
+            if (File.Exists(Path.Combine(dir.FullName, "Lindrake.sln")))
                 return dir.FullName;
         }
 
-        throw new InvalidOperationException("Could not locate OmniSift.sln above " + AppContext.BaseDirectory);
+        throw new InvalidOperationException("Could not locate Lindrake.sln above " + AppContext.BaseDirectory);
     }
 }

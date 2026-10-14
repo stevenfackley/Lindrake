@@ -122,7 +122,7 @@ public sealed class JwtOptionsValidatorTests
     [Fact]
     public void DevelopmentDefaultSecret_MatchesAppsettingsDevelopment()
     {
-        var path = Path.Combine(RepoRoot(), "src", "OmniSift.Api", "appsettings.Development.json");
+        var path = Path.Combine(RepoRoot(), "src", "Lindrake.Api", "appsettings.Development.json");
         using var json = JsonDocument.Parse(File.ReadAllText(path));
 
         json.RootElement.GetProperty("Jwt").GetProperty("Secret").GetString()
@@ -133,10 +133,10 @@ public sealed class JwtOptionsValidatorTests
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "OmniSift.sln")))
+            if (File.Exists(Path.Combine(dir.FullName, "Lindrake.sln")))
                 return dir.FullName;
         }
 
-        throw new InvalidOperationException("Could not locate OmniSift.sln above " + AppContext.BaseDirectory);
+        throw new InvalidOperationException("Could not locate Lindrake.sln above " + AppContext.BaseDirectory);
     }
 }

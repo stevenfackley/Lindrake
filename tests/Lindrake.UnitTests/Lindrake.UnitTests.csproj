@@ -26,9 +26,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\OmniSift.Api\OmniSift.Api.csproj" />
-    <ProjectReference Include="..\..\src\OmniSift.Shared\OmniSift.Shared.csproj" />
-    <ProjectReference Include="..\..\src\OmniSift.Web\OmniSift.Web.csproj" />
+    <ProjectReference Include="..\..\src\Lindrake.Api\Lindrake.Api.csproj" />
+    <ProjectReference Include="..\..\src\Lindrake.Shared\Lindrake.Shared.csproj" />
+    <ProjectReference Include="..\..\src\Lindrake.Web\Lindrake.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>
