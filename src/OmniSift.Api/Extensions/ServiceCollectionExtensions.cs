@@ -120,6 +120,10 @@ public static class ServiceCollectionExtensions
         // Sets the RLS session variable whenever EF opens a connection (stateless).
         services.AddSingleton<TenantConnectionInterceptor>();
 
+        // Stamps CreatedAt / UpdatedAt on save.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<TimestampInterceptor>();
+
         services.AddDbContext<OmniSiftDbContext>((sp, options) =>
             options.UseNpgsql(
                 configuration.GetConnectionString("DefaultConnection"),
@@ -128,7 +132,9 @@ public static class ServiceCollectionExtensions
                     npgsql.UseVector();
                     npgsql.EnableRetryOnFailure(3);
                 })
-            .AddInterceptors(sp.GetRequiredService<TenantConnectionInterceptor>()));
+            .AddInterceptors(
+                sp.GetRequiredService<TenantConnectionInterceptor>(),
+                sp.GetRequiredService<TimestampInterceptor>()));
 
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantContext, TenantContext>();

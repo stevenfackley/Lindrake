@@ -9,7 +9,7 @@ namespace OmniSift.Api.Models;
 /// Records every agent query and response for audit trails
 /// and potential conversation context retrieval.
 /// </summary>
-public sealed class QueryHistory : ITenantOwned
+public sealed class QueryHistory : ITenantOwned, ICreationTimestamped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -43,7 +43,7 @@ public sealed class QueryHistory : ITenantOwned
     /// </summary>
     public int? DurationMs { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
 
     // Navigation properties
     public Tenant Tenant { get; set; } = null!;

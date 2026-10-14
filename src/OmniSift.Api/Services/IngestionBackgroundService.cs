@@ -86,7 +86,6 @@ public sealed class IngestionBackgroundService(
         }
 
         dataSource.Status = IngestionStatus.Processing;
-        dataSource.UpdatedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(stoppingToken).ConfigureAwait(false);
 
         using var content = new MemoryStream(item.Content, writable: false);

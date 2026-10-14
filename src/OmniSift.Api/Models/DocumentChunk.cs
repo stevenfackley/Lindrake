@@ -11,7 +11,7 @@ namespace OmniSift.Api.Models;
 /// An individual text chunk extracted from a data source,
 /// with a vector embedding for semantic similarity search.
 /// </summary>
-public sealed class DocumentChunk : ITenantOwned
+public sealed class DocumentChunk : ITenantOwned, ITimestamped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -52,8 +52,8 @@ public sealed class DocumentChunk : ITenantOwned
     /// </summary>
     public Dictionary<string, object> Metadata { get; set; } = [];
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
     public Tenant Tenant { get; set; } = null!;

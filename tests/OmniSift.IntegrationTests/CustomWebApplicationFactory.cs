@@ -109,7 +109,8 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // to ignore the Vector property (unsupported by InMemory).
             var dbName = "OmniSift_IntegrationTests_" + Guid.NewGuid();
             services.AddDbContext<OmniSiftDbContext>(
-                options => options.UseInMemoryDatabase(dbName),
+                (sp, options) => options.UseInMemoryDatabase(dbName)
+                    .AddInterceptors(sp.GetRequiredService<TimestampInterceptor>()),
                 contextLifetime: ServiceLifetime.Scoped,
                 optionsLifetime: ServiceLifetime.Singleton);
 
