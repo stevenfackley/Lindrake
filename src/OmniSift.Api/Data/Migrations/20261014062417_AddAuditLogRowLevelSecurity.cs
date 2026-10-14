@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -11,7 +11,7 @@ namespace OmniSift.Api.Data.Migrations
     /// scoped to the session tenant; there is no UPDATE policy, so under FORCE the
     /// audit trail is append-only even for the table owner. DELETE stays allowed
     /// because the account-data erase (DELETE /api/account/data) removes the tenant's
-    /// audit rows. The setting is read through <c>NULLIF(…, '')</c> so a connection
+    /// audit rows. The setting is read through <c>NULLIF(..., '')</c> so a connection
     /// with no tenant bound (unset, or reset to '' on pool reuse) matches no rows
     /// instead of failing the <c>::uuid</c> cast, and wrapped in a sub-SELECT so it is
     /// evaluated once per statement rather than per row (tenant_id is indexed).
