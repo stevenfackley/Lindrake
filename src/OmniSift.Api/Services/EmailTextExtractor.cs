@@ -8,6 +8,7 @@
 // ============================================================
 
 using System.Text;
+using HtmlAgilityPack;
 using MimeKit;
 
 namespace OmniSift.Api.Services;
@@ -19,8 +20,10 @@ namespace OmniSift.Api.Services;
 /// </summary>
 public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITextExtractor
 {
+    private static readonly string[] NonContentTags = ["head", "script", "style", "noscript", "template"];
+
     /// <inheritdoc />
-    public string SourceType => "email";
+    public string SourceType => SourceTypes.Email;
 
     /// <inheritdoc />
     public async Task<string> ExtractTextAsync(
@@ -41,14 +44,12 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
                 "Please export the message as .eml and re-upload.");
         }
 
-        // Buffer into a seekable MemoryStream (MimeKit reads ahead).
-        using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
-        ms.Position = 0;
+        // The mbox sniff rewinds, so the input must be seekable.
+        using var buffered = await SeekableStream.BufferIfNeededAsync(stream, cancellationToken).ConfigureAwait(false);
+        var input = buffered ?? stream;
 
         // Detect mbox vs. single EML by checking for the "From " mbox envelope line.
-        var isMbox = IsMboxFormat(ms);
-        ms.Position = 0;
+        var isMbox = IsMboxFormat(input);
 
         var messages = new List<MimeMessage>();
 
@@ -56,7 +57,7 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
         {
             // MimeKit parses mbox via MimeParser with MimeFormat.Mbox.
             // ParseMessageAsync returns the next mbox record; loop until IsEndOfStream.
-            var parser = new MimeParser(ms, MimeFormat.Mbox);
+            var parser = new MimeParser(input, MimeFormat.Mbox);
             while (!parser.IsEndOfStream)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -79,7 +80,7 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
         }
         else
         {
-            var msg = await MimeMessage.LoadAsync(ms, cancellationToken).ConfigureAwait(false);
+            var msg = await MimeMessage.LoadAsync(input, cancellationToken).ConfigureAwait(false);
             messages.Add(msg);
         }
 
@@ -110,12 +111,12 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
 
             sb.AppendLine();
 
-            // Prefer plain text body; fall back to HTML stripped of tags.
+            // Prefer plain text body; fall back to the HTML body's readable text.
             var body = message.TextBody;
 
             if (string.IsNullOrWhiteSpace(body) && !string.IsNullOrWhiteSpace(message.HtmlBody))
             {
-                body = StripHtml(message.HtmlBody);
+                body = HtmlToText(message.HtmlBody);
             }
 
             if (!string.IsNullOrWhiteSpace(body))
@@ -138,35 +139,29 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
     }
 
     /// <summary>
-    /// Returns true if the stream starts with an mbox "From " envelope line.
+    /// Returns true if the stream, from its current position, starts with an mbox
+    /// "From " envelope line. The position is restored.
     /// </summary>
-    private static bool IsMboxFormat(MemoryStream ms)
+    private static bool IsMboxFormat(Stream input)
     {
-        if (ms.Length < 5)
-            return false;
-
+        var start = input.Position;
         Span<byte> peek = stackalloc byte[5];
-        _ = ms.Read(peek);
-        ms.Position = 0;
+        var read = input.ReadAtLeast(peek, peek.Length, throwOnEndOfStream: false);
+        input.Position = start;
 
-        return peek.SequenceEqual("From "u8);
+        return read == peek.Length && peek.SequenceEqual("From "u8);
     }
 
     /// <summary>
-    /// Lightweight HTML tag stripper used when only an HTML body exists.
+    /// Readable text of an HTML-only body. Script, style and head content is
+    /// dropped (a character-level tag stripper kept it, so tracking scripts and
+    /// CSS ended up in the index) and entities are decoded.
     /// </summary>
-    private static string StripHtml(string html)
+    private static string HtmlToText(string html)
     {
-        var sb = new StringBuilder(html.Length);
-        var inTag = false;
-
-        foreach (var c in html)
-        {
-            if (c == '<') { inTag = true; continue; }
-            if (c == '>') { inTag = false; continue; }
-            if (!inTag) sb.Append(c);
-        }
-
-        return sb.ToString();
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        HtmlText.RemoveNodes(doc, NonContentTags);
+        return HtmlText.CleanText(doc.DocumentNode);
     }
 }

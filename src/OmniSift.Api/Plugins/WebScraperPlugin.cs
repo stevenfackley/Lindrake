@@ -18,14 +18,18 @@ namespace OmniSift.Api.Plugins;
 /// The agent invokes this to find current information not available
 /// in the tenant's uploaded documents.
 /// Also records results in <see cref="ICitationAccumulator"/>.
+/// The typed HttpClient carries <see cref="TavilyBaseAddress"/> and the bearer
+/// key (configured in AddOmniSiftAgent); requests use relative URIs.
 /// </summary>
-public sealed class WebScraperPlugin(
+public sealed partial class WebScraperPlugin(
     HttpClient httpClient,
     IOptions<TavilyOptions> tavilyOptions,
     ICitationAccumulator citations,
     ILogger<WebScraperPlugin> logger)
 {
-    private readonly string _apiKey = tavilyOptions.Value.ApiKey;
+    public static readonly Uri TavilyBaseAddress = new("https://api.tavily.com/");
+
+    private readonly bool _configured = !string.IsNullOrWhiteSpace(tavilyOptions.Value.ApiKey);
 
     [KernelFunction("SearchWeb")]
     [Description("Searches the web for current information related to the query. " +
@@ -38,7 +42,7 @@ public sealed class WebScraperPlugin(
         if (string.IsNullOrWhiteSpace(query))
             return "No query provided for web search.";
 
-        if (string.IsNullOrWhiteSpace(_apiKey))
+        if (!_configured)
         {
             logger.LogWarning("Tavily API key not configured; web search unavailable");
             return "Web search is not available — API key not configured.";
@@ -52,7 +56,6 @@ public sealed class WebScraperPlugin(
         {
             var request = new TavilySearchRequest
             {
-                ApiKey = _apiKey,
                 Query = query,
                 MaxResults = maxResults,
                 SearchDepth = "basic",
@@ -60,30 +63,28 @@ public sealed class WebScraperPlugin(
             };
 
             var response = await httpClient.PostAsJsonAsync(
-                "https://api.tavily.com/search",
-                request).ConfigureAwait(false);
+                "search",
+                request,
+                TavilyJsonContext.Default.TavilySearchRequest).ConfigureAwait(false);
 
             response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<TavilySearchResponse>().ConfigureAwait(false);
+            var result = await response.Content.ReadFromJsonAsync(
+                TavilyJsonContext.Default.TavilySearchResponse).ConfigureAwait(false);
 
             if (result?.Results is null || result.Results.Count == 0)
             {
                 return "No web results found for this query.";
             }
 
-            var formattedResults = new
-            {
-                answer = result.Answer,
-                results = result.Results.Select((r, i) => new
-                {
-                    rank = i + 1,
-                    title = r.Title,
-                    url = r.Url,
-                    snippet = r.Content?.Length > 500 ? r.Content[..500] + "..." : r.Content,
-                    score = r.Score
-                })
-            };
+            var formattedResults = new SearchOutput(
+                result.Answer,
+                [.. result.Results.Select((r, i) => new SearchOutputItem(
+                    Rank: i + 1,
+                    Title: r.Title,
+                    Url: r.Url,
+                    Snippet: r.Content?.Length > 500 ? r.Content[..500] + "..." : r.Content,
+                    Score: r.Score))]);
 
             logger.LogInformation("WebSearch returned {Count} results for query", result.Results.Count);
 
@@ -94,7 +95,7 @@ public sealed class WebScraperPlugin(
                 citations.AddWebResult(r.Url, r.Title, r.Score, snippet);
             }
 
-            return JsonSerializer.Serialize(formattedResults, new JsonSerializerOptions { WriteIndented = true });
+            return JsonSerializer.Serialize(formattedResults, TavilyJsonContext.Default.SearchOutput);
         }
         catch (Exception ex)
         {
@@ -105,11 +106,19 @@ public sealed class WebScraperPlugin(
 
     // ── Tavily API DTOs ─────────────────────────────
 
+    [JsonSerializable(typeof(TavilySearchRequest))]
+    [JsonSerializable(typeof(TavilySearchResponse))]
+    [JsonSerializable(typeof(SearchOutput))]
+    [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = true)]
+    private sealed partial class TavilyJsonContext : JsonSerializerContext;
+
+    /// <summary>Tool output handed back to the LLM.</summary>
+    private sealed record SearchOutput(string? Answer, IReadOnlyList<SearchOutputItem> Results);
+
+    private sealed record SearchOutputItem(int Rank, string Title, string Url, string? Snippet, double Score);
+
     private sealed class TavilySearchRequest
     {
-        [JsonPropertyName("api_key")]
-        public string ApiKey { get; init; } = string.Empty;
-
         [JsonPropertyName("query")]
         public string Query { get; init; } = string.Empty;
 

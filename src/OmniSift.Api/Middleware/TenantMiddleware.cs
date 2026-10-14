@@ -1,10 +1,10 @@
 // ============================================================
 // OmniSift.Api — Tenant Resolution Middleware
-// Derives the tenant from the authenticated JWT (tenant_id claim)
-// and sets the PostgreSQL session variable for RLS enforcement.
+// Derives the tenant from the authenticated JWT (tenant_id claim),
+// binds it to ITenantContext and sets the PostgreSQL session
+// variable for RLS enforcement.
 // ============================================================
 
-using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
 using OmniSift.Api.Extensions;
 
@@ -12,7 +12,7 @@ namespace OmniSift.Api.Middleware;
 
 /// <summary>
 /// Resolves the current tenant from the validated JWT's <c>tenant_id</c> claim,
-/// stores it in <see cref="HttpContext.Items"/> for downstream use, and sets the
+/// binds it to the request's <see cref="ITenantContext"/>, and sets the
 /// PostgreSQL session variable <c>app.current_tenant</c> for Row-Level Security.
 ///
 /// The tenant is taken ONLY from the authenticated identity — the previous
@@ -21,11 +21,11 @@ namespace OmniSift.Api.Middleware;
 /// </summary>
 public sealed class TenantMiddleware(RequestDelegate next, ILogger<TenantMiddleware> logger)
 {
-    public async Task InvokeAsync(HttpContext context, OmniSiftDbContext dbContext)
+    public async Task InvokeAsync(HttpContext context, OmniSiftDbContext dbContext, ITenantContext tenantContext)
     {
         // Skip tenant resolution for anonymous endpoints (health, Swagger, auth).
         var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
-        if (path.StartsWith("/health") || path.StartsWith("/api/health") || path.StartsWith("/swagger") || path.StartsWith("/api/auth"))
+        if (path.StartsWith("/health") || path.StartsWith("/swagger") || path.StartsWith("/api/auth"))
         {
             await next(context).ConfigureAwait(false);
             return;
@@ -53,38 +53,12 @@ public sealed class TenantMiddleware(RequestDelegate next, ILogger<TenantMiddlew
             return;
         }
 
-        // Store the tenant ID in HttpContext.Items for downstream use.
-        context.Items["TenantId"] = tenantId.Value;
+        tenantContext.Set(tenantId.Value);
 
-        // Set the PostgreSQL session variable for RLS enforcement so every query
-        // on this connection is scoped to the tenant. Skipped for non-relational
-        // providers (e.g. InMemory during testing).
-        if (!dbContext.Database.IsRelational())
-        {
-            await next(context).ConfigureAwait(false);
-            return;
-        }
-
+        // Scope every query on this request's connection to the tenant (RLS).
         try
         {
-            var connection = dbContext.Database.GetDbConnection();
-            if (connection.State != System.Data.ConnectionState.Open)
-            {
-                await connection.OpenAsync(context.RequestAborted).ConfigureAwait(false);
-            }
-
-#pragma warning disable CA2007 // await using DisposeAsync — block-form restructure not worth it for ASP.NET Core (no SyncContext)
-            await using var command = connection.CreateCommand();
-#pragma warning restore CA2007
-            // Use set_config() instead of SET to allow a parameterized value.
-            // 'false' = setting persists for the entire session/connection.
-            command.CommandText = "SELECT set_config('app.current_tenant', @tenantId, false)";
-            var param = command.CreateParameter();
-            param.ParameterName = "@tenantId";
-            param.Value = tenantId.Value.ToString();
-            command.Parameters.Add(param);
-            await command.ExecuteNonQueryAsync(context.RequestAborted).ConfigureAwait(false);
-
+            await dbContext.SetTenantSessionAsync(tenantId.Value, context.RequestAborted).ConfigureAwait(false);
             logger.LogDebug("Tenant context set to {TenantId}", tenantId.Value);
         }
         catch (Exception ex)

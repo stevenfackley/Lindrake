@@ -41,10 +41,17 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public static readonly Guid TestTenantId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
 
     // HS256 signing parameters injected into the Testing host's configuration and
-    // used to mint matching tokens. Must agree with the validator in Program.cs.
+    // used to mint matching tokens. Must agree with the validator in AddOmniSiftAuth.
     public const string TestJwtSecret = "omnisift-integration-tests-hs256-signing-secret-key";
     public const string TestJwtIssuer = "OmniSift";
     public const string TestJwtAudience = "OmniSift";
+
+    /// <summary>
+    /// Extra configuration layered over the defaults below (e.g. small rate limits).
+    /// Tests that need it create their own factory instead of the class fixture.
+    /// </summary>
+    public IReadOnlyDictionary<string, string?> ExtraSettings { get; init; } =
+        new Dictionary<string, string?>();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -59,6 +66,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:Audience"] = TestJwtAudience,
                 // Supabase:Url intentionally unset → in-house HS256 validation path.
             });
+            config.AddInMemoryCollection(ExtraSettings);
         });
 
         builder.ConfigureServices(services =>
@@ -112,6 +120,11 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 .ReturnsAsync((IEnumerable<string> texts, CancellationToken _) =>
                     texts.Select(_ => new Vector(new float[384])).ToList());
             services.AddSingleton(embeddingMock.Object);
+
+            // appsettings selects the ONNX provider, whose token counter needs the
+            // model files; chunk with the word heuristic instead.
+            services.RemoveAll<ITokenCounter>();
+            services.AddSingleton<ITokenCounter, WordHeuristicTokenCounter>();
 
             // Replace Semantic Kernel with a simple empty kernel (no LLM)
             services.RemoveAll<Func<Kernel>>();

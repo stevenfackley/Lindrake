@@ -3,16 +3,19 @@
 // Manages file uploads, web ingestion, and data source CRUD
 // ============================================================
 
-using System.Collections.Frozen;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 using OmniSift.Api.Services;
+using OmniSift.Api.Services.Extraction;
+using OmniSift.Api.Services.Ingestion;
 using OmniSift.Shared.DTOs;
 
 namespace OmniSift.Api.Controllers;
@@ -20,11 +23,12 @@ namespace OmniSift.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-[EnableRateLimiting("per-tenant")]
+[EnableRateLimiting(RateLimitPolicies.PerTenant)]
 public sealed class DataSourcesController(
     OmniSiftDbContext dbContext,
     ITenantContext tenantContext,
-    IDocumentIngestionService ingestionService,
+    IIngestionPipeline ingestionPipeline,
+    ITextExtractorRegistry extractorRegistry,
     IngestionChannel ingestionChannel,
     IAuditLogger auditLogger,
     ILogger<DataSourcesController> logger) : ControllerBase
@@ -34,24 +38,9 @@ public sealed class DataSourcesController(
     /// </summary>
     private const long MaxFileSize = 50 * 1024 * 1024;
 
-    /// <summary>
-    /// Allowed MIME types for file uploads mapped to their ingestion source-type key.
-    /// FrozenDictionary provides optimised read-only lookups for this static mapping.
-    /// </summary>
-    private static readonly FrozenDictionary<string, string> AllowedMimeTypes =
-        new Dictionary<string, string>
-        {
-            ["application/pdf"] = "pdf",
-            ["text/csv"] = "sms",
-            ["application/json"] = "sms",
-            ["text/html"] = "web",
-            // Word documents
-            ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] = "docx",
-            ["application/msword"] = "docx",
-            // Email formats (RFC-2822 / MBOX)
-            ["message/rfc822"] = "email",
-            ["application/mbox"] = "email"
-        }.ToFrozenDictionary();
+    /// <summary>Column widths of data_sources.file_name / source_type.</summary>
+    private const int MaxFileNameLength = 512;
+    private const int MaxSourceTypeLength = 50;
 
     /// <summary>
     /// Upload a file for asynchronous ingestion into the document pipeline.
@@ -62,33 +51,43 @@ public sealed class DataSourcesController(
     [RequestSizeLimit(MaxFileSize)]
     public async Task<ActionResult<IngestionResponse>> Upload(
         IFormFile file,
-        [FromForm] string? sourceType,
+        [FromForm, MaxLength(MaxSourceTypeLength)] string? sourceType,
         CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
         {
-            return BadRequest(new { error = "No file provided or file is empty." });
+            return Problem(detail: "No file provided or file is empty.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         if (file.Length > MaxFileSize)
         {
-            return BadRequest(new { error = $"File size exceeds the maximum allowed size of {MaxFileSize / (1024 * 1024)} MB." });
+            return Problem(
+                detail: $"File size exceeds the maximum allowed size of {MaxFileSize / (1024 * 1024)} MB.",
+                statusCode: StatusCodes.Status400BadRequest);
         }
 
-        // Determine source type from MIME type or explicit parameter
-        var resolvedSourceType = sourceType?.ToLowerInvariant();
-
-        if (string.IsNullOrWhiteSpace(resolvedSourceType))
+        // Longer would fail the insert with a DbUpdateException (500).
+        if (file.FileName.Length > MaxFileNameLength)
         {
-            var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
+            return Problem(
+                detail: $"File name exceeds the maximum length of {MaxFileNameLength} characters.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
 
-            if (!AllowedMimeTypes.TryGetValue(contentType, out resolvedSourceType))
-            {
-                return BadRequest(new
-                {
-                    error = $"Unsupported file type: '{contentType}'. Allowed: {string.Join(", ", AllowedMimeTypes.Keys)}"
-                });
-            }
+        // Determine the source type from the explicit parameter or from the
+        // MIME type / file extension — validated here, not in the background worker.
+        string? resolvedSourceType;
+
+        if (!string.IsNullOrWhiteSpace(sourceType))
+        {
+            if (!extractorRegistry.TryGet(sourceType, out var extractor))
+                throw new UnsupportedSourceTypeException(sourceType, extractorRegistry.SupportedSourceTypes);
+
+            resolvedSourceType = extractor.SourceType;
+        }
+        else if (!extractorRegistry.TryResolveSourceType(file.ContentType, file.FileName, out resolvedSourceType))
+        {
+            throw new UnsupportedFileTypeException(file.ContentType, file.FileName, extractorRegistry.SupportedSourceTypes);
         }
 
         var tenantId = tenantContext.TenantId;
@@ -138,8 +137,9 @@ public sealed class DataSourcesController(
         catch (ChannelClosedException)
         {
             logger.LogError("Ingestion channel is closed; cannot enqueue DataSource {DataSourceId}", dataSource.Id);
-            return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                new { error = "Ingestion service unavailable. Please try again shortly." });
+            return Problem(
+                detail: "Ingestion service unavailable. Please try again shortly.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
         logger.LogInformation(
@@ -160,24 +160,31 @@ public sealed class DataSourcesController(
     [HttpPost("web")]
     public async Task<ActionResult<IngestionResponse>> IngestWeb(
         [FromBody] WebIngestionRequest request,
-        [FromServices] IHttpClientFactory httpClientFactory,
+        [FromServices] IWebPageFetcher webPageFetcher,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         logger.LogInformation(
             "Web ingestion request: url={Url}, tenant={TenantId}",
             request.Url, tenantContext.TenantId);
 
-        // Fetch the web page — HttpRequestException propagates to GlobalExceptionHandler (502)
-        var httpClient = httpClientFactory.CreateClient();
-        var response = await httpClient.GetAsync(request.Url, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+        // SSRF-guarded fetch. BlockedUrlException → 400; HttpRequestException
+        // (upstream failure, oversized body) → 502 via GlobalExceptionHandler.
+        var page = await webPageFetcher.FetchAsync(request.Url, cancellationToken).ConfigureAwait(false);
 
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var dataSource = await ingestionService.IngestAsync(
-            stream, "web", null, request.Url, cancellationToken).ConfigureAwait(false);
+        // Committed before the pipeline runs so a pipeline failure is recorded on
+        // this row (status "failed") instead of rolling it back.
+        var dataSource = new DataSource
+        {
+            TenantId = tenantContext.TenantId,
+            SourceType = SourceTypes.Web,
+            OriginalUrl = request.Url,
+            Status = IngestionStatus.Processing
+        };
+        dbContext.DataSources.Add(dataSource);
+        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        using var stream = new MemoryStream(page, writable: false);
+        dataSource = await ingestionPipeline.RunAsync(dataSource, stream, cancellationToken).ConfigureAwait(false);
 
         return Ok(new IngestionResponse
         {
@@ -231,7 +238,7 @@ public sealed class DataSourcesController(
                 cancellationToken).ConfigureAwait(false);
 
         if (ds is null)
-            return NotFound(new { error = $"Data source '{id}' not found." });
+            return Problem(detail: $"Data source '{id}' not found.", statusCode: StatusCodes.Status404NotFound);
 
         var source = new DataSourceDto
         {
@@ -260,7 +267,7 @@ public sealed class DataSourcesController(
             .FirstOrDefaultAsync(ds => ds.TenantId == tenantContext.TenantId && ds.Id == id, cancellationToken).ConfigureAwait(false);
 
         if (source is null)
-            return NotFound(new { error = $"Data source '{id}' not found." });
+            return Problem(detail: $"Data source '{id}' not found.", statusCode: StatusCodes.Status404NotFound);
 
         dbContext.DataSources.Remove(source);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

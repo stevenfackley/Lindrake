@@ -1,44 +1,49 @@
 // ============================================================
-// OmniSift.Api — Tenant Context Accessor
-// Provides access to the current tenant ID from HttpContext
+// OmniSift.Api — Tenant Context
+// The tenant a DI scope acts for: set by TenantMiddleware from the
+// JWT claim, or by IngestionBackgroundService from the work item.
 // ============================================================
+
+using OmniSift.Api.Infrastructure;
 
 namespace OmniSift.Api.Middleware;
 
 /// <summary>
-/// Interface for accessing the current tenant context.
-/// Registered as scoped to ensure per-request isolation.
+/// The tenant the current DI scope acts for. Registered as scoped, so each
+/// HTTP request and each background work item gets its own instance.
 /// </summary>
 public interface ITenantContext
 {
     /// <summary>
-    /// Gets the current tenant ID for the request.
+    /// The scope's tenant. Throws <see cref="TenantContextMissingException"/>
+    /// when <see cref="Set"/> has not been called for this scope.
     /// </summary>
     Guid TenantId { get; }
+
+    /// <summary>
+    /// Binds the scope to <paramref name="tenantId"/>. A scope belongs to one
+    /// tenant: re-binding it to a different tenant throws.
+    /// </summary>
+    void Set(Guid tenantId);
 }
 
-/// <summary>
-/// Resolves the current tenant ID from HttpContext items,
-/// which is set by the TenantMiddleware.
-/// </summary>
-public sealed class TenantContext(IHttpContextAccessor httpContextAccessor) : ITenantContext
+/// <summary>Default scoped <see cref="ITenantContext"/>.</summary>
+public sealed class TenantContext : ITenantContext
 {
+    private Guid? _tenantId;
+
     /// <inheritdoc />
-    public Guid TenantId
+    public Guid TenantId => _tenantId ?? throw new TenantContextMissingException();
+
+    /// <inheritdoc />
+    public void Set(Guid tenantId)
     {
-        get
-        {
-            var context = httpContextAccessor.HttpContext
-                ?? throw new InvalidOperationException("No HTTP context available.");
+        if (tenantId == Guid.Empty)
+            throw new ArgumentException("Tenant id must not be empty.", nameof(tenantId));
 
-            if (context.Items.TryGetValue("TenantId", out var tenantIdObj) &&
-                tenantIdObj is Guid tenantId)
-            {
-                return tenantId;
-            }
+        if (_tenantId is { } current && current != tenantId)
+            throw new InvalidOperationException("This scope is already bound to a different tenant.");
 
-            throw new InvalidOperationException(
-                "Tenant ID not found in request context. Ensure TenantMiddleware is registered.");
-        }
+        _tenantId = tenantId;
     }
 }

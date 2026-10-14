@@ -1,7 +1,10 @@
 // ============================================================
 // OmniSift.Api — Text Chunker Interface & Implementation
-// Splits text into overlapping chunks for embedding
+// Splits text into overlapping, token-budgeted chunks for embedding
 // ============================================================
+
+using Microsoft.Extensions.Options;
+using OmniSift.Api.Options;
 
 namespace OmniSift.Api.Services;
 
@@ -21,7 +24,7 @@ public sealed record TextChunk
     public int Index { get; init; }
 
     /// <summary>
-    /// Approximate token count (whitespace-split words).
+    /// Token count as measured by the active <see cref="ITokenCounter"/>.
     /// </summary>
     public int TokenCount { get; init; }
 }
@@ -32,69 +35,128 @@ public sealed record TextChunk
 public interface ITextChunker
 {
     /// <summary>
-    /// Splits text into chunks of approximately the specified token size
-    /// with the specified overlap between consecutive chunks.
+    /// Splits <paramref name="text"/> into ordered chunks of at most
+    /// <see cref="ChunkingOptions.MaxTokens"/> tokens, consecutive chunks sharing
+    /// up to <see cref="ChunkingOptions.OverlapTokens"/> tokens.
     /// </summary>
-    /// <param name="text">The input text to chunk.</param>
-    /// <param name="chunkSize">Target tokens per chunk (default: 500).</param>
-    /// <param name="overlap">Token overlap between chunks (default: 50).</param>
-    /// <returns>Ordered list of text chunks.</returns>
-    IReadOnlyList<TextChunk> ChunkText(string text, int chunkSize = 500, int overlap = 50);
+    IReadOnlyList<TextChunk> ChunkText(string text);
 }
 
 /// <summary>
-/// Default implementation using whitespace tokenization with sliding window.
+/// Packs whole sentences (lines and <c>. ! ?</c>-terminated runs) into chunks until
+/// the token budget is reached; a sentence larger than the budget is packed word by
+/// word. Only a single word larger than the whole budget can yield an oversized chunk.
+/// Overlap is made of whole trailing sentences/words of the previous chunk.
 /// </summary>
-public sealed class TextChunker : ITextChunker
+public sealed class TextChunker(ITokenCounter tokenCounter, IOptions<ChunkingOptions> options) : ITextChunker
 {
+    private readonly int _maxTokens = options.Value.MaxTokens;
+    private readonly int _overlapTokens = options.Value.OverlapTokens;
+
     /// <inheritdoc />
-    public IReadOnlyList<TextChunk> ChunkText(string text, int chunkSize = 500, int overlap = 50)
+    public IReadOnlyList<TextChunk> ChunkText(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        if (chunkSize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be positive.");
-
-        if (overlap < 0)
-            throw new ArgumentOutOfRangeException(nameof(overlap), "Overlap must be non-negative.");
-
-        if (overlap >= chunkSize)
-            throw new ArgumentOutOfRangeException(nameof(overlap), "Overlap must be less than chunk size.");
-
         var chunks = new List<TextChunk>();
+        var window = new List<Unit>();
+        var windowTokens = 0;
 
-        if (string.IsNullOrWhiteSpace(text))
-            return chunks;
-
-        // Tokenize by whitespace (approximate token count)
-        var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-
-        if (tokens.Length == 0)
-            return chunks;
-
-        var stride = chunkSize - overlap;
-        var index = 0;
-
-        for (var start = 0; start < tokens.Length; start += stride)
+        foreach (var unit in SplitUnits(text))
         {
-            var end = Math.Min(start + chunkSize, tokens.Length);
-            var chunkTokens = tokens[start..end];
-            var content = string.Join(' ', chunkTokens);
-
-            chunks.Add(new TextChunk
+            if (window.Count > 0 && windowTokens + unit.Tokens > _maxTokens)
             {
-                Content = content,
-                Index = index,
-                TokenCount = chunkTokens.Length
-            });
+                chunks.Add(ToChunk(window, windowTokens, chunks.Count));
+                windowTokens = KeepOverlap(window);
 
-            index++;
+                // The carried overlap must leave room for the new unit, or the next
+                // chunk would be nothing but overlap.
+                if (windowTokens + unit.Tokens > _maxTokens)
+                {
+                    window.Clear();
+                    windowTokens = 0;
+                }
+            }
 
-            // If we've reached the end, stop
-            if (end >= tokens.Length)
-                break;
+            window.Add(unit);
+            windowTokens += unit.Tokens;
         }
+
+        if (window.Count > 0)
+            chunks.Add(ToChunk(window, windowTokens, chunks.Count));
 
         return chunks;
     }
+
+    /// <summary>Sentences within budget, else that sentence's words.</summary>
+    private IEnumerable<Unit> SplitUnits(string text)
+    {
+        foreach (var sentence in SplitSentences(text))
+        {
+            var tokens = tokenCounter.Count(sentence);
+            if (tokens <= _maxTokens)
+            {
+                yield return new Unit(sentence, tokens);
+                continue;
+            }
+
+            foreach (var word in sentence.Split(' '))
+                yield return new Unit(word, tokenCounter.Count(word));
+        }
+    }
+
+    /// <summary>
+    /// Splits on line breaks and after words ending in <c>. ! ?</c>; whitespace inside
+    /// a sentence is collapsed to single spaces.
+    /// </summary>
+    private static IEnumerable<string> SplitSentences(string text)
+    {
+        var words = new List<string>();
+
+        foreach (var line in text.Split('\n'))
+        {
+            foreach (var word in line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            {
+                words.Add(word);
+                if (word[^1] is '.' or '!' or '?')
+                {
+                    yield return string.Join(' ', words);
+                    words.Clear();
+                }
+            }
+
+            if (words.Count > 0)
+            {
+                yield return string.Join(' ', words);
+                words.Clear();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Drops units from the front of <paramref name="window"/> until what remains
+    /// fits the overlap budget; returns the remaining token count.
+    /// </summary>
+    private int KeepOverlap(List<Unit> window)
+    {
+        var keepFrom = window.Count;
+        var kept = 0;
+        while (keepFrom > 0 && kept + window[keepFrom - 1].Tokens <= _overlapTokens)
+        {
+            keepFrom--;
+            kept += window[keepFrom].Tokens;
+        }
+
+        window.RemoveRange(0, keepFrom);
+        return kept;
+    }
+
+    private static TextChunk ToChunk(List<Unit> window, int tokens, int index) => new()
+    {
+        Content = string.Join(' ', window.Select(u => u.Text)),
+        Index = index,
+        TokenCount = tokens
+    };
+
+    private readonly record struct Unit(string Text, int Tokens);
 }

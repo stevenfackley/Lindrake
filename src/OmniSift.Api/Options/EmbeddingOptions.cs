@@ -3,6 +3,8 @@
 // Selects between the paid OpenAI API and a local ONNX model.
 // ============================================================
 
+using System.ComponentModel.DataAnnotations;
+
 namespace OmniSift.Api.Options;
 
 /// <summary>
@@ -62,9 +64,11 @@ public sealed class EmbeddingOptions
     public string TokenizerPath { get; set; } = "models/bge-small-en-v1.5/vocab.txt";
 
     /// <summary>Output embedding dimension. Must match the model AND the pgvector column.</summary>
+    [Range(1, int.MaxValue)]
     public int Dimensions { get; set; } = 384;
 
     /// <summary>Max token sequence length; longer inputs are truncated before inference.</summary>
+    [Range(1, int.MaxValue)]
     public int MaxSequenceLength { get; set; } = 512;
 
     /// <summary>Pooling strategy. Must match the model. bge-* = Cls (default), all-MiniLM-* = Mean.</summary>

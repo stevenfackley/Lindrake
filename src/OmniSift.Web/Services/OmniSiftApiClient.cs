@@ -208,7 +208,7 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
     {
         try
         {
-            var response = await httpClient.GetAsync("api/health").ConfigureAwait(false);
+            var response = await httpClient.GetAsync("health").ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch

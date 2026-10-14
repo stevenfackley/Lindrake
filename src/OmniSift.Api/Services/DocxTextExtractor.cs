@@ -17,7 +17,7 @@ namespace OmniSift.Api.Services;
 public sealed class DocxTextExtractor(ILogger<DocxTextExtractor> logger) : ITextExtractor
 {
     /// <inheritdoc />
-    public string SourceType => "docx";
+    public string SourceType => SourceTypes.Docx;
 
     /// <inheritdoc />
     public async Task<string> ExtractTextAsync(
@@ -29,65 +29,46 @@ public sealed class DocxTextExtractor(ILogger<DocxTextExtractor> logger) : IText
 
         logger.LogDebug("Extracting text from DOCX: {FileName}", fileName ?? "unknown");
 
-        // WordprocessingDocument.Open requires a seekable stream; buffer if needed.
-        MemoryStream? owned = null;
-        Stream seekable = stream;
+        // WordprocessingDocument.Open requires a seekable stream; buffer only if needed.
+        using var buffered = await SeekableStream.BufferIfNeededAsync(stream, cancellationToken).ConfigureAwait(false);
 
-        if (!stream.CanSeek)
+        using var doc = WordprocessingDocument.Open(buffered ?? stream, isEditable: false);
+
+        var body = doc.MainDocumentPart?.Document?.Body;
+        if (body is null)
         {
-            owned = new MemoryStream();
-            await stream.CopyToAsync(owned, cancellationToken).ConfigureAwait(false);
-            owned.Position = 0;
-            seekable = owned;
+            logger.LogWarning("DOCX has no body: {FileName}", fileName ?? "unknown");
+            return string.Empty;
         }
 
-        try
+        var sb = new StringBuilder();
+
+        foreach (var paragraph in body.Descendants<Paragraph>())
         {
-            using var doc = WordprocessingDocument.Open(seekable, isEditable: false);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            var body = doc.MainDocumentPart?.Document?.Body;
-            if (body is null)
+            // Concatenate all Run text within this paragraph.
+            var paraText = string.Concat(
+                paragraph.Descendants<Text>().Select(t => t.Text));
+
+            if (!string.IsNullOrWhiteSpace(paraText))
             {
-                logger.LogWarning("DOCX has no body: {FileName}", fileName ?? "unknown");
-                return string.Empty;
-            }
-
-            var sb = new StringBuilder();
-
-            foreach (var paragraph in body.Descendants<Paragraph>())
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Concatenate all Run text within this paragraph.
-                var paraText = string.Concat(
-                    paragraph.Descendants<Text>().Select(t => t.Text));
-
-                if (!string.IsNullOrWhiteSpace(paraText))
-                {
-                    sb.AppendLine(paraText.Trim());
-                }
-            }
-
-            var result = sb.ToString().Trim();
-
-            if (result.Length == 0)
-            {
-                logger.LogWarning("No text extracted from DOCX: {FileName}", fileName ?? "unknown");
-                return string.Empty;
-            }
-
-            logger.LogInformation(
-                "Extracted {Length} chars from DOCX: {FileName}",
-                result.Length, fileName ?? "unknown");
-
-            return result;
-        }
-        finally
-        {
-            if (owned is not null)
-            {
-                await owned.DisposeAsync().ConfigureAwait(false);
+                sb.AppendLine(paraText.Trim());
             }
         }
+
+        var result = sb.ToString().Trim();
+
+        if (result.Length == 0)
+        {
+            logger.LogWarning("No text extracted from DOCX: {FileName}", fileName ?? "unknown");
+            return string.Empty;
+        }
+
+        logger.LogInformation(
+            "Extracted {Length} chars from DOCX: {FileName}",
+            result.Length, fileName ?? "unknown");
+
+        return result;
     }
 }

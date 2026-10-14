@@ -79,7 +79,9 @@ public sealed class AccountController(
         CancellationToken cancellationToken)
     {
         if (request.Confirm != "DELETE")
-            return BadRequest(new { error = "Confirm field must equal 'DELETE' (case-sensitive)." });
+            return Problem(
+                detail: "Confirm field must equal 'DELETE' (case-sensitive).",
+                statusCode: StatusCodes.Status400BadRequest);
 
         var tenantId = tenantContext.TenantId;
 

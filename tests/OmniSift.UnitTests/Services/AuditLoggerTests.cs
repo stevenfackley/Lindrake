@@ -1,27 +1,60 @@
+// ============================================================
+// Unit Tests — AuditLogger
+// ============================================================
+
+using System.Net;
+using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using OmniSift.Api.Middleware;
 using OmniSift.Api.Services;
+using OmniSift.UnitTests.TestSupport;
 
 namespace OmniSift.UnitTests.Services;
 
-/// <summary>
-/// Verifies structural invariants of AuditLogger.
-/// Full persistence behavior is covered in integration tests
-/// (InMemory EF provider is only available there).
-/// </summary>
 public sealed class AuditLoggerTests
 {
+    private readonly string _databaseName = "audit-" + Guid.NewGuid();
+    private readonly Guid _tenantId = Guid.NewGuid();
+
     [Fact]
-    public void AuditLogger_ImplementsIAuditLogger()
+    public async Task LogAsync_AuthenticatedRequest_RecordsUserIdAndIp()
     {
-        typeof(AuditLogger).Should().Implement<IAuditLogger>();
+        var userId = Guid.NewGuid();
+        var http = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", userId.ToString())], "TestAuth"))
+        };
+        http.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.7");
+
+        await LogAsync(http);
+
+        await using var verify = InMemoryDb.Create(_databaseName);
+        var entry = await verify.AuditLogs.SingleAsync();
+        entry.UserId.Should().Be(userId);
+        entry.TenantId.Should().Be(_tenantId);
+        entry.IpAddress.Should().Be("203.0.113.7");
+        entry.Action.Should().Be("delete");
     }
 
     [Fact]
-    public void IAuditLogger_HasLogAsyncMethod()
+    public async Task LogAsync_NoUserClaim_RecordsNullUserId()
     {
-        var method = typeof(IAuditLogger).GetMethod(nameof(IAuditLogger.LogAsync));
+        await LogAsync(new DefaultHttpContext());
 
-        method.Should().NotBeNull();
-        method!.ReturnType.Should().Be(typeof(Task));
+        await using var verify = InMemoryDb.Create(_databaseName);
+        (await verify.AuditLogs.SingleAsync()).UserId.Should().BeNull();
+    }
+
+    private async Task LogAsync(HttpContext http)
+    {
+        var tenant = new TenantContext();
+        tenant.Set(_tenantId);
+
+        await using var db = InMemoryDb.Create(_databaseName);
+        var sut = new AuditLogger(db, tenant, new HttpContextAccessor { HttpContext = http });
+
+        await sut.LogAsync("delete", "data_source", Guid.NewGuid());
     }
 }

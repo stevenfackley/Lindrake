@@ -38,7 +38,7 @@ public sealed class WebTextExtractor(ILogger<WebTextExtractor> logger) : ITextEx
     ];
 
     /// <inheritdoc />
-    public string SourceType => "web";
+    public string SourceType => SourceTypes.Web;
 
     /// <inheritdoc />
     public async Task<string> ExtractTextAsync(
@@ -63,7 +63,7 @@ public sealed class WebTextExtractor(ILogger<WebTextExtractor> logger) : ITextEx
         doc.LoadHtml(html);
 
         // Remove unwanted tags entirely
-        RemoveNodes(doc);
+        HtmlText.RemoveNodes(doc, RemoveTags);
 
         // Try to extract from content-priority areas first
         var text = ExtractFromContentAreas(doc);
@@ -72,7 +72,7 @@ public sealed class WebTextExtractor(ILogger<WebTextExtractor> logger) : ITextEx
         if (string.IsNullOrWhiteSpace(text))
         {
             var body = doc.DocumentNode.SelectSingleNode("//body");
-            text = body is not null ? GetCleanText(body) : GetCleanText(doc.DocumentNode);
+            text = HtmlText.CleanText(body ?? doc.DocumentNode);
         }
 
         // Extract title for context
@@ -89,32 +89,6 @@ public sealed class WebTextExtractor(ILogger<WebTextExtractor> logger) : ITextEx
         return text;
     }
 
-    private static void RemoveNodes(HtmlDocument doc)
-    {
-        var nodesToRemove = new List<HtmlNode>();
-
-        foreach (var tag in RemoveTags)
-        {
-            var nodes = doc.DocumentNode.SelectNodes($"//{tag}");
-            if (nodes is not null)
-            {
-                nodesToRemove.AddRange(nodes);
-            }
-        }
-
-        // Also remove HTML comments
-        var comments = doc.DocumentNode.SelectNodes("//comment()");
-        if (comments is not null)
-        {
-            nodesToRemove.AddRange(comments);
-        }
-
-        foreach (var node in nodesToRemove)
-        {
-            node.Remove();
-        }
-    }
-
     private static string? ExtractFromContentAreas(HtmlDocument doc)
     {
         foreach (var xpath in ContentSelectors)
@@ -122,7 +96,7 @@ public sealed class WebTextExtractor(ILogger<WebTextExtractor> logger) : ITextEx
             var node = doc.DocumentNode.SelectSingleNode(xpath);
             if (node is not null)
             {
-                var text = GetCleanText(node);
+                var text = HtmlText.CleanText(node);
                 if (!string.IsNullOrWhiteSpace(text) && text.Length > 100)
                 {
                     return text;
@@ -131,19 +105,5 @@ public sealed class WebTextExtractor(ILogger<WebTextExtractor> logger) : ITextEx
         }
 
         return null;
-    }
-
-    private static string GetCleanText(HtmlNode node)
-    {
-        var text = node.InnerText;
-        text = HtmlEntity.DeEntitize(text);
-
-        // Normalize whitespace: collapse multiple spaces/newlines
-        var lines = text
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(l => l.Trim())
-            .Where(l => l.Length > 0);
-
-        return string.Join("\n", lines);
     }
 }

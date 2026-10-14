@@ -89,7 +89,7 @@ public sealed class WaybackMachinePluginTests
                 Content = new StringContent(content, System.Text.Encoding.UTF8, "application/json")
             });
 
-        var httpClient = new HttpClient(handlerMock.Object);
+        var httpClient = new HttpClient(handlerMock.Object) { BaseAddress = WaybackMachinePlugin.BaseAddress };
         return new WaybackMachinePlugin(
             httpClient,
             Mock.Of<ICitationAccumulator>(),

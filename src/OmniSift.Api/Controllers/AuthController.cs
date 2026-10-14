@@ -20,14 +20,13 @@ public sealed class AuthController(
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var emailExists = await dbContext.Users
             .AnyAsync(u => u.Email == request.Email, cancellationToken)
             .ConfigureAwait(false);
         if (emailExists)
-            return Conflict(new { error = "An account with this email address already exists." });
+            return Problem(
+                detail: "An account with this email address already exists.",
+                statusCode: StatusCodes.Status409Conflict);
 
         var slug = Slugify(request.TenantName) + "-" + Guid.NewGuid().ToString("N")[..8];
 
@@ -68,15 +67,12 @@ public sealed class AuthController(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var user = await dbContext.Users
             .FirstOrDefaultAsync(u => u.TenantId == request.TenantId && u.Email == request.Email, cancellationToken)
             .ConfigureAwait(false);
 
         if (user is null || !passwordHasher.Verify(request.Password, user.PasswordHash))
-            return Unauthorized(new { error = "Invalid credentials." });
+            return Problem(detail: "Invalid credentials.", statusCode: StatusCodes.Status401Unauthorized);
 
         var (token, expiresAt) = jwtTokenService.CreateToken(user);
 

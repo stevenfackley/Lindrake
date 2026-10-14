@@ -21,4 +21,10 @@ public sealed class SupabaseOptions
     /// Expected JWT audience. Supabase access tokens carry <c>aud="authenticated"</c>.
     /// </summary>
     public string Audience { get; set; } = "authenticated";
+
+    /// <summary>
+    /// True when Supabase validation is configured. False selects the
+    /// development-only in-house HS256 identity provider (AuthController).
+    /// </summary>
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(Url);
 }

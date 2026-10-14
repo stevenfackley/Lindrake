@@ -4,7 +4,6 @@
 // and verifies that the extractor returns the expected text.
 // ============================================================
 
-using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -110,13 +109,13 @@ public sealed class DocxTextExtractorTests
     /// </summary>
     private sealed class NonSeekableStream(Stream inner) : Stream
     {
-        public override bool CanRead  => inner.CanRead;
-        public override bool CanSeek  => false;   // override to return false
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => false;   // override to return false
         public override bool CanWrite => false;
-        public override long Length   => throw new NotSupportedException();
+        public override long Length => throw new NotSupportedException();
         public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
         public override void Flush() => inner.Flush();
-        public override int  Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();

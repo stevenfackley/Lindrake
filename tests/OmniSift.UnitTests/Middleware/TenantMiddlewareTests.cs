@@ -8,7 +8,9 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
+using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
+using OmniSift.UnitTests.TestSupport;
 
 namespace OmniSift.UnitTests.Middleware;
 
@@ -19,10 +21,10 @@ public sealed class TenantMiddlewareTests
     {
         var nextCalled = false;
         var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
-        var context = CreateContext("/api/health");
+        var context = CreateContext("/health");
 
         // Health path skips before the DbContext is used.
-        await middleware.InvokeAsync(context, null!);
+        await middleware.InvokeAsync(context, null!, new TenantContext());
 
         nextCalled.Should().BeTrue();
     }
@@ -34,7 +36,7 @@ public sealed class TenantMiddlewareTests
         var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
         var context = CreateContext("/swagger/index.html");
 
-        await middleware.InvokeAsync(context, null!);
+        await middleware.InvokeAsync(context, null!, new TenantContext());
 
         nextCalled.Should().BeTrue();
     }
@@ -47,11 +49,13 @@ public sealed class TenantMiddlewareTests
         var nextCalled = false;
         var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
         var context = CreateContext("/api/datasources");
+        var tenantContext = new TenantContext();
 
-        await middleware.InvokeAsync(context, null!);
+        await middleware.InvokeAsync(context, null!, tenantContext);
 
         nextCalled.Should().BeTrue();
-        context.Items.Should().NotContainKey("TenantId");
+        var tenant = () => tenantContext.TenantId;
+        tenant.Should().Throw<TenantContextMissingException>();
     }
 
     [Fact]
@@ -62,15 +66,30 @@ public sealed class TenantMiddlewareTests
         var context = CreateContext("/api/datasources");
         context.User = Authenticated(new Claim("sub", Guid.NewGuid().ToString()));
 
-        await middleware.InvokeAsync(context, null!);
+        await middleware.InvokeAsync(context, null!, new TenantContext());
 
         nextCalled.Should().BeFalse();
         context.Response.StatusCode.Should().Be(403);
     }
 
-    // NOTE: the authenticated happy path (tenant_id claim → RLS set + next) requires
-    // a DbContext and is exercised end-to-end by the integration tests
-    // (AuthenticationTests / DataSourcesEndpointTests) against the real pipeline.
+    [Fact]
+    public async Task InvokeAsync_AuthenticatedWithTenantClaim_BindsTenantContext()
+    {
+        var tenantId = Guid.NewGuid();
+        var nextCalled = false;
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+        var context = CreateContext("/api/datasources");
+        context.User = Authenticated(new Claim("tenant_id", tenantId.ToString()));
+        var tenantContext = new TenantContext();
+
+        // InMemory is non-relational, so the RLS set_config step is skipped; the
+        // Postgres path is exercised by the integration tests.
+        await using var db = InMemoryDb.Create("tenant-middleware-" + Guid.NewGuid());
+        await middleware.InvokeAsync(context, db, tenantContext);
+
+        nextCalled.Should().BeTrue();
+        tenantContext.TenantId.Should().Be(tenantId);
+    }
 
     private static TenantMiddleware CreateMiddleware(RequestDelegate next) =>
         new(next, Mock.Of<ILogger<TenantMiddleware>>());
