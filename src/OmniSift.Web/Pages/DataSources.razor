@@ -177,18 +177,13 @@
         _error = null;
         StateHasChanged();
 
-        try
-        {
-            _dataSources = await Api.GetDataSourcesAsync();
-        }
-        catch (Exception ex)
-        {
-            _error = $"Failed to load data sources: {ex.Message}";
-        }
-        finally
-        {
-            _loading = false;
-        }
+        var result = await Api.GetDataSourcesAsync();
+        if (result.IsSuccess)
+            _dataSources = result.Value;
+        else
+            _error = $"Failed to load data sources: {result.Error.Message}";
+
+        _loading = false;
     }
 
     private void HandleFileSelected(InputFileChangeEventArgs e)
@@ -207,17 +202,21 @@
 
         try
         {
-            using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+            var stream = _selectedFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
             var result = await Api.UploadFileAsync(stream, _selectedFile.Name);
 
-            _uploadSuccess = result.Status == "completed";
-            _uploadMessage = result.Message;
-            _selectedFile = null;
+            _uploadSuccess = result.IsSuccess && result.Value.Status != IngestionStatuses.Failed;
+            _uploadMessage = result.IsSuccess ? result.Value.Message : $"Upload failed: {result.Error.Message}";
 
-            await LoadDataSources();
+            if (result.IsSuccess)
+            {
+                _selectedFile = null;
+                await LoadDataSources();
+            }
         }
-        catch (Exception ex)
+        catch (IOException ex)
         {
+            // Reading the browser file (e.g. larger than the 50 MB cap).
             _uploadSuccess = false;
             _uploadMessage = $"Upload failed: {ex.Message}";
         }
@@ -235,25 +234,18 @@
         _uploadMessage = null;
         StateHasChanged();
 
-        try
+        var result = await Api.IngestWebAsync(_webUrl);
+
+        _uploadSuccess = result.IsSuccess && result.Value.Status == IngestionStatuses.Completed;
+        _uploadMessage = result.IsSuccess ? result.Value.Message : $"Web ingestion failed: {result.Error.Message}";
+
+        if (result.IsSuccess)
         {
-            var result = await Api.IngestWebAsync(_webUrl);
-
-            _uploadSuccess = result.Status == "completed";
-            _uploadMessage = result.Message;
             _webUrl = string.Empty;
-
             await LoadDataSources();
         }
-        catch (Exception ex)
-        {
-            _uploadSuccess = false;
-            _uploadMessage = $"Web ingestion failed: {ex.Message}";
-        }
-        finally
-        {
-            _uploading = false;
-        }
+
+        _uploading = false;
     }
 
     private async Task DeleteSource(Guid id)
@@ -261,19 +253,13 @@
         _deleting = true;
         StateHasChanged();
 
-        try
-        {
-            await Api.DeleteDataSourceAsync(id);
+        var result = await Api.DeleteDataSourceAsync(id);
+        _deleting = false;
+
+        if (result.IsSuccess)
             await LoadDataSources();
-        }
-        catch (Exception ex)
-        {
-            _error = $"Delete failed: {ex.Message}";
-        }
-        finally
-        {
-            _deleting = false;
-        }
+        else
+            _error = $"Delete failed: {result.Error.Message}";
     }
 
     private static string TruncateUrl(string url) =>

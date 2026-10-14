@@ -102,20 +102,16 @@
                 TenantName = _tenantName.Trim()
             };
 
-            var (account, error) = await Api.RegisterAsync(req);
-            if (account is null)
+            var result = await Api.RegisterAsync(req);
+            if (!result.IsSuccess)
             {
-                _error = error;
+                _error = $"Registration failed: {result.Error.Message}";
                 return;
             }
 
             // The login form prefills the last tenant used on this browser.
-            await Auth.RememberTenantAsync(account.TenantId);
-            _tenantId = account.TenantId;
-        }
-        catch (HttpRequestException ex)
-        {
-            _error = $"Registration failed: {ex.Message}";
+            await Auth.RememberTenantAsync(result.Value.TenantId);
+            _tenantId = result.Value.TenantId;
         }
         finally
         {

@@ -207,30 +207,26 @@ else
         StateHasChanged();
 
         var uploaded = 0;
-        try
+        foreach (var (fileName, content, mime) in SampleFiles)
         {
-            foreach (var (fileName, content, mime) in SampleFiles)
+            var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+            var result = await Api.UploadFileAsync(new MemoryStream(bytes), fileName);
+            if (!result.IsSuccess)
             {
-                var bytes = System.Text.Encoding.UTF8.GetBytes(content);
-                using var stream = new MemoryStream(bytes);
-                await Api.UploadFileAsync(stream, fileName).ConfigureAwait(false);
-                uploaded++;
+                _sampleOk = false;
+                _sampleMessage = $"Upload failed after {uploaded} files: {result.Error.Message}";
+                _sampleLoading = false;
+                return;
             }
 
-            _sampleLoaded = true;
-            _sampleOk = true;
-            _sampleMessage = $"{uploaded} sample documents uploaded. Head to the Research Agent to try a query!";
-            await JS.InvokeVoidAsync("localStorage.setItem", "omnisift_sample_loaded", "1").ConfigureAwait(false);
+            uploaded++;
         }
-        catch (Exception ex)
-        {
-            _sampleOk = false;
-            _sampleMessage = $"Upload failed after {uploaded} files: {ex.Message}";
-        }
-        finally
-        {
-            _sampleLoading = false;
-        }
+
+        _sampleLoaded = true;
+        _sampleOk = true;
+        _sampleMessage = $"{uploaded} sample documents uploaded. Head to the Research Agent to try a query!";
+        _sampleLoading = false;
+        await JS.InvokeVoidAsync("localStorage.setItem", "omnisift_sample_loaded", "1");
     }
 
     private sealed record RoleInfo(

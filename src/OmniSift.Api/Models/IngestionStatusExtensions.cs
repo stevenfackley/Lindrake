@@ -2,22 +2,24 @@
 // OmniSift.Api — IngestionStatus wire/database strings
 // ============================================================
 
+using OmniSift.Shared.DTOs;
+
 namespace OmniSift.Api.Models;
 
 /// <summary>
 /// The one mapping between <see cref="IngestionStatus"/> and its lowercase string
-/// form, used both on the wire (DTO <c>status</c> fields) and in the
-/// <c>data_sources.status</c> column.
+/// form (<see cref="IngestionStatuses"/>, shared with the Blazor client), used both
+/// on the wire (DTO <c>status</c> fields) and in the <c>data_sources.status</c> column.
 /// </summary>
 public static class IngestionStatusExtensions
 {
     /// <summary><c>"pending"</c>, <c>"processing"</c>, <c>"completed"</c> or <c>"failed"</c>.</summary>
     public static string ToWireString(this IngestionStatus status) => status switch
     {
-        IngestionStatus.Pending => "pending",
-        IngestionStatus.Processing => "processing",
-        IngestionStatus.Completed => "completed",
-        IngestionStatus.Failed => "failed",
+        IngestionStatus.Pending => IngestionStatuses.Pending,
+        IngestionStatus.Processing => IngestionStatuses.Processing,
+        IngestionStatus.Completed => IngestionStatuses.Completed,
+        IngestionStatus.Failed => IngestionStatuses.Failed,
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown ingestion status.")
     };
 

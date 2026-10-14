@@ -16,7 +16,7 @@ public sealed record DataSourceDto
     public string SourceType { get; init; } = string.Empty;
     public string? FileName { get; init; }
     public string? OriginalUrl { get; init; }
-    public string Status { get; init; } = "pending";
+    public string Status { get; init; } = IngestionStatuses.Pending;
     public string? ErrorMessage { get; init; }
     public Dictionary<string, object>? Metadata { get; init; }
     public DateTime CreatedAt { get; init; }
@@ -43,6 +43,6 @@ public sealed record WebIngestionRequest
 public sealed record IngestionResponse
 {
     public Guid DataSourceId { get; init; }
-    public string Status { get; init; } = "pending";
+    public string Status { get; init; } = IngestionStatuses.Pending;
     public string Message { get; init; } = string.Empty;
 }

@@ -252,8 +252,14 @@
 
     private async Task FallbackQueryAsync(AgentQueryRequest request, string query)
     {
-        var response = await Api.QueryAgentAsync(request).ConfigureAwait(false);
+        var result = await Api.QueryAgentAsync(request).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            _error = result.Error.Message;
+            return;
+        }
 
+        var response = result.Value;
         _messages.Add(new ChatMessage("assistant", response.Response)
         {
             PluginsUsed = response.PluginsUsed,
@@ -274,35 +280,29 @@
         _error = null;
         StateHasChanged();
 
-        try
-        {
-            var turns = _messages
-                .Select(m => new ReportTurn
-                {
-                    Role = m.Role,
-                    Content = m.Content,
-                    Citations = m.Sources ?? []
-                })
-                .ToList();
-
-            var reportRequest = new GenerateReportRequest
+        var turns = _messages
+            .Select(m => new ReportTurn
             {
-                Title = "OmniSift Research Report",
-                Messages = turns
-            };
+                Role = m.Role,
+                Content = m.Content,
+                Citations = m.Sources ?? []
+            })
+            .ToList();
 
-            var pdfBytes = await Api.GenerateReportPdfAsync(reportRequest).ConfigureAwait(false);
-            await JS.InvokeVoidAsync("downloadBlobFile", "report.pdf", "application/pdf", pdfBytes).ConfigureAwait(false);
-        }
-        catch (Exception ex)
+        var reportRequest = new GenerateReportRequest
         {
-            _error = $"PDF export failed: {ex.Message}";
-        }
-        finally
-        {
-            _pdfDownloading = false;
-            StateHasChanged();
-        }
+            Title = "OmniSift Research Report",
+            Messages = turns
+        };
+
+        var result = await Api.GenerateReportPdfAsync(reportRequest);
+        if (result.IsSuccess)
+            await JS.InvokeVoidAsync("downloadBlobFile", "report.pdf", "application/pdf", result.Value);
+        else
+            _error = $"PDF export failed: {result.Error.Message}";
+
+        _pdfDownloading = false;
+        StateHasChanged();
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)

@@ -112,14 +112,16 @@
             };
 
             var result = await Api.LoginAsync(req);
-            await Auth.SignInAsync(result.Token, result.TenantId);
+            if (!result.IsSuccess)
+            {
+                _error = result.Error.IsUnauthorized
+                    ? "Invalid email, password or tenant ID."
+                    : $"Sign-in failed: {result.Error.Message}";
+                return;
+            }
+
+            await Auth.SignInAsync(result.Value.Token, result.Value.TenantId);
             Nav.NavigateTo("");
-        }
-        catch (HttpRequestException ex)
-        {
-            _error = ex.StatusCode == System.Net.HttpStatusCode.Unauthorized
-                ? "Invalid email, password or tenant ID."
-                : $"Sign-in failed: {ex.Message}";
         }
         finally
         {

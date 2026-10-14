@@ -3,11 +3,12 @@
 // Typed HTTP client for communicating with the OmniSift API
 // ============================================================
 
-using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Components.WebAssembly.Http;
 using OmniSift.Shared;
 using OmniSift.Shared.DTOs;
@@ -19,65 +20,42 @@ namespace OmniSift.Web.Services;
 /// <c>AddHttpClient</c>. <see cref="AuthHandler"/> adds the bearer token; the
 /// tenant is the token's <c>tenant_id</c> claim. All JSON goes through the
 /// source-generated <see cref="OmniSiftJsonContext"/> (no reflection).
+/// <para>
+/// Every call returns an <see cref="ApiResult"/> instead of throwing: a non-2xx
+/// response becomes an <see cref="ApiError"/> carrying the ProblemDetails message,
+/// and a 401 while signed in signs the user out (routing then sends them to the
+/// login page). Only cancellation of the caller's token throws.
+/// </para>
 /// </summary>
-public sealed class OmniSiftApiClient(HttpClient httpClient)
+public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService auth)
 {
     private static OmniSiftJsonContext Json => OmniSiftJsonContext.Default;
 
     // ── Auth ────────────────────────────────────────────────
 
-    /// <summary>Registers a new account and tenant. Returns the account, or an error message.</summary>
-    public async Task<(AuthResponse? Account, string? Error)> RegisterAsync(RegisterRequest req)
-    {
-        using var response = await httpClient
-            .PostAsJsonAsync("api/auth/register", req, Json.RegisterRequest)
-            .ConfigureAwait(false);
+    /// <summary>Registers a new account and tenant.</summary>
+    public Task<ApiResult<AuthResponse>> RegisterAsync(RegisterRequest req, CancellationToken cancellationToken = default) =>
+        SendAsync(PostJson("api/auth/register", req, Json.RegisterRequest), Json.AuthResponse, cancellationToken);
 
-        if (response.StatusCode == HttpStatusCode.Conflict)
-            return (null, "An account with that email already exists.");
-
-        if (!response.IsSuccessStatusCode)
-            return (null, $"Registration failed ({(int)response.StatusCode}).");
-
-        var account = await response.Content.ReadFromJsonAsync(Json.AuthResponse).ConfigureAwait(false);
-        return account is null ? (null, "Empty registration response.") : (account, null);
-    }
-
-    /// <summary>Logs in. Returns AuthResponse on success; throws on failure.</summary>
-    public async Task<AuthResponse> LoginAsync(LoginRequest req)
-    {
-        using var response = await httpClient
-            .PostAsJsonAsync("api/auth/login", req, Json.LoginRequest)
-            .ConfigureAwait(false);
-
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.AuthResponse).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Empty login response.");
-    }
+    /// <summary>Exchanges credentials for a token. Bad credentials are a 401 error.</summary>
+    public Task<ApiResult<AuthResponse>> LoginAsync(LoginRequest req, CancellationToken cancellationToken = default) =>
+        SendAsync(PostJson("api/auth/login", req, Json.LoginRequest), Json.AuthResponse, cancellationToken);
 
     // ── Data Sources ────────────────────────────────────────
 
-    public async Task<List<DataSourceDto>> GetDataSourcesAsync()
+    public Task<ApiResult<List<DataSourceDto>>> GetDataSourcesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, "api/datasources"), Json.ListDataSourceDto, cancellationToken);
+
+    public Task<ApiResult<DataSourceDto>> GetDataSourceAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Get, $"api/datasources/{id}"), Json.DataSourceDto, cancellationToken);
+
+    public Task<ApiResult<IngestionResponse>> UploadFileAsync(
+        Stream fileStream,
+        string fileName,
+        string? sourceType = null,
+        CancellationToken cancellationToken = default)
     {
-        using var response = await httpClient.GetAsync("api/datasources").ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.ListDataSourceDto).ConfigureAwait(false) ?? [];
-    }
-
-    public async Task<DataSourceDto?> GetDataSourceAsync(Guid id)
-    {
-        using var response = await httpClient.GetAsync($"api/datasources/{id}").ConfigureAwait(false);
-
-        if (response.StatusCode == HttpStatusCode.NotFound)
-            return null;
-
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.DataSourceDto).ConfigureAwait(false);
-    }
-
-    public async Task<IngestionResponse> UploadFileAsync(Stream fileStream, string fileName, string? sourceType = null)
-    {
-        using var content = new MultipartFormDataContent();
+        var content = new MultipartFormDataContent();
         var streamContent = new StreamContent(fileStream);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         content.Add(streamContent, "file", fileName);
@@ -85,39 +63,25 @@ public sealed class OmniSiftApiClient(HttpClient httpClient)
         if (!string.IsNullOrWhiteSpace(sourceType))
             content.Add(new StringContent(sourceType), "sourceType");
 
-        using var response = await httpClient.PostAsync("api/datasources/upload", content).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.IngestionResponse).ConfigureAwait(false)
-            ?? new IngestionResponse { Status = "error", Message = "Failed to parse response." };
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/datasources/upload") { Content = content };
+        return SendAsync(request, Json.IngestionResponse, cancellationToken);
     }
 
-    public async Task<IngestionResponse> IngestWebAsync(string url)
-    {
-        using var response = await httpClient
-            .PostAsJsonAsync("api/datasources/web", new WebIngestionRequest { Url = url }, Json.WebIngestionRequest)
-            .ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.IngestionResponse).ConfigureAwait(false)
-            ?? new IngestionResponse { Status = "error", Message = "Failed to parse response." };
-    }
+    public Task<ApiResult<IngestionResponse>> IngestWebAsync(string url, CancellationToken cancellationToken = default) =>
+        SendAsync(
+            PostJson("api/datasources/web", new WebIngestionRequest { Url = url }, Json.WebIngestionRequest),
+            Json.IngestionResponse,
+            cancellationToken);
 
-    public async Task DeleteDataSourceAsync(Guid id)
-    {
-        using var response = await httpClient.DeleteAsync($"api/datasources/{id}").ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-    }
+    public Task<ApiResult> DeleteDataSourceAsync(Guid id, CancellationToken cancellationToken = default) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/datasources/{id}"), cancellationToken);
 
     // ── Agent ───────────────────────────────────────────────
 
-    public async Task<AgentQueryResponse> QueryAgentAsync(AgentQueryRequest queryRequest)
-    {
-        using var response = await httpClient
-            .PostAsJsonAsync("api/agent/query", queryRequest, Json.AgentQueryRequest)
-            .ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.AgentQueryResponse).ConfigureAwait(false)
-            ?? new AgentQueryResponse { Response = "Failed to parse response." };
-    }
+    public Task<ApiResult<AgentQueryResponse>> QueryAgentAsync(
+        AgentQueryRequest queryRequest,
+        CancellationToken cancellationToken = default) =>
+        SendAsync(PostJson("api/agent/query", queryRequest, Json.AgentQueryRequest), Json.AgentQueryResponse, cancellationToken);
 
     /// <summary>
     /// Streams SSE tokens from /api/agent/query/stream.
@@ -127,10 +91,7 @@ public sealed class OmniSiftApiClient(HttpClient httpClient)
         AgentQueryRequest queryRequest,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "api/agent/query/stream")
-        {
-            Content = JsonContent.Create(queryRequest, Json.AgentQueryRequest)
-        };
+        using var request = PostJson("api/agent/query/stream", queryRequest, Json.AgentQueryRequest);
 
         // Blazor WASM requires this to enable streaming response bodies
         request.SetBrowserResponseStreamingEnabled(true);
@@ -158,40 +119,121 @@ public sealed class OmniSiftApiClient(HttpClient httpClient)
 
     // ── Report ──────────────────────────────────────────────
 
-    /// <summary>
-    /// Downloads a PDF report. Returns raw bytes for blob download via JS interop.
-    /// </summary>
-    public async Task<byte[]> GenerateReportPdfAsync(GenerateReportRequest reportRequest)
-    {
-        using var response = await httpClient
-            .PostAsJsonAsync("api/agent/report/pdf", reportRequest, Json.GenerateReportRequest)
-            .ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-    }
+    /// <summary>Generates a PDF report; the bytes are handed to JS interop for download.</summary>
+    public Task<ApiResult<byte[]>> GenerateReportPdfAsync(
+        GenerateReportRequest reportRequest,
+        CancellationToken cancellationToken = default) =>
+        SendAsync<byte[]>(
+            PostJson("api/agent/report/pdf", reportRequest, Json.GenerateReportRequest),
+            async (content, token) => await content.ReadAsByteArrayAsync(token).ConfigureAwait(false),
+            cancellationToken);
 
     // ── Entities ────────────────────────────────────────────
 
-    public async Task<EntityGraphResponse> ExtractEntitiesAsync()
-    {
-        using var response = await httpClient.PostAsync("api/entities/extract", content: null).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync(Json.EntityGraphResponse).ConfigureAwait(false)
-            ?? new EntityGraphResponse();
-    }
+    public Task<ApiResult<EntityGraphResponse>> ExtractEntitiesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync(new HttpRequestMessage(HttpMethod.Post, "api/entities/extract"), Json.EntityGraphResponse, cancellationToken);
 
     // ── Health ──────────────────────────────────────────────
 
-    public async Task<bool> CheckHealthAsync()
+    /// <summary>True when GET /health answers 2xx.</summary>
+    public async Task<bool> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await SendAsync(new HttpRequestMessage(HttpMethod.Get, "health"), cancellationToken)
+            .ConfigureAwait(false);
+        return result.IsSuccess;
+    }
+
+    // ── Plumbing ────────────────────────────────────────────
+
+    private static HttpRequestMessage PostJson<TBody>(string url, TBody body, JsonTypeInfo<TBody> bodyType) =>
+        new(HttpMethod.Post, url) { Content = JsonContent.Create(body, bodyType) };
+
+    private Task<ApiResult<T>> SendAsync<T>(
+        HttpRequestMessage request,
+        JsonTypeInfo<T> responseType,
+        CancellationToken cancellationToken) =>
+        SendAsync(request, (content, token) => content.ReadFromJsonAsync(responseType, token), cancellationToken);
+
+    /// <summary>The single request path: send, map failures to <see cref="ApiError"/>, read the body.</summary>
+    private async Task<ApiResult<T>> SendAsync<T>(
+        HttpRequestMessage request,
+        Func<HttpContent, CancellationToken, Task<T?>> readBody,
+        CancellationToken cancellationToken)
+    {
+        using (request)
+        {
+            var (response, error) = await TrySendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken)
+                .ConfigureAwait(false);
+            if (response is null)
+                return ApiResult<T>.Failure(error!);
+
+            using (response)
+            {
+                if (!response.IsSuccessStatusCode)
+                    return ApiResult<T>.Failure(await ReadErrorAsync(response, cancellationToken).ConfigureAwait(false));
+
+                try
+                {
+                    var value = await readBody(response.Content, cancellationToken).ConfigureAwait(false);
+                    return value is null
+                        ? ApiResult<T>.Failure(ApiError.InvalidResponse((int)response.StatusCode))
+                        : ApiResult<T>.Success(value);
+                }
+                catch (JsonException)
+                {
+                    return ApiResult<T>.Failure(ApiError.InvalidResponse((int)response.StatusCode));
+                }
+            }
+        }
+    }
+
+    private async Task<ApiResult> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        using (request)
+        {
+            var (response, error) = await TrySendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken)
+                .ConfigureAwait(false);
+            if (response is null)
+                return ApiResult.Failure(error!);
+
+            using (response)
+            {
+                return response.IsSuccessStatusCode
+                    ? ApiResult.Success()
+                    : ApiResult.Failure(await ReadErrorAsync(response, cancellationToken).ConfigureAwait(false));
+            }
+        }
+    }
+
+    /// <summary>Sends <paramref name="request"/>; a transport failure or timeout becomes an <see cref="ApiError"/>.</summary>
+    private async Task<(HttpResponseMessage? Response, ApiError? Error)> TrySendAsync(
+        HttpRequestMessage request,
+        HttpCompletionOption completion,
+        CancellationToken cancellationToken)
     {
         try
         {
-            using var response = await httpClient.GetAsync("health").ConfigureAwait(false);
-            return response.IsSuccessStatusCode;
+            return (await httpClient.SendAsync(request, completion, cancellationToken).ConfigureAwait(false), null);
         }
         catch (HttpRequestException)
         {
-            return false;
+            return (null, ApiError.Unreachable());
         }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // HttpClient.Timeout, not the caller cancelling.
+            return (null, ApiError.TimedOut());
+        }
+    }
+
+    /// <summary>Reads the ProblemDetails body; a 401 while signed in ends the session.</summary>
+    private async Task<ApiError> ReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var error = await ApiProblemReader.ReadAsync(response, cancellationToken).ConfigureAwait(false);
+
+        if (error.IsUnauthorized && auth.IsAuthenticated)
+            await auth.SignOutAsync().ConfigureAwait(false);
+
+        return error;
     }
 }

@@ -126,33 +126,36 @@
         _errorMessage = null;
         StateHasChanged();
 
-        try
+        var result = await Api.ExtractEntitiesAsync();
+        if (!result.IsSuccess)
         {
-            _graph = await Api.ExtractEntitiesAsync().ConfigureAwait(false);
-            _state = PageState.Loaded;
-            StateHasChanged();
+            _state = PageState.Error;
+            _errorMessage = $"Failed to build entity graph: {result.Error.Message}";
+            return;
+        }
 
-            // Give Blazor one render cycle so the DOM container exists before calling vis
-            await Task.Yield();
+        _graph = result.Value;
+        _state = PageState.Loaded;
+        StateHasChanged();
 
-            if (_graphModule is not null && _graph is not null)
+        // Give Blazor one render cycle so the DOM container exists before calling vis
+        await Task.Yield();
+
+        if (_graphModule is not null)
+        {
+            try
             {
                 await _graphModule.InvokeVoidAsync(
                     "renderGraph",
                     "entity-graph-container",
                     _graph.Nodes,
-                    _graph.Edges).ConfigureAwait(false);
+                    _graph.Edges);
             }
-        }
-        catch (HttpRequestException ex) when ((int?)ex.StatusCode == 503)
-        {
-            _state = PageState.Error;
-            _errorMessage = "LLM not configured — set Anthropic:ApiKey to build the graph.";
-        }
-        catch (Exception ex)
-        {
-            _state = PageState.Error;
-            _errorMessage = $"Failed to build entity graph: {ex.Message}";
+            catch (JSException ex)
+            {
+                _state = PageState.Error;
+                _errorMessage = $"Failed to draw the entity graph: {ex.Message}";
+            }
         }
     }
 }
