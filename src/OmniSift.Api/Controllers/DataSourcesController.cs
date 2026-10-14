@@ -147,17 +147,16 @@ public sealed class DataSourcesController(
     [HttpPost("web")]
     public async Task<ActionResult<IngestionResponse>> IngestWeb(
         [FromBody] WebIngestionRequest request,
-        [FromServices] IHttpClientFactory httpClientFactory,
+        [FromServices] IWebPageFetcher webPageFetcher,
         CancellationToken cancellationToken)
     {
         logger.LogInformation(
             "Web ingestion request: url={Url}, tenant={TenantId}",
             request.Url, tenantContext.TenantId);
 
-        // Fetch the web page — HttpRequestException propagates to GlobalExceptionHandler (502)
-        var httpClient = httpClientFactory.CreateClient();
-        var response = await httpClient.GetAsync(request.Url, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+        // SSRF-guarded fetch. BlockedUrlException → 400; HttpRequestException
+        // (upstream failure, oversized body) → 502 via GlobalExceptionHandler.
+        var page = await webPageFetcher.FetchAsync(request.Url, cancellationToken).ConfigureAwait(false);
 
         // Committed before the pipeline runs so a pipeline failure is recorded on
         // this row (status "failed") instead of rolling it back.
@@ -171,7 +170,7 @@ public sealed class DataSourcesController(
         dbContext.DataSources.Add(dataSource);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var stream = new MemoryStream(page, writable: false);
         dataSource = await ingestionPipeline.RunAsync(dataSource, stream, cancellationToken).ConfigureAwait(false);
 
         return Ok(new IngestionResponse

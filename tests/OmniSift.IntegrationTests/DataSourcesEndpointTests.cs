@@ -89,6 +89,16 @@ public sealed class DataSourcesEndpointTests : IClassFixture<CustomWebApplicatio
         body!.Status.Should().Be("pending");
     }
 
+    [Theory]
+    [InlineData("http://127.0.0.1/")]
+    [InlineData("http://169.254.169.254/latest/meta-data/")]
+    public async Task WebIngestion_InternalAddress_Returns400(string url)
+    {
+        var response = await _client.PostAsJsonAsync("/api/datasources/web", new WebIngestionRequest { Url = url });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public async Task WebIngestion_InvalidUrl_Returns400()
     {

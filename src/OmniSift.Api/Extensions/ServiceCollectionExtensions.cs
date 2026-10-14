@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
@@ -162,8 +163,28 @@ public static class ServiceCollectionExtensions
     /// <summary>Text extraction, chunking and the async ingestion pipeline.</summary>
     public static IServiceCollection AddOmniSiftIngestion(this IServiceCollection services)
     {
-        // Default IHttpClientFactory client used by web ingestion.
-        services.AddHttpClient();
+        services.AddValidatedOptions<IngestionOptions>(IngestionOptions.Section);
+
+        // Web ingestion fetches user-supplied URLs: the primary handler refuses
+        // non-public addresses (SSRF guard), bodies are capped and time-boxed.
+        services.AddHttpClient<IWebPageFetcher, WebPageFetcher>(WebPageFetcher.ClientName, (sp, client) =>
+        {
+            client.Timeout = WebPageFetcher.Timeout;
+            client.MaxResponseContentBufferSize =
+                sp.GetRequiredService<IOptions<IngestionOptions>>().Value.MaxWebPageBytes;
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("OmniSift/1.0");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => WebPageFetcher.CreatePrimaryHandler())
+        .AddStandardResilienceHandler(options =>
+        {
+            // A blocked URL is a final answer, not a transient fault: never retry
+            // it, and never let it count towards opening the circuit.
+            options.Retry.ShouldHandle = args => ValueTask.FromResult(IsRetryable(args.Outcome));
+            options.CircuitBreaker.ShouldHandle = args => ValueTask.FromResult(IsRetryable(args.Outcome));
+
+            static bool IsRetryable(Polly.Outcome<HttpResponseMessage> outcome) =>
+                !WebPageFetcher.IsBlocked(outcome.Exception) && HttpClientResiliencePredicates.IsTransient(outcome);
+        });
 
         services.AddSingleton<ITextChunker, TextChunker>();
 

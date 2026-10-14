@@ -38,6 +38,13 @@ public sealed class UnsupportedFileTypeException(string? contentType, string? fi
         $"Unsupported file type: '{contentType}' ({Path.GetExtension(fileName)}). " +
         $"Supported source types: {string.Join(", ", allowed)}");
 
+/// <summary>A URL submitted for ingestion is not allowed to be fetched (400).</summary>
+public sealed class BlockedUrlException(string url, string reason)
+    : OmniSiftException(StatusCodes.Status400BadRequest, $"The URL '{url}' cannot be ingested: {reason}.")
+{
+    public string Reason { get; } = reason;
+}
+
 /// <summary>The request carries no resolved tenant (403).</summary>
 public sealed class TenantContextMissingException()
     : OmniSiftException(StatusCodes.Status403Forbidden, "No tenant context is available for this request.");
