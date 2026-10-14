@@ -7,6 +7,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Models;
 
 namespace OmniSift.Api.Services;
@@ -59,7 +60,7 @@ public sealed class BackgroundIngestionService(
             "web" => webExtractor,
             "docx" => docxExtractor,
             "email" => emailExtractor,
-            _ => throw new ArgumentException($"No extractor for source type '{sourceType}'.", nameof(sourceType))
+            _ => throw new UnsupportedSourceTypeException(sourceType, SourceTypes.All)
         };
 
         var tenantId = dataSource.TenantId;

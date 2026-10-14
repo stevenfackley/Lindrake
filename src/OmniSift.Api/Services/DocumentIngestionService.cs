@@ -6,6 +6,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 
@@ -45,11 +46,6 @@ public sealed class DocumentIngestionService(
     ILogger<DocumentIngestionService> logger) : IDocumentIngestionService
 {
     /// <summary>
-    /// Allowed source types.
-    /// </summary>
-    private static readonly HashSet<string> AllowedSourceTypes = ["pdf", "sms", "web", "docx", "email"];
-
-    /// <summary>
     /// Batch size for embedding generation.
     /// </summary>
     private const int EmbeddingBatchSize = 20;
@@ -65,14 +61,7 @@ public sealed class DocumentIngestionService(
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceType);
 
-        sourceType = sourceType.ToLowerInvariant();
-
-        if (!AllowedSourceTypes.Contains(sourceType))
-        {
-            throw new ArgumentException(
-                $"Unsupported source type: '{sourceType}'. Allowed: {string.Join(", ", AllowedSourceTypes)}",
-                nameof(sourceType));
-        }
+        sourceType = SourceTypes.Normalize(sourceType);
 
         // Resolve the correct extractor for this source type via keyed DI
         var extractor = sourceType switch
@@ -82,7 +71,7 @@ public sealed class DocumentIngestionService(
             "web" => webExtractor,
             "docx" => docxExtractor,
             "email" => emailExtractor,
-            _ => throw new InvalidOperationException($"No text extractor registered for source type: {sourceType}")
+            _ => throw new UnsupportedSourceTypeException(sourceType, SourceTypes.All)
         };
 
         var tenantId = tenantContext.TenantId;

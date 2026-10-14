@@ -51,6 +51,9 @@ public sealed class EntityExtractionService(
 
     public async Task<EntityGraphResponse> ExtractAsync(Guid tenantId, CancellationToken ct)
     {
+        // Fail before touching the database when no LLM is configured (503).
+        var chatService = kernel.GetChatCompletionOrThrow();
+
         var chunks = await dbContext.DocumentChunks
             .Where(c => c.TenantId == tenantId)
             .OrderByDescending(c => c.CreatedAt)
@@ -72,8 +75,6 @@ public sealed class EntityExtractionService(
         logger.LogInformation(
             "Extracting entities for tenant {TenantId} from {ChunkCount} chunks ({CharCount} chars).",
             tenantId, chunks.Count, combined.Length);
-
-        var chatService = kernel.GetRequiredService<IChatCompletionService>();
 
         var chatHistory = new ChatHistory();
         chatHistory.AddSystemMessage(SystemPrompt);

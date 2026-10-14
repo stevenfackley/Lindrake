@@ -68,27 +68,33 @@ public sealed class DataSourcesController(
     {
         if (file is null || file.Length == 0)
         {
-            return BadRequest(new { error = "No file provided or file is empty." });
+            return Problem(detail: "No file provided or file is empty.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         if (file.Length > MaxFileSize)
         {
-            return BadRequest(new { error = $"File size exceeds the maximum allowed size of {MaxFileSize / (1024 * 1024)} MB." });
+            return Problem(
+                detail: $"File size exceeds the maximum allowed size of {MaxFileSize / (1024 * 1024)} MB.",
+                statusCode: StatusCodes.Status400BadRequest);
         }
 
-        // Determine source type from MIME type or explicit parameter
-        var resolvedSourceType = sourceType?.ToLowerInvariant();
+        // Determine source type from the explicit parameter (validated here, not
+        // in the background worker) or from the MIME type.
+        string? resolvedSourceType;
 
-        if (string.IsNullOrWhiteSpace(resolvedSourceType))
+        if (!string.IsNullOrWhiteSpace(sourceType))
+        {
+            resolvedSourceType = SourceTypes.Normalize(sourceType);
+        }
+        else
         {
             var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
 
             if (!AllowedMimeTypes.TryGetValue(contentType, out resolvedSourceType))
             {
-                return BadRequest(new
-                {
-                    error = $"Unsupported file type: '{contentType}'. Allowed: {string.Join(", ", AllowedMimeTypes.Keys)}"
-                });
+                return Problem(
+                    detail: $"Unsupported file type: '{contentType}'. Allowed: {string.Join(", ", AllowedMimeTypes.Keys)}",
+                    statusCode: StatusCodes.Status400BadRequest);
             }
         }
 
@@ -139,8 +145,9 @@ public sealed class DataSourcesController(
         catch (ChannelClosedException)
         {
             logger.LogError("Ingestion channel is closed; cannot enqueue DataSource {DataSourceId}", dataSource.Id);
-            return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                new { error = "Ingestion service unavailable. Please try again shortly." });
+            return Problem(
+                detail: "Ingestion service unavailable. Please try again shortly.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
         logger.LogInformation(
@@ -164,9 +171,6 @@ public sealed class DataSourcesController(
         [FromServices] IHttpClientFactory httpClientFactory,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         logger.LogInformation(
             "Web ingestion request: url={Url}, tenant={TenantId}",
             request.Url, tenantContext.TenantId);
@@ -232,7 +236,7 @@ public sealed class DataSourcesController(
                 cancellationToken).ConfigureAwait(false);
 
         if (ds is null)
-            return NotFound(new { error = $"Data source '{id}' not found." });
+            return Problem(detail: $"Data source '{id}' not found.", statusCode: StatusCodes.Status404NotFound);
 
         var source = new DataSourceDto
         {
@@ -261,7 +265,7 @@ public sealed class DataSourcesController(
             .FirstOrDefaultAsync(ds => ds.TenantId == tenantContext.TenantId && ds.Id == id, cancellationToken).ConfigureAwait(false);
 
         if (source is null)
-            return NotFound(new { error = $"Data source '{id}' not found." });
+            return Problem(detail: $"Data source '{id}' not found.", statusCode: StatusCodes.Status404NotFound);
 
         dbContext.DataSources.Remove(source);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

@@ -60,9 +60,6 @@ public sealed class AgentController(
         [FromBody] AgentQueryRequest request,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var sw = Stopwatch.StartNew();
 
         logger.LogInformation(
@@ -70,7 +67,7 @@ public sealed class AgentController(
             tenantContext.TenantId,
             request.Query.Length > 100 ? request.Query[..100] + "..." : request.Query);
 
-        var chatService = kernel.GetRequiredService<IChatCompletionService>();
+        var chatService = kernel.GetChatCompletionOrThrow();
 
         // Build chat history
         var chatHistory = new ChatHistory();
@@ -160,9 +157,6 @@ public sealed class AgentController(
     public ActionResult<GenerateReportResponse> GenerateReport(
         [FromBody] GenerateReportRequest request)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var now = DateTime.UtcNow;
         var timestamp = now.ToString("yyyy-MM-ddTHH:mm:ssZ");
         var title = string.IsNullOrWhiteSpace(request.Title) ? "Research Report" : request.Title;
@@ -195,9 +189,6 @@ public sealed class AgentController(
     [HttpPost("report/pdf")]
     public ActionResult GenerateReportPdf([FromBody] GenerateReportRequest request)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var now = DateTime.UtcNow;
         var timestamp = now.ToString("yyyy-MM-ddTHH:mm:ssZ");
         var title = string.IsNullOrWhiteSpace(request.Title) ? "Research Report" : request.Title;
@@ -228,11 +219,9 @@ public sealed class AgentController(
         [FromBody] AgentQueryRequest request,
         CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-        {
-            Response.StatusCode = StatusCodes.Status400BadRequest;
-            return;
-        }
+        // Resolve before the SSE headers are set so a missing LLM still gets a
+        // plain 503 ProblemDetails response.
+        var chatService = kernel.GetChatCompletionOrThrow();
 
         var sw = Stopwatch.StartNew();
 
@@ -244,8 +233,6 @@ public sealed class AgentController(
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
         Response.Headers.Connection = "keep-alive";
-
-        var chatService = kernel.GetRequiredService<IChatCompletionService>();
 
         var chatHistory = new ChatHistory();
         chatHistory.AddSystemMessage(SystemPrompt);

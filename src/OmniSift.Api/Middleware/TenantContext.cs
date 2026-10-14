@@ -3,6 +3,8 @@
 // Provides access to the current tenant ID from HttpContext
 // ============================================================
 
+using OmniSift.Api.Infrastructure;
+
 namespace OmniSift.Api.Middleware;
 
 /// <summary>
@@ -29,7 +31,7 @@ public sealed class TenantContext(IHttpContextAccessor httpContextAccessor) : IT
         get
         {
             var context = httpContextAccessor.HttpContext
-                ?? throw new InvalidOperationException("No HTTP context available.");
+                ?? throw new TenantContextMissingException();
 
             if (context.Items.TryGetValue("TenantId", out var tenantIdObj) &&
                 tenantIdObj is Guid tenantId)
@@ -37,8 +39,7 @@ public sealed class TenantContext(IHttpContextAccessor httpContextAccessor) : IT
                 return tenantId;
             }
 
-            throw new InvalidOperationException(
-                "Tenant ID not found in request context. Ensure TenantMiddleware is registered.");
+            throw new TenantContextMissingException();
         }
     }
 }
