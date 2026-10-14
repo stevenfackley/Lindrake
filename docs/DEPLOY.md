@@ -136,19 +136,17 @@ chmod 600 secrets/*.txt
 
 ### First-time database setup
 
-`infra/db/init.sql` runs once, on an empty data volume, as the superuser. It creates the `uuid-ossp` and `vector` extensions and the `omnisift_app` role **with the fixed password `omnisift_dev`**. Two things must then be done by hand, as the superuser, before the API starts for the first time:
+`infra/db/init.sql` runs once, on an empty data volume, as the superuser. It creates every extension the migrations use (`uuid-ossp`, `vector`, `pg_trgm`) and the `omnisift_app` role **with the fixed password `omnisift_dev`**, which must be replaced by hand, as the superuser, before the API starts for the first time:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d db
 # wait until healthy, then (POSTGRES_USER defaults to omnisift):
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec db \
   psql -U omnisift -d omnisift \
-  -c "ALTER ROLE omnisift_app WITH PASSWORD '<APP_DB_PASSWORD>';" \
-  -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+  -c "ALTER ROLE omnisift_app WITH PASSWORD '<APP_DB_PASSWORD>';"
 ```
 
-- The password must match the one in `ConnectionStrings__DefaultConnection.txt`.
-- `pg_trgm` is created by the `AddPgTrgmExtensionAndIndex` migration, but `omnisift_app` lacks the database `CREATE` privilege that a non-superuser needs for it, so on a fresh database that migration fails and the API does not start. Creating the extension as the superuser first makes the migration's `IF NOT EXISTS` a no-op. See [schema-provisioning.md](./schema-provisioning.md).
+The password must match the one in `ConnectionStrings__DefaultConnection.txt`. See [schema-provisioning.md](./schema-provisioning.md).
 
 ---
 

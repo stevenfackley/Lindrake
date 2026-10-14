@@ -5,7 +5,9 @@
 --
 -- SCOPE — what this file owns:
 --   Only what EF Core's migrations cannot do as a non-superuser:
---     1. Extensions (CREATE EXTENSION requires superuser in PG16).
+--     1. Every extension the migrations use (uuid-ossp, vector, pg_trgm).
+--        omnisift_app can create none of them: untrusted extensions need
+--        superuser, trusted ones (pg_trgm) need CREATE on the database.
 --     2. The `omnisift_app` application role + its GRANTs.
 --     3. Default privilege rules so future tables auto-grant.
 --
@@ -17,10 +19,10 @@
 -- WHAT RUNS SECOND:
 --   Program.cs calls Database.Migrate() at startup, which runs
 --   EF's InitialCreate migration as the omnisift_app user.
---   InitialCreate also contains `AlterDatabase().Annotation(...)` calls
---   that emit `CREATE EXTENSION IF NOT EXISTS` — those are safe because
---   Postgres short-circuits the IF NOT EXISTS check BEFORE the privilege
---   check, so the non-superuser migration succeeds without error.
+--   InitialCreate (uuid-ossp, vector) and AddPgTrgmExtensionAndIndex
+--   (pg_trgm) also emit `CREATE EXTENSION IF NOT EXISTS` — those are safe
+--   only because this file created the extensions first: Postgres
+--   short-circuits the IF NOT EXISTS check BEFORE the privilege check.
 --   InitialCreate owns: all tables, all indexes (including the HNSW
 --   index), RLS policies, and the seed tenant.
 --
@@ -30,13 +32,15 @@
 
 -- ============================================================
 -- Extensions
--- Must run as superuser (postgres). EF's InitialCreate also emits
--- CREATE EXTENSION IF NOT EXISTS for both extensions, but when they
--- already exist Postgres short-circuits before the privilege check,
--- so the non-superuser migration succeeds without error.
+-- Must run as superuser. The migrations emit CREATE EXTENSION IF NOT
+-- EXISTS for each of these (OmniSiftDbContext.HasPostgresExtension), but
+-- as omnisift_app that only succeeds when the extension already exists:
+-- Postgres short-circuits before the privilege check. Add any extension a
+-- new migration needs here as well.
 -- ============================================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- keyword arm of hybrid search (GIN trigram index)
 
 -- ============================================================
 -- Application Role

@@ -58,15 +58,7 @@ docker compose --env-file .env.dev up --build
 
 `--env-file .env.dev` is required: `docker-compose.yml` interpolates `${POSTGRES_DB}`, `${POSTGRES_PASSWORD}`, `${JWT_SECRET}` and the API keys from the Compose environment. Without it (or a `.env` file) they are blank, so the API gets an unusable connection string and an empty JWT secret and refuses to start.
 
-The API image downloads the ONNX embedding model (about 127 MB, pinned and checksummed) during the build. On start the API applies EF Core migrations and loads the model; a missing model is a startup failure, not a degraded mode.
-
-> **Fresh database volume:** the app role cannot create the `pg_trgm` extension its migrations need, so the first start fails until the superuser creates it ([details](./docs/schema-provisioning.md#known-gap-pg_trgm-2026-10-14)). Start `db` first and, once `docker compose ps` shows it healthy, run:
->
-> ```bash
-> docker compose --env-file .env.dev up -d db
-> # wait for (healthy), then:
-> docker compose --env-file .env.dev exec db psql -U omnisift -d omnisift -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
-> ```
+The API image downloads the ONNX embedding model (about 127 MB, pinned and checksummed) during the build. On first start of an empty volume, `db` runs `infra/db/init.sql` (extensions, `omnisift_app` role); the API then applies EF Core migrations and loads the model. A missing model is a startup failure, not a degraded mode.
 
 ### 3. Access
 
