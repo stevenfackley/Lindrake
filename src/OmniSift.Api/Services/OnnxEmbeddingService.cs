@@ -18,7 +18,8 @@ namespace OmniSift.Api.Services;
 /// The model graph emits a token-level last_hidden_state; this service applies
 /// the configured pooling (<see cref="PoolingStrategy"/>) + L2-normalization.
 /// Holds a single thread-safe <c>InferenceSession</c> for the process lifetime,
-/// so it is registered as a singleton.
+/// so it is registered as a singleton. Also the <see cref="ITokenCounter"/> for the
+/// ONNX provider, so chunks are sized with the model's own WordPiece tokenizer.
 /// </summary>
 /// <remarks>
 /// Fail-fast: the constructor throws if the model/vocab are missing or the model's
@@ -33,9 +34,10 @@ namespace OmniSift.Api.Services;
 /// Absolute paths are passed through unchanged in both cases.
 /// </para>
 /// </remarks>
-public sealed class OnnxEmbeddingService : IEmbeddingService, IDisposable
+public sealed class OnnxEmbeddingService : IEmbeddingService, ITokenCounter, IDisposable
 {
     private readonly EmbeddingOptions _opts;
+    private readonly ILogger<OnnxEmbeddingService> _logger;
     private readonly InferenceSession _session;
     private readonly BertTokenizer _tokenizer;
     private readonly List<string> _inputNames;
@@ -67,6 +69,7 @@ public sealed class OnnxEmbeddingService : IEmbeddingService, IDisposable
         string? contentRootPath)
     {
         _opts = options.Value;
+        _logger = logger;
 
         var modelPath = ResolvePath(_opts.ModelPath, contentRootPath);
         var vocabPath = ResolvePath(_opts.TokenizerPath, contentRootPath);
@@ -159,10 +162,22 @@ public sealed class OnnxEmbeddingService : IEmbeddingService, IDisposable
         }, cancellationToken);
     }
 
+    /// <summary>WordPiece token count of <paramref name="text"/> (ITokenCounter).</summary>
+    public int Count(string text) => _tokenizer.CountTokens(text);
+
     private Vector Embed(string text)
     {
         // BertTokenizer adds [CLS]…[SEP]; truncate to the model's max sequence length.
         var ids = _tokenizer.EncodeToIds(text);
+        if (ids.Count > _opts.MaxSequenceLength)
+        {
+            // The dropped tail is invisible to search. TextChunker sizes chunks to
+            // avoid this; seeing it means an oversized chunk or a misconfiguration.
+            _logger.LogWarning(
+                "Embedding input truncated from {TokenCount} to {MaxSequenceLength} tokens",
+                ids.Count, _opts.MaxSequenceLength);
+        }
+
         var count = Math.Min(ids.Count, _opts.MaxSequenceLength);
 
         var inputIds = new long[count];

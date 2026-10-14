@@ -121,6 +121,11 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                     texts.Select(_ => new Vector(new float[384])).ToList());
             services.AddSingleton(embeddingMock.Object);
 
+            // appsettings selects the ONNX provider, whose token counter needs the
+            // model files; chunk with the word heuristic instead.
+            services.RemoveAll<ITokenCounter>();
+            services.AddSingleton<ITokenCounter, WordHeuristicTokenCounter>();
+
             // Replace Semantic Kernel with a simple empty kernel (no LLM)
             services.RemoveAll<Func<Kernel>>();
             services.RemoveAll<Kernel>();

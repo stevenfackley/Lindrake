@@ -157,6 +157,13 @@ public static class ServiceCollectionExtensions
                 ? sp.GetRequiredService<OnnxEmbeddingService>()
                 : sp.GetRequiredService<OpenAIEmbeddingService>());
 
+        // Chunk sizing follows the provider: the ONNX model's own tokenizer, or a
+        // words-based estimate for OpenAI (whose window is far larger anyway).
+        services.AddSingleton<ITokenCounter>(sp =>
+            sp.GetRequiredService<IOptions<EmbeddingOptions>>().Value.Provider == EmbeddingProvider.Onnx
+                ? sp.GetRequiredService<OnnxEmbeddingService>()
+                : new WordHeuristicTokenCounter());
+
         return services;
     }
 
@@ -186,6 +193,7 @@ public static class ServiceCollectionExtensions
                 !WebPageFetcher.IsBlocked(outcome.Exception) && HttpClientResiliencePredicates.IsTransient(outcome);
         });
 
+        services.AddValidatedOptions<ChunkingOptions>(ChunkingOptions.Section);
         services.AddSingleton<ITextChunker, TextChunker>();
 
         // Extractors are stateless; the registry keys them by ITextExtractor.SourceType

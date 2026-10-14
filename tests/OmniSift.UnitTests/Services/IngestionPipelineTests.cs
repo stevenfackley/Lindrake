@@ -9,10 +9,12 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using OmniSift.Api.Data;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
+using OmniSift.Api.Options;
 using OmniSift.Api.Services;
 using OmniSift.Api.Services.Extraction;
 using OmniSift.Api.Services.Ingestion;
@@ -201,7 +203,7 @@ public sealed class IngestionPipelineTests
             db,
             tenantContext,
             new TextExtractorRegistry([_extractor.Object]),
-            new TextChunker(),
+            new TextChunker(new WordHeuristicTokenCounter(), Options.Create(new ChunkingOptions())),
             _embeddings.Object,
             NullLogger<IngestionPipeline>.Instance);
     }

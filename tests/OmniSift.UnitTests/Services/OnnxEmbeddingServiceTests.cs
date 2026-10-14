@@ -5,10 +5,12 @@
 // ============================================================
 
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using OmniSift.Api.Options;
 using OmniSift.Api.Services;
+using OmniSift.UnitTests.TestSupport;
 
 namespace OmniSift.UnitTests.Services;
 
@@ -31,7 +33,7 @@ public sealed class OnnxEmbeddingServiceTests
 
     // Returns null when the model isn't present, so tests no-op instead of failing
     // CI that hasn't run scripts/fetch-embedding-model.ps1.
-    private static OnnxEmbeddingService? CreateServiceOrNull()
+    private static OnnxEmbeddingService? CreateServiceOrNull(ILogger<OnnxEmbeddingService>? logger = null)
     {
         var located = LocateModel();
         if (located is null)
@@ -47,7 +49,7 @@ public sealed class OnnxEmbeddingServiceTests
             QueryInstruction = "Represent this sentence for searching relevant passages: "
         };
 
-        return new OnnxEmbeddingService(Options.Create(opts), NullLogger<OnnxEmbeddingService>.Instance);
+        return new OnnxEmbeddingService(Options.Create(opts), logger ?? NullLogger<OnnxEmbeddingService>.Instance);
     }
 
     private static double Cosine(float[] a, float[] b)
@@ -118,5 +120,31 @@ public sealed class OnnxEmbeddingServiceTests
         // The bge query instruction must actually be applied on the query path only,
         // so the two embeddings of the same text are not identical.
         asQuery.Should().NotEqual(asDocument);
+    }
+
+    [Fact]
+    public void DefaultChunks_FitTheModelWindow()
+    {
+        using var sut = CreateServiceOrNull();
+        if (sut is null) return;
+
+        var text = string.Join(" ", Enumerable.Repeat(
+            "Quarterly revenue grew 12% (year-over-year), driven by cloud-infrastructure demand.", 300));
+        var chunks = new TextChunker(sut, Options.Create(new ChunkingOptions())).ChunkText(text);
+
+        chunks.Should().HaveCountGreaterThan(1);
+        chunks.Should().AllSatisfy(c => sut.Count(c.Content).Should().BeLessThanOrEqualTo(480));
+    }
+
+    [Fact]
+    public async Task GenerateEmbeddingsAsync_OverlongInput_LogsTruncation()
+    {
+        var logger = new RecordingLogger<OnnxEmbeddingService>();
+        using var sut = CreateServiceOrNull(logger);
+        if (sut is null) return;
+
+        await sut.GenerateEmbeddingsAsync([string.Join(' ', Enumerable.Repeat("word", 1000))]);
+
+        logger.Entries.Should().Contain(e => e.Level == LogLevel.Warning && e.Message.Contains("truncated"));
     }
 }
