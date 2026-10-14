@@ -3,6 +3,8 @@
 // Stores agent query/response pairs for audit and context
 // ============================================================
 
+using OmniSift.Shared.DTOs;
+
 namespace OmniSift.Api.Models;
 
 /// <summary>
@@ -34,9 +36,10 @@ public sealed class QueryHistory : ITenantOwned, ICreationTimestamped
     public List<string> PluginsUsed { get; set; } = [];
 
     /// <summary>
-    /// Source citations included in the response.
+    /// Source citations included in the response, stored as JSON (jsonb) through the
+    /// source-generated <see cref="OmniSift.Shared.OmniSiftJsonContext"/> (camelCase).
     /// </summary>
-    public List<object> Sources { get; set; } = [];
+    public List<SourceCitation> Sources { get; set; } = [];
 
     /// <summary>
     /// Processing duration in milliseconds.

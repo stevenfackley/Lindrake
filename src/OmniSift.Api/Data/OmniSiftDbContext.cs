@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
+using OmniSift.Shared;
+using OmniSift.Shared.DTOs;
 
 namespace OmniSift.Api.Data;
 
@@ -164,8 +166,8 @@ public class OmniSiftDbContext : DbContext
                     v => JsonSerializer.Deserialize<List<string>>(v, JsonSerializerOptions.Default) ?? new List<string>());
             entity.Property(e => e.Sources).HasColumnName("sources").HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb")
                 .HasConversion(
-                    v => JsonSerializer.Serialize(v, JsonSerializerOptions.Default),
-                    v => JsonSerializer.Deserialize<List<object>>(v, JsonSerializerOptions.Default) ?? new List<object>());
+                    v => JsonSerializer.Serialize(v, OmniSiftJsonContext.Default.ListSourceCitation),
+                    v => JsonSerializer.Deserialize(v, OmniSiftJsonContext.Default.ListSourceCitation) ?? new List<SourceCitation>());
             entity.Property(e => e.DurationMs).HasColumnName("duration_ms");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
 

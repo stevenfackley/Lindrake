@@ -73,6 +73,21 @@ public sealed class ResearchAgentServiceTests
     }
 
     [Fact]
+    public async Task RunAsync_PersistsTheCitationsInQueryHistory()
+    {
+        _citations.AddWebResult("https://example.test/cork", "Cork records", 0.9);
+        var kernel = KernelWith(new ScriptedChatCompletionService("Cork."));
+
+        var result = await CreateService(kernel).RunAsync(Request, CancellationToken.None);
+
+        result.Sources.Should().ContainSingle();
+        await using var verify = InMemoryDb.ForTenant(_databaseName, _tenantId);
+        var history = await verify.QueryHistories.SingleAsync();
+        history.Sources.Should().ContainSingle().Which.Should().BeEquivalentTo(result.Sources[0]);
+        history.Sources[0].Url.Should().Be("https://example.test/cork");
+    }
+
+    [Fact]
     public async Task StreamAsync_YieldsDeltasThenCompletedWithSources()
     {
         _citations.AddWebResult("https://example.test", "Example", 0.9);
