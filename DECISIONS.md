@@ -16,7 +16,7 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 
 ## 2026-04-17 — Initial stack: .NET 10 Native AOT
 
-**Status:** superseded by [2026-10-14 — Native AOT is not a target](#2026-10-14--native-aot-is-not-a-target). Added by the workspace baseline sweep from the `repo-template-dotnet10-aot` template; OmniSift never published with AOT.
+**Status:** superseded by [2026-10-14 — Native AOT is not a target](#2026-10-14--native-aot-is-not-a-target). Added by the workspace baseline sweep from the `repo-template-dotnet10-aot` template; Lindrake never published with AOT.
 **Context:** Greenfield service under portfolio `repo-template-dotnet10-aot`. Target: fast cold-start, small image, Linux deploys.
 **Decision:** .NET 10 with `PublishAot=true`, `linux-musl-x64`, distroless static runtime.
 **Consequences:**
@@ -55,7 +55,7 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 ## 2026-10-14 — Native AOT is not a target
 
 **Status:** accepted. Supersedes [2026-04-17 — Initial stack: .NET 10 Native AOT](#2026-04-17--initial-stack-net-10-native-aot).
-**Context:** The 2026-04-17 entry came from a template and describes a stack OmniSift never had: no project sets `PublishAot`, the API image is the JIT `mcr.microsoft.com/dotnet/aspnet:10.0` runtime (Ubuntu 24.04), not a distroless static one. The shared CI's AOT lane fell back to the Blazor WASM project and failed with NETSDK1203, so `ci.yml` has passed `aot-rid: ""` since 2026-09-22 (#87) and the job is skipped.
+**Context:** The 2026-04-17 entry came from a template and describes a stack Lindrake never had: no project sets `PublishAot`, the API image is the JIT `mcr.microsoft.com/dotnet/aspnet:10.0` runtime (Ubuntu 24.04), not a distroless static one. The shared CI's AOT lane fell back to the Blazor WASM project and failed with NETSDK1203, so `ci.yml` has passed `aot-rid: ""` since 2026-09-22 (#87) and the job is skipped.
 **Decision:** Ship the API as a regular JIT ASP.NET Core app. Do not gate dependency or design choices on AOT compatibility. What blocks AOT today:
 - Options validation uses reflection-based `ValidateDataAnnotations()` (the `[OptionsValidator]` source generator would be the AOT-safe replacement).
 - Semantic Kernel imports plugins by reflection (`ImportPluginFromObject`).
@@ -64,7 +64,7 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 **Consequences:**
 - No cold-start or image-size gains from AOT; the API image also carries the ~127 MB ONNX model regardless.
 - The CI AOT lane stays skipped; re-enabling it means fixing every item above first.
-- `OmniSiftJsonContext` (source-generated JSON) stays: it is useful without AOT.
+- `LindrakeJsonContext` (source-generated JSON) stays: it is useful without AOT.
 
 ---
 
@@ -100,7 +100,7 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 **Status:** accepted
 **Context:** Isolation relied on RLS plus a middleware that pinned one connection per request to set `app.current_tenant` (held through long LLM calls, lost on a retry's reconnect) and on a hard-coded list of paths that needed a tenant. Application queries had no tenant predicate of their own, and `audit_log` had no RLS.
 **Decision:**
-- EF Core global query filter (named `Tenant`) on every `ITenantOwned` entity, reading the scope's `ITenantContext`. An unbound scope compares with `Guid.Empty` and matches nothing: fail closed, not throw. Bypassing it requires `IgnoreQueryFilters([OmniSiftDbContext.TenantFilter])` with a stated reason.
+- EF Core global query filter (named `Tenant`) on every `ITenantOwned` entity, reading the scope's `ITenantContext`. An unbound scope compares with `Guid.Empty` and matches nothing: fail closed, not throw. Bypassing it requires `IgnoreQueryFilters([LindrakeDbContext.TenantFilter])` with a stated reason.
 - `TenantConnectionInterceptor` runs `set_config('app.current_tenant', ...)` each time EF opens a connection for a bound context, so RLS applies to every (re)opened connection and none is held between queries.
 - The default authorization policy (authenticated + `tenant_id` claim) applies to every controller via `MapControllers().RequireAuthorization()`; `[AllowAnonymous]` opts out. It is not a fallback policy, which would turn unmatched-route 404s into 401s.
 - `audit_log` gets RLS with SELECT, INSERT and DELETE policies and no UPDATE policy: append-only even for the owner; DELETE remains for the account erase.
@@ -108,7 +108,7 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 **Consequences:**
 - A forgotten filter in code is still caught by RLS, and a connection used without RLS (InMemory tests, a superuser) is still filtered by EF.
 - The background worker must bind `ITenantContext` from the work item before any query, which it does.
-- The app must connect as the non-superuser `omnisift_app`; a superuser connection bypasses RLS silently.
+- The app must connect as the non-superuser `lindrake_app`; a superuser connection bypasses RLS silently.
 
 ---
 
@@ -116,10 +116,10 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 
 **Status:** accepted
 **Context:** `GlobalExceptionHandler` turned every `InvalidOperationException` into a 422 and every `ArgumentException` into a 400 and returned `exception.Message`, including on 500s, leaking internals. The tenant middleware's 403 answered `{"error": ...}` while controllers answered ProblemDetails.
-**Decision:** Every error response is ProblemDetails (`application/problem+json`) with a `traceId`. Client-facing failures are `OmniSiftException` subclasses carrying their status (`UnsupportedSourceTypeException`, `UnsupportedFileTypeException`, `BlockedUrlException` → 400, `TenantContextMissingException` → 403, `LlmNotConfiguredException` → 503); only their messages are returned. `BadHttpRequestException` keeps its status, `HttpRequestException` is a generic 502, anything else a generic 500 logged at Error. Controllers use `Problem()`; the tenant middleware's 403 and the authentication/authorization 401/403 responses carry ProblemDetails bodies too.
+**Decision:** Every error response is ProblemDetails (`application/problem+json`) with a `traceId`. Client-facing failures are `LindrakeException` subclasses carrying their status (`UnsupportedSourceTypeException`, `UnsupportedFileTypeException`, `BlockedUrlException` → 400, `TenantContextMissingException` → 403, `LlmNotConfiguredException` → 503); only their messages are returned. `BadHttpRequestException` keeps its status, `HttpRequestException` is a generic 502, anything else a generic 500 logged at Error. Controllers use `Problem()`; the tenant middleware's 403 and the authentication/authorization 401/403 responses carry ProblemDetails bodies too.
 **Consequences:**
 - One parser on the client (`ApiProblemReader`); messages are safe to show.
-- Throwing a plain exception for an expected condition yields a 500 by design; new client-facing failures need an `OmniSiftException` subclass.
+- Throwing a plain exception for an expected condition yields a 500 by design; new client-facing failures need an `LindrakeException` subclass.
 
 ---
 
@@ -135,3 +135,20 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 - Every row ends `completed` or `failed`, with a message that is safe to show.
 - Trade-off: the queue is in-memory. Items queued but not yet processed are lost when the API restarts and their rows stay `pending`; there is no retry or re-enqueue on startup. A durable queue (or re-enqueueing `pending` rows at startup) is a known follow-up.
 - Upload bytes are buffered in memory until processed (up to 100 queued items of up to 50 MB each).
+
+---
+
+## 2026-10-14 — Renamed OmniSift to Lindrake
+
+**Status:** accepted
+**Context:** "OmniSift" collides with an existing product. The project is also changing course: from a personal and family-history research assistant to a horizontal records and evidence platform, where family history becomes one research profile among others (the `ResearchProfile` seam above). The old name tied the product to its first use case.
+**Decision:** Rename the product to **Lindrake**, a coinage: *lind* (Old English for the linden tree, and the linden-wood shield), *rake* (to comb through), and *drake* (Old English *draca*, dragon). The name was vetted clean on .com, .io, GitHub and NuGet. Still owed by the owner: a trademark search, and registering `lindrake.com` (pending; until it is registered, nothing in the tree points at it).
+**Consequences:**
+- Code: `Lindrake.sln`, project directories, assemblies and namespaces `Lindrake.*`; product-named types follow (`LindrakeDbContext`, `LindrakeJsonContext`, `LindrakeException`, `LindrakeApiClient`, the `AddLindrake*` modules). Migration IDs, migration bodies and `__EFMigrationsHistory` rows are unchanged; only namespaces and CLR entity names in the designer and snapshot files moved, and the model reports no pending changes.
+- Database: superuser and database `lindrake`, application role `lindrake_app`, test database `lindrake_test`, dev password `lindrake_dev`. `init.sql` runs only on an empty volume, so every existing dev volume has to be recreated. There is no deployed database to migrate; one would need its role and database renamed by hand.
+- Compose pins `name: lindrake`, so container (`lindrake-db/-api/-web`), network and volume (`lindrake_postgres_data`) names no longer follow the checkout folder.
+- Images: `ghcr.io/<owner>/lindrake-web` and `lindrake-api`; the `omnisift-*` packages get no new tags.
+- Auth: JWT issuer and audience defaults are `Lindrake` (`appsettings.json`, `JwtOptions`) and `https://lindrake.local` / `lindrake-api` (compose, `.env` files), so tokens minted under the old values are rejected. The Blazor client's localStorage keys are `lindrake_*`, so browsers sign in again.
+- Observability: OpenTelemetry service name `Lindrake.Api`; outbound User-Agent `Lindrake/1.0`.
+- Kept as is: the embedding parity fixture `bge_small_en_v1_5_reference_vectors.json` and `tools/generate_reference_vectors.py` still contain the sentence "OmniSift is a multi-tenant AI research assistant…", because the expected vectors are the embedding of that exact text. The script's usage comment also still names the old `tests/OmniSift.UnitTests` output path.
+- The GitHub repository and the local folder are renamed separately, after this change merges. The README badge and clone URLs already point at `stevenfackley/Lindrake` and resolve once the repository is renamed.

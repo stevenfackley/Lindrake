@@ -1,5 +1,5 @@
 /* ============================================================
-   OmniSift — Landing interactions
+   Lindrake — Landing interactions
    Vanilla-first (works without GSAP); GSAP enhances if present.
    Everything degrades gracefully under prefers-reduced-motion.
    ============================================================ */

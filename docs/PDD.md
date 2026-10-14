@@ -1,4 +1,4 @@
-# OmniSift — Product Design Document (PDD)
+# Lindrake — Product Design Document (PDD)
 
 **Version:** 1.1
 **Date:** 2026-10-14 (first issued 2026-02-25)
@@ -22,7 +22,7 @@ Brought in line with what has shipped. What changed:
 
 ## 1. Product Vision
 
-OmniSift is an AI-powered research platform that empowers individuals, genealogists, journalists, and investigators to aggregate, search, and synthesize personal and family history data from multiple sources — both private documents and public web records — into a unified, intelligent knowledge base.
+Lindrake is an AI-powered research platform that empowers individuals, genealogists, journalists, and investigators to aggregate, search, and synthesize personal and family history data from multiple sources — both private documents and public web records — into a unified, intelligent knowledge base.
 
 The platform acts as a tireless research assistant that can independently search across uploaded documents, live web sources, and archived internet snapshots to answer complex, multi-step research questions about people and their histories.
 

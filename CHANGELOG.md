@@ -1,12 +1,23 @@
 # Changelog
 
-All notable changes to OmniSift will be documented here.
+All notable changes to Lindrake will be documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
 ## [Unreleased]
+
+### Renamed to Lindrake (2026-10-14)
+
+OmniSift is now Lindrake ([ADR](DECISIONS.md#2026-10-14--renamed-omnisift-to-lindrake)). What that changes for anyone running it:
+
+- **Dev databases must be recreated.** The superuser and database are `lindrake` (were `omnisift`), the API role is `lindrake_app` (was `omnisift_app`), the dev password is `lindrake_dev` (was `omnisift_dev`), and the test database and user are `lindrake_test`. `infra/db/init.sql` only runs against an empty volume, so an existing volume keeps the old role and the API cannot log in. Remove the old stack with `docker compose -p omnisift down -v` (or `docker volume rm omnisift_postgres_data`) and start again.
+- **Compose project pinned.** `docker-compose.yml` sets `name: lindrake`: containers are `lindrake-db`, `lindrake-api` and `lindrake-web`, and the volume is `lindrake_postgres_data` whatever the checkout folder is called.
+- **Images renamed.** `ghcr.io/<owner>/omnisift-web` and `omnisift-api` become `lindrake-web` and `lindrake-api`; the old packages get no new tags. A deploy host's `.env.prod` (database, user, `IMAGE_*`) needs the new names.
+- **JWT issuer and audience changed.** Defaults are `Lindrake` in `appsettings.json` and `JwtOptions`, `https://lindrake.local` / `lindrake-api` in the compose and `.env` files (`https://lindrake.test` / `lindrake-api-test` for tests). Tokens issued under the old values fail validation, and the Blazor client's localStorage keys moved to `lindrake_*`, so every browser signs in again.
+- **Names in code and ops.** `Lindrake.sln`, projects and namespaces `Lindrake.*`, entry assembly `Lindrake.Api.dll`, OpenTelemetry service `Lindrake.Api`, User-Agent `Lindrake/1.0`, Web container variable `LINDRAKE_APPSETTINGS_PATH`. Migration IDs and the migration history are unchanged.
+- The GitHub repository and the local folder are renamed separately, after this change merges.
 
 ### Refactor of October 2026 (batches 1–6)
 
@@ -24,7 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Rate limiting runs after authentication and partitions on the tenant claim; previously all tenants shared one bucket.
 
 #### Structure
-- `Program.cs` split into one `AddOmniSift*` service module per concern plus `InitializeOmniSift` / `UseOmniSiftPipeline`; strongly-typed options with startup validation.
+- `Program.cs` split into one `AddLindrake*` service module per concern plus `InitializeLindrake` / `UseLindrakePipeline`; strongly-typed options with startup validation.
 - `ResearchAgentService` owns the buffered and streamed query flow; `AgentSseWriter`, `ChatHistoryFactory`, an invocation tracker and a query-history recorder replace controller code.
 - `ResearchProfile` configuration section (`Name`, `SystemPrompt`, `EnabledPlugins`, `ReportTitle`) with the family-history profile as default.
 - Reports render from one `ReportDocument` through `IReportRenderer` (Markdown, PDF).
