@@ -1,8 +1,22 @@
 # OmniSift — Product Design Document (PDD)
 
-**Version:** 1.0
-**Date:** 2026-02-25
+**Version:** 1.1
+**Date:** 2026-10-14 (first issued 2026-02-25)
 **Status:** Active Development
+
+---
+
+## Revision 2026-10-14
+
+Brought in line with what has shipped. What changed:
+
+- **Ingestion:** besides PDF, SMS exports and web pages, uploads now accept Word (`.docx`), email (`.eml`, `.mbox`) and plain text (`.txt`, `.md`). Uploads are processed in the background and report `pending` → `processing` → `completed`/`failed`. Chunks are 480 tokens (48 overlap) measured by the embedding model, not 500.
+- **Search:** document search is hybrid (meaning + exact words), not vector similarity alone.
+- **Agent:** answers stream token by token; conversations export as cited Markdown or PDF reports; the research persona (prompt, tools, report title) is configurable per deployment.
+- **Shipped since 1.0:** entity relationship graph and timeline, PII flagging, per-tenant audit log, account data export and erase, role-based onboarding with a sample corpus.
+- **Not built yet:** chunk explorer and an in-app search-history view (history is stored and included in the account export); team invites (each self-service sign-up creates its own workspace).
+- **Security:** encryption at rest for document content is deferred (DECISIONS.md, 2026-06-30); data is encrypted in transit and isolated per tenant in the application and the database.
+- **Roadmap:** v1.1/v1.2 items updated with their status.
 
 ---
 
@@ -20,7 +34,7 @@ Researching personal and family histories is a fragmented, labor-intensive proce
 - **Manual searching** through hundreds of documents for relevant details is time-consuming and error-prone
 - **Web sources disappear** — critical obituaries, news articles, and public records go offline with no way to recover them
 - **Connecting the dots** between disparate pieces of information requires significant cognitive effort
-- **No unified tool** exists that combines document ingestion, web scraping, archive retrieval, and AI-powered synthesis
+- **No unified tool** exists that combines document ingestion, web search, archive retrieval, and AI-powered synthesis
 
 ## 3. Target Audience
 
@@ -30,7 +44,7 @@ Researching personal and family histories is a fragmented, labor-intensive proce
 | **Genealogists** | Amateur and professional family history researchers | Aggregate family records and public data into timelines |
 | **Journalists** | Investigative reporters researching individuals | Cross-reference public records with private source documents |
 | **Legal Professionals** | Paralegals and attorneys building case profiles | Search and synthesize large document collections efficiently |
-| **Private Investigators** | Licensed PIs conducting background research | Combine web scraping with document analysis |
+| **Private Investigators** | Licensed PIs conducting background research | Combine web search with document analysis |
 
 ### Secondary Users
 | Persona | Description | Key Need |
@@ -41,29 +55,36 @@ Researching personal and family histories is a fragmented, labor-intensive proce
 ## 4. Core Features
 
 ### 4.1 Document Ingestion & Processing
-- **PDF Upload & Extraction** — Upload PDF documents; text is automatically extracted, chunked, and semantically indexed
-- **Text Message Import** — Import text message exports (CSV/JSON) with conversation threading and timestamp normalization
-- **Web Page Capture** — Provide URLs; article text is extracted, cleaned, and indexed for semantic search
-- **Intelligent Chunking** — All content is split into overlapping 500-token chunks for optimal retrieval accuracy
+- **File Upload** — PDF, Word (`.docx`), email (`.eml`, `.mbox`), plain text (`.txt`, `.md`), HTML and text-message exports (CSV/JSON), up to 50 MB each. Processing runs in the background; the data source list shows its status and any failure reason.
+- **Text Message Import** — CSV/JSON exports normalized to one `sender (timestamp) message` line per message
+- **Web Page Capture** — Provide a URL; article text is extracted, cleaned, and indexed. Only public web addresses can be fetched, pages are capped at 10 MB.
+- **Intelligent Chunking** — Content is split into overlapping chunks of up to 480 tokens, sized for the embedding model so nothing is cut off before indexing
+- **PII Flagging** — Documents containing personal data are flagged with the detected types; nothing is rejected
 
 ### 4.2 AI-Powered Research Agent
 - **Natural Language Queries** — Ask complex research questions in plain English
 - **Autonomous Tool Selection** — The agent independently decides which tools to use based on the query:
-  - Search uploaded documents (vector similarity)
+  - Search uploaded documents (hybrid: semantic similarity + exact keyword matching)
   - Execute live web searches
   - Check the Wayback Machine for archived pages
-- **Source Attribution** — Every answer includes citations linking back to the original source documents or URLs
-- **Conversational Context** — Multi-turn conversations maintain context for follow-up questions
+- **Streaming Answers** — Answers appear as they are generated, rendered as Markdown; a running answer can be stopped
+- **Source Attribution** — Every answer includes citations to the source documents, web results or archive snapshots
+- **Conversational Context** — Multi-turn conversations keep context for follow-up questions (the most recent 20 messages are sent to the model)
+- **Cited Reports** — Export a conversation with its citations as Markdown or PDF
+- **Configurable Persona** — Each deployment sets the agent's system prompt, available tools and report title through configuration
 
 ### 4.3 Multi-Tenant Workspace
-- **Isolated Workspaces** — Each tenant's data is completely isolated at the database level
-- **Team Collaboration** — Multiple users can belong to the same tenant organization
+- **Isolated Workspaces** — Each tenant's data is isolated in the application and by database row-level security
+- **Team Collaboration** — The data model allows several users per tenant (with Supabase, every user whose token carries the tenant's id). Self-service sign-up creates a new workspace per account; an invite flow is not built yet.
 - **Data Sovereignty** — Tenant data never leaks across organizational boundaries
 
 ### 4.4 Knowledge Management
-- **Data Source Registry** — Track all ingested sources with metadata (type, upload date, status)
-- **Chunk Explorer** — Browse and inspect individual document chunks and their embeddings
-- **Search History** — Review past queries and agent responses
+- **Data Source Registry** — Track all ingested sources with type, upload date, status, chunk count and PII flags
+- **Entity Graph & Timeline** — Build a relationship graph and timeline of the people, places and events in a tenant's documents on demand
+- **Audit Log** — Uploads, deletions, queries and account actions are recorded per tenant
+- **Data Export & Erase** — Export a tenant's data sources, query history and audit log, or erase all of it
+- **Chunk Explorer** — *Not built yet.* Browse and inspect individual document chunks
+- **Search History** — *Stored, not yet browsable in the app.* Past queries and answers are saved and included in the data export
 
 ## 5. User Journeys
 
@@ -71,19 +92,19 @@ Researching personal and family histories is a fragmented, labor-intensive proce
 ```
 1. User logs in → lands on Dashboard
 2. User clicks "Upload" → selects PDF files
-3. System ingests, chunks, and embeds documents (progress shown)
+3. System accepts each file and ingests it in the background (status shown and refreshed)
 4. User navigates to "Research" chat interface
 5. User asks: "What addresses did John Smith live at between 1990 and 2005?"
-6. Agent searches vector DB → finds relevant chunks → synthesizes answer
-7. Answer displayed with source citations (clickable links to original chunks)
+6. Agent searches the user's documents (semantic + keyword) → synthesizes an answer
+7. Answer streams in with source citations; the conversation can be exported as a report
 ```
 
 ### Journey 2: Web-Augmented Research
 ```
 1. User asks: "Find recent obituaries for Mary Johnson in Ohio"
-2. Agent determines web search is needed → calls WebScraperPlugin
-3. Agent finds relevant URLs → extracts article text
-4. If any URLs are dead → Agent calls WaybackMachinePlugin for archived versions
+2. Agent determines web search is needed → calls the web search tool
+3. Agent receives titles, URLs and snippets for matching pages
+4. For pages that have gone offline → Agent checks the Wayback Machine for archived versions
 5. Agent synthesizes findings with any matching uploaded documents
 6. Comprehensive answer displayed with both web and document sources
 ```
@@ -92,12 +113,12 @@ Researching personal and family histories is a fragmented, labor-intensive proce
 
 | Requirement | Target |
 |---|---|
-| **Response Time** | Agent responses within 15 seconds for typical queries |
+| **Response Time** | Agent responses within 15 seconds for typical queries; first tokens stream sooner |
 | **Upload Processing** | PDFs processed at ~10 pages/second |
 | **Concurrent Users** | Support 100+ concurrent users per deployment |
 | **Data Retention** | All uploaded data retained until explicitly deleted by tenant |
 | **Availability** | 99.5% uptime target for cloud deployments |
-| **Security** | All data encrypted at rest and in transit; strict tenant isolation |
+| **Security** | Encrypted in transit; strict tenant isolation (application filters + database row-level security); per-tenant rate limits. Encryption at rest of document content is deferred (DECISIONS.md, 2026-06-30) |
 
 ## 7. Success Metrics
 
@@ -110,9 +131,11 @@ Researching personal and family histories is a fragmented, labor-intensive proce
 
 ## 8. Future Roadmap
 
-| Phase | Features |
-|---|---|
-| **v1.1** | Image/OCR ingestion (scanned documents), email import (EML/MBOX) |
-| **v1.2** | Timeline visualization, relationship graph builder |
-| **v1.3** | Collaborative annotations, shared research workspaces |
-| **v2.0** | Multi-language support, real-time web monitoring alerts |
+| Phase | Features | Status (2026-10-14) |
+|---|---|---|
+| **v1.1** | Image/OCR ingestion (scanned documents), email import (EML/MBOX) | Email import shipped; OCR deferred (native dependencies) |
+| **v1.2** | Timeline visualization, relationship graph builder | Shipped (entity graph + timeline) |
+| **v1.3** | Collaborative annotations, shared research workspaces | Not started |
+| **v2.0** | Multi-language support, real-time web monitoring alerts | Not started |
+
+See [marketability-roadmap.md](./marketability-roadmap.md) for the go-to-market items.

@@ -14,9 +14,9 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 
 ---
 
-## {{DATE}} — Initial stack: .NET 10 Native AOT
+## 2026-04-17 — Initial stack: .NET 10 Native AOT
 
-**Status:** accepted
+**Status:** superseded by [2026-10-14 — Native AOT is not a target](#2026-10-14--native-aot-is-not-a-target). Added by the workspace baseline sweep from the `repo-template-dotnet10-aot` template; OmniSift never published with AOT.
 **Context:** Greenfield service under portfolio `repo-template-dotnet10-aot`. Target: fast cold-start, small image, Linux deploys.
 **Decision:** .NET 10 with `PublishAot=true`, `linux-musl-x64`, distroless static runtime.
 **Consequences:**
@@ -28,7 +28,7 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 
 ## 2026-06-30 — Supabase ES256 auth + tenant derived from the JWT claim
 
-**Status:** accepted
+**Status:** accepted. The HS256 fallback described here is amended by [2026-10-14 — HS256 local identity provider: Development/Testing by default, explicit opt-in elsewhere](#2026-10-14--hs256-local-identity-provider-developmenttesting-by-default-explicit-opt-in-elsewhere).
 **Context:** Tenant identity was taken from the client-supplied `X-Tenant-Id` header (and an `X-API-Key` middleware). The header won over the JWT claim, so any authenticated caller could read another tenant's data by changing the header — a tenant-spoofing hole. The portfolio standard (square-log / SquareLog) is Supabase-issued ES256 JWTs validated via OIDC discovery, no symmetric secret.
 **Decision:**
 - Validate Supabase ES256/RS256 access tokens via OIDC discovery (`MetadataAddress = {Supabase:Url}/auth/v1/.well-known/openid-configuration`, audience `authenticated`, `MapInboundClaims=false`). Enabled by setting `Supabase:Url`. No symmetric secret in this path.
@@ -45,7 +45,93 @@ ADR log. One entry per architectural decision. Append-only; supersede with a new
 
 **Status:** accepted (deferred)
 **Context:** The SaaS stores personal docs / SMS bodies. The primary PII column is `document_chunks.content`. Transparent EF value-converter encryption was considered for this PR.
-**Decision:** Defer column encryption. `document_chunks.content` is backed by a GIN `pg_trgm` index (`ix_document_chunks_content_trgm`) that powers the hybrid keyword-search arm (`VectorSearchPlugin` `word_similarity`/ILIKE). Encrypting the column at rest makes the ciphertext unsearchable and silently breaks keyword search. A correct solution (searchable/deterministic encryption, tokenization, or dropping the keyword arm in favour of the vector arm) is a design decision of its own and is out of scope for the auth PR.
+**Decision:** Defer column encryption. `document_chunks.content` is backed by a GIN `pg_trgm` index (`ix_document_chunks_content_trgm`) that powers the hybrid keyword-search arm (`word_similarity`, owned by `Services/Search/HybridSearchService`; corrected 2026-10-14, this entry originally named `VectorSearchPlugin` and an ILIKE arm). Encrypting the column at rest makes the ciphertext unsearchable and silently breaks keyword search. A correct solution (searchable/deterministic encryption, tokenization, or dropping the keyword arm in favour of the vector arm) is a design decision of its own and is out of scope for the auth PR.
 **Consequences:**
 - Auth + tenant-isolation ship now; PII-at-rest encryption tracked as a follow-up.
 - Interim mitigations already present: tenant RLS, PII detection flags (`PiiScanner`), and TLS in transit.
+
+---
+
+## 2026-10-14 — Native AOT is not a target
+
+**Status:** accepted. Supersedes [2026-04-17 — Initial stack: .NET 10 Native AOT](#2026-04-17--initial-stack-net-10-native-aot).
+**Context:** The 2026-04-17 entry came from a template and describes a stack OmniSift never had: no project sets `PublishAot`, the API image is the JIT `mcr.microsoft.com/dotnet/aspnet:10.0` runtime (Ubuntu 24.04), not a distroless static one. The shared CI's AOT lane fell back to the Blazor WASM project and failed with NETSDK1203, so `ci.yml` has passed `aot-rid: ""` since 2026-09-22 (#87) and the job is skipped.
+**Decision:** Ship the API as a regular JIT ASP.NET Core app. Do not gate dependency or design choices on AOT compatibility. What blocks AOT today:
+- Options validation uses reflection-based `ValidateDataAnnotations()` (the `[OptionsValidator]` source generator would be the AOT-safe replacement).
+- Semantic Kernel imports plugins by reflection (`ImportPluginFromObject`).
+- EF Core with Npgsql + pgvector builds its model and queries at runtime.
+- QuestPDF renders through a native graphics dependency and has not been verified under AOT; Swashbuckle generates its document by reflection.
+**Consequences:**
+- No cold-start or image-size gains from AOT; the API image also carries the ~127 MB ONNX model regardless.
+- The CI AOT lane stays skipped; re-enabling it means fixing every item above first.
+- `OmniSiftJsonContext` (source-generated JSON) stays: it is useful without AOT.
+
+---
+
+## 2026-10-14 — HS256 local identity provider: Development/Testing by default, explicit opt-in elsewhere
+
+**Status:** accepted. Amends the HS256 part of the 2026-06-30 Supabase entry.
+**Context:** The in-house HS256 IdP was selected whenever `Supabase:Url` was empty, so a deployment that forgot `Supabase__Url` (the prod compose overlay sets none) silently issued and accepted self-signed tokens, with a default secret from `appsettings.json` as fallback. Deployments without a Supabase project still need a way to run, deliberately.
+**Decision:**
+- `JwtOptionsValidator` (validated on start) fails startup when `Supabase:Url` is empty outside Development/Testing, unless `Jwt:AllowLocalIdentityProvider=true` (env `JWT__ALLOWLOCALIDENTITYPROVIDER`).
+- While HS256 is active, `Jwt:Secret` must be at least 32 bytes; outside Development/Testing it must also differ from the public development default, which now lives only in `appsettings.Development.json`.
+- `LocalIdentityProviderConvention` removes `AuthController` when Supabase is configured, so `/api/auth/*` is a 404 instead of minting tokens nothing accepts.
+**Consequences:**
+- A misconfigured production deployment refuses to start with a message naming the flag, instead of running an unintended IdP.
+- Running HS256 in production is a visible, reviewable configuration choice; its secret handling is the operator's responsibility.
+- Integration tests keep using HS256 in the `Testing` environment.
+
+---
+
+## 2026-10-14 — `ResearchProfile` as the configuration seam for the domain
+
+**Status:** accepted
+**Context:** The agent's system prompt, plugin set and default report title were hard-coded for family-history research. Other domains (legal, claims, investigations) would each have needed a code change.
+**Decision:** `ResearchProfileOptions` (section `ResearchProfile`: `Name`, `SystemPrompt`, `EnabledPlugins`, `ReportTitle` with `{profile}` and `{date}` tokens) drives `ChatHistoryFactory`, the scoped kernel's plugin imports and `ReportRequestFactory`. Unset values fall back to `ResearchProfiles.FamilyHistory`. `ResearchProfileOptionsValidator` rejects unknown or duplicate plugin names at startup; `EnabledPlugins` is nullable (absent = all) because the configuration binder appends to pre-populated lists.
+**Consequences:**
+- A new domain is a configuration file, not a code change; an unconfigured deployment behaves as before.
+- New plugins must be added to `AgentPlugins` and `ResolvePlugin` before a profile can enable them.
+- Arrays merge index by index across configuration sources, so a profile file cannot remove a plugin listed by an earlier source; `appsettings.json` therefore does not set `EnabledPlugins`.
+
+---
+
+## 2026-10-14 — Tenant isolation lives in the data layer
+
+**Status:** accepted
+**Context:** Isolation relied on RLS plus a middleware that pinned one connection per request to set `app.current_tenant` (held through long LLM calls, lost on a retry's reconnect) and on a hard-coded list of paths that needed a tenant. Application queries had no tenant predicate of their own, and `audit_log` had no RLS.
+**Decision:**
+- EF Core global query filter (named `Tenant`) on every `ITenantOwned` entity, reading the scope's `ITenantContext`. An unbound scope compares with `Guid.Empty` and matches nothing: fail closed, not throw. Bypassing it requires `IgnoreQueryFilters([OmniSiftDbContext.TenantFilter])` with a stated reason.
+- `TenantConnectionInterceptor` runs `set_config('app.current_tenant', ...)` each time EF opens a connection for a bound context, so RLS applies to every (re)opened connection and none is held between queries.
+- The default authorization policy (authenticated + `tenant_id` claim) applies to every controller via `MapControllers().RequireAuthorization()`; `[AllowAnonymous]` opts out. It is not a fallback policy, which would turn unmatched-route 404s into 401s.
+- `audit_log` gets RLS with SELECT, INSERT and DELETE policies and no UPDATE policy: append-only even for the owner; DELETE remains for the account erase.
+- `users` deliberately has no RLS: HS256 registration must check email uniqueness across all tenants before a tenant exists, which FORCE RLS would hide (a duplicate would surface as a 500 instead of a 409). The table only backs the in-house IdP.
+**Consequences:**
+- A forgotten filter in code is still caught by RLS, and a connection used without RLS (InMemory tests, a superuser) is still filtered by EF.
+- The background worker must bind `ITenantContext` from the work item before any query, which it does.
+- The app must connect as the non-superuser `omnisift_app`; a superuser connection bypasses RLS silently.
+
+---
+
+## 2026-10-14 — RFC 7807 ProblemDetails is the only error shape
+
+**Status:** accepted
+**Context:** `GlobalExceptionHandler` turned every `InvalidOperationException` into a 422 and every `ArgumentException` into a 400 and returned `exception.Message`, including on 500s, leaking internals. The tenant middleware's 403 answered `{"error": ...}` while controllers answered ProblemDetails.
+**Decision:** Every error response is ProblemDetails (`application/problem+json`) with a `traceId`. Client-facing failures are `OmniSiftException` subclasses carrying their status (`UnsupportedSourceTypeException`, `UnsupportedFileTypeException`, `BlockedUrlException` → 400, `TenantContextMissingException` → 403, `LlmNotConfiguredException` → 503); only their messages are returned. `BadHttpRequestException` keeps its status, `HttpRequestException` is a generic 502, anything else a generic 500 logged at Error. Controllers use `Problem()`; the tenant middleware's 403 and the authentication/authorization 401/403 responses carry ProblemDetails bodies too.
+**Consequences:**
+- One parser on the client (`ApiProblemReader`); messages are safe to show.
+- Throwing a plain exception for an expected condition yields a 500 by design; new client-facing failures need an `OmniSiftException` subclass.
+
+---
+
+## 2026-10-14 — One ingestion pipeline, in-memory channel worker for uploads
+
+**Status:** accepted
+**Context:** Uploads (background) and web ingestion (synchronous) duplicated extract → PII scan → chunk → embed → persist, each inside a transaction that the failure paths never committed: failed rows sat in `processing` forever, and a failed web ingestion lost its row while returning its id. Raw exception messages reached `error_message`.
+**Decision:**
+- `IngestionPipeline` serves both paths. Extraction, PII scan, chunking and embedding run outside any transaction; chunk inserts and the `completed` status go out in one `SaveChanges`. On failure the change tracker is cleared and only `failed` plus a client-safe stage name is saved; the exception is logged. Cancellation also records `failed`.
+- Uploads are validated (source type via `TextExtractorRegistry`, size, name length) before a row exists, then queued on `IngestionChannel`, a bounded in-memory `System.Threading.Channels` queue (capacity 100), and drained by `IngestionBackgroundService` in a fresh DI scope per item bound to the item's tenant.
+- Web ingestion commits its row first, so a pipeline failure answers 200 with `status: "failed"`.
+**Consequences:**
+- Every row ends `completed` or `failed`, with a message that is safe to show.
+- Trade-off: the queue is in-memory. Items queued but not yet processed are lost when the API restarts and their rows stay `pending`; there is no retry or re-enqueue on startup. A durable queue (or re-enqueueing `pending` rows at startup) is a known follow-up.
+- Upload bytes are buffered in memory until processed (up to 100 queued items of up to 50 MB each).

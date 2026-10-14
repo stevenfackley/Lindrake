@@ -2,17 +2,25 @@
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
 # What this overlay does on top of the base (docker-compose.yml):
-#   - Pulls pre-built GHCR images instead of building locally
-#   - Switches env_file to .env.prod
+#   - Uses pre-built GHCR images (deploy.yml pulls them before `up`)
+#   - Adds .env.prod to env_file. Compose APPENDS env_file lists, so .env.dev is
+#     still loaded first and .env.prod only overrides the keys it sets: set every
+#     key whose dev value must not reach production (see docs/DEPLOY.md)
 #   - Injects secrets via Docker file-based secrets (see secrets/ directory)
-#   - Removes host-port exposure on db (internal-only in prod)
 #   - Adds healthchecks on api and web
 #   - Enforces restart: always on every service
+# What it does NOT do: remove host ports. Compose merges port lists, so the
+# base file's db 5432, api 5000 and web 5080 stay published; firewall them and
+# expose only the reverse proxy.
 #
 # Required files on the host before first deploy:
-#   .env.prod               — non-secret overrides (ASPNETCORE_ENVIRONMENT, etc.)
-#                             MUST set Supabase__Url: in Production the API refuses
-#                             to start without it (HS256 login is dev-only)
+#   .env.prod               — non-secret overrides. MUST set either Supabase__Url,
+#                             or JWT__ALLOWLOCALIDENTITYPROVIDER=true (in-house HS256
+#                             provider, needs a unique 32+ byte Jwt__Secret): with
+#                             neither, the API refuses to start in Production.
+#                             MUST set POSTGRES_PASSWORD= (empty): .env.dev's value
+#                             plus POSTGRES_PASSWORD_FILE below makes the postgres
+#                             image exit ("both ... are set (but are exclusive)").
 #   secrets/*.txt           — one file per secret, raw value, no trailing newline
 #     postgres_password.txt
 #     Anthropic__ApiKey.txt
@@ -37,7 +45,7 @@ services:
       # POSTGRES_PASSWORD_FILE is natively supported by the postgres image.
       # It overrides POSTGRES_PASSWORD, keeping the plaintext out of env vars.
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    ports: []         # no host exposure in prod — db is internal-only
+    ports: []         # merged with the base list, so 5432 is STILL published (see header)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omnisift} -d ${POSTGRES_DB:-omnisift}"]
       interval: 10s
@@ -46,9 +54,9 @@ services:
       start_period: 20s
 
   api:
-    # Pull the pre-built image from GHCR; tag is overridable via IMAGE_API_TAG env var
+    # Pre-built image from GHCR; override with IMAGE_API / IMAGE_TAG env vars
     image: ${IMAGE_API:-ghcr.io/stevenfackley/omnisift-api}:${IMAGE_TAG:-latest}
-    build: null         # disable local build in prod
+    build: null         # does not remove the base build section (Compose merge); pull first
     restart: always
     env_file: .env.prod
     secrets:
@@ -67,22 +75,32 @@ services:
       Jwt__Secret: ""
       ConnectionStrings__DefaultConnection: ""
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      # The aspnet:10.0 runtime image (Ubuntu 24.04) ships neither curl nor wget,
+      # so probe GET /health over bash's /dev/tcp. Healthy = HTTP 200; /health
+      # answers 503 when the database check fails.
+      test:
+        - CMD
+        - bash
+        - -c
+        - "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q '^HTTP/1\\.[01] 200'"
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
 
   web:
-    # Pull the pre-built image from GHCR. API_BASE_URL (from .env.prod) is
-    # rendered into app/appsettings.json at container start; leave it unset to
-    # have the client call api/... on its own origin (reverse proxy in front).
+    # Pre-built image from GHCR. API_BASE_URL is rendered into
+    # app/appsettings.json at container start. Set API_BASE_URL= (empty) in
+    # .env.prod to have the client call api/... on its own origin (reverse
+    # proxy in front): leaving it out inherits .env.dev's http://localhost:5000.
     image: ${IMAGE_WEB:-ghcr.io/stevenfackley/omnisift-web}:${IMAGE_TAG:-latest}
-    build: null         # disable local build in prod
+    build: null         # does not remove the base build section (Compose merge); pull first
     restart: always
     env_file: .env.prod
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/app/ || exit 1"]
+      # 127.0.0.1, not localhost: busybox wget tries ::1 first and nginx.conf
+      # only listens on IPv4 (listen 80), so "localhost" is refused.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/app/ >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
