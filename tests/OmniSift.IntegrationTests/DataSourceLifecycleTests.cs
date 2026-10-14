@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OmniSift.Api.Data;
 using OmniSift.Api.Models;
 using OmniSift.Shared.DTOs;
+using static OmniSift.IntegrationTests.ProblemAssertions;
 
 namespace OmniSift.IntegrationTests;
 
@@ -230,12 +231,4 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         await db.SaveChangesAsync();
     }
 
-    private static async Task ShouldBeProblemAsync(HttpResponseMessage response, HttpStatusCode status)
-    {
-        response.StatusCode.Should().Be(status);
-        response.Content.Headers.ContentType.Should().NotBeNull();
-        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-        problem!.Status.Should().Be((int)status);
-    }
 }

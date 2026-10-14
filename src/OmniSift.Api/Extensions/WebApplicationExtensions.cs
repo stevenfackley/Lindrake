@@ -47,6 +47,13 @@ public static class WebApplicationExtensions
     {
         app.UseExceptionHandler();
 
+        // Gives every body-less error response a ProblemDetails body (via the
+        // AddProblemDetails service): bearer 401 challenges (WWW-Authenticate kept),
+        // policy 403s, rate-limit 429s and unmatched-route 404s. Must wrap
+        // UseAuthentication/UseAuthorization. Responses that already carry a body or
+        // have started (the agent SSE stream, /health) are left alone.
+        app.UseStatusCodePages();
+
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();

@@ -11,13 +11,13 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel.ChatCompletion;
 using OmniSift.Api.Data;
 using OmniSift.Api.Models;
 using OmniSift.Shared.DTOs;
+using static OmniSift.IntegrationTests.ProblemAssertions;
 
 namespace OmniSift.IntegrationTests;
 
@@ -124,8 +124,7 @@ public sealed class TenantIsolationTests : IClassFixture<CustomWebApplicationFac
         otherGraph.Nodes.Should().BeEmpty();
     }
 
-    // The 403 status itself is covered by AuthenticationTests.
-    [Fact(Skip = "BUG: the authorization-policy 403 for a token without tenant_id has an empty body, not ProblemDetails")]
+    [Fact]
     public async Task ProtectedEndpoint_TokenWithoutTenantClaim_Returns403Problem()
     {
         var response = await SendWithClaimsAsync([new Claim("sub", Guid.NewGuid().ToString())]);
@@ -166,14 +165,6 @@ public sealed class TenantIsolationTests : IClassFixture<CustomWebApplicationFac
         return (await response.Content.ReadFromJsonAsync<EntityGraphResponse>())!;
     }
 
-    private static async Task ShouldBeProblemAsync(HttpResponseMessage response, HttpStatusCode status)
-    {
-        response.StatusCode.Should().Be(status);
-        response.Content.Headers.ContentType.Should().NotBeNull();
-        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-        problem!.Status.Should().Be((int)status);
-    }
 
     /// <summary>A fresh tenant owning one data source, chunk, query and audit row.</summary>
     private static async Task<SeededTenant> SeedTenantAsync(CustomWebApplicationFactory factory)

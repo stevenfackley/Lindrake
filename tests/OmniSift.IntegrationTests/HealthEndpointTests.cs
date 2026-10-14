@@ -9,6 +9,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using static OmniSift.IntegrationTests.ProblemAssertions;
 
 namespace OmniSift.IntegrationTests;
 
@@ -36,7 +37,8 @@ public sealed class HealthEndpointTests : IClassFixture<CustomWebApplicationFact
     {
         var response = await _client.GetAsync("/api/health");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        // Unmatched routes get the same ProblemDetails body as every other error.
+        await ShouldBeProblemAsync(response, HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -45,6 +47,7 @@ public sealed class HealthEndpointTests : IClassFixture<CustomWebApplicationFact
         var response = await _client.GetAsync("/health");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).Should().Be("Healthy");
     }
 
     [Fact]

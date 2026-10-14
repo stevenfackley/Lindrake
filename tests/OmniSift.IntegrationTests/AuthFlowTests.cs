@@ -12,11 +12,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OmniSift.Api.Data;
 using OmniSift.Shared.DTOs;
+using static OmniSift.IntegrationTests.ProblemAssertions;
 
 namespace OmniSift.IntegrationTests;
 
@@ -125,7 +125,7 @@ public sealed class AuthFlowTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await ClientWithToken(tampered).GetAsync("/api/datasources");
 
-        ShouldBeInvalidToken(response);
+        await ShouldBeInvalidTokenAsync(response);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public sealed class AuthFlowTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await ClientWithToken(forged).GetAsync("/api/datasources");
 
-        ShouldBeInvalidToken(response);
+        await ShouldBeInvalidTokenAsync(response);
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public sealed class AuthFlowTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await ClientWithToken(token).GetAsync("/api/datasources");
 
-        ShouldBeInvalidToken(response);
+        await ShouldBeInvalidTokenAsync(response);
         response.Headers.WwwAuthenticate.ToString().Should().Contain("expired");
     }
 
@@ -188,21 +188,16 @@ public sealed class AuthFlowTests : IClassFixture<CustomWebApplicationFactory>
         return client;
     }
 
-    /// <summary>A bearer challenge for a token that was presented but failed validation.</summary>
-    private static void ShouldBeInvalidToken(HttpResponseMessage response)
+    /// <summary>
+    /// A bearer challenge for a token that was presented but failed validation:
+    /// the RFC 6750 header for clients that read it, a ProblemDetails body for the rest.
+    /// </summary>
+    private static async Task ShouldBeInvalidTokenAsync(HttpResponseMessage response)
     {
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        await ShouldBeProblemAsync(response, HttpStatusCode.Unauthorized);
         response.Headers.WwwAuthenticate.ToString().Should().Contain("error=\"invalid_token\"");
     }
 
-    private static async Task ShouldBeProblemAsync(HttpResponseMessage response, HttpStatusCode status)
-    {
-        response.StatusCode.Should().Be(status);
-        response.Content.Headers.ContentType.Should().NotBeNull();
-        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
-        problem!.Status.Should().Be((int)status);
-    }
 
     /// <summary>Rewrites the token's <c>tenant_id</c> claim without re-signing it.</summary>
     private static string WithTenantClaim(string token, Guid tenantId)

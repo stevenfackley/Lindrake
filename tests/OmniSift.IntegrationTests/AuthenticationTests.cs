@@ -16,6 +16,7 @@ using Microsoft.IdentityModel.Tokens;
 using OmniSift.Api.Data;
 using OmniSift.Api.Models;
 using OmniSift.Shared.DTOs;
+using static OmniSift.IntegrationTests.ProblemAssertions;
 
 namespace OmniSift.IntegrationTests;
 
@@ -26,13 +27,14 @@ public sealed class AuthenticationTests : IClassFixture<CustomWebApplicationFact
     public AuthenticationTests(CustomWebApplicationFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task DataEndpoint_WithoutToken_Returns401()
+    public async Task DataEndpoint_WithoutToken_Returns401ProblemWithBearerChallenge()
     {
         var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/datasources");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        await ShouldBeProblemAsync(response, HttpStatusCode.Unauthorized);
+        response.Headers.WwwAuthenticate.Should().ContainSingle(h => h.Scheme == "Bearer");
     }
 
     [Fact]
@@ -54,7 +56,7 @@ public sealed class AuthenticationTests : IClassFixture<CustomWebApplicationFact
 
         var response = await client.GetAsync("/api/datasources");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        await ShouldBeProblemAsync(response, HttpStatusCode.Forbidden);
     }
 
     [Fact]
