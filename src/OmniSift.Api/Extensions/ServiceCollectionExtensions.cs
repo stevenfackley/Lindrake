@@ -350,8 +350,9 @@ public static class ServiceCollectionExtensions
     /// access-token hook); tenant identity is read from that claim, never a header.
     /// Development fallback: when Supabase:Url is empty, the legacy in-house HS256
     /// tokens issued by AuthController (Jwt:Secret) are validated instead. That
-    /// fallback refuses to start outside Development/Testing (JwtOptionsValidator),
-    /// and AuthController only exists while it is active.
+    /// fallback refuses to start outside Development/Testing unless
+    /// Jwt:AllowLocalIdentityProvider is set with a unique 32+ byte secret
+    /// (JwtOptionsValidator), and AuthController only exists while it is active.
     /// </summary>
     public static IServiceCollection AddOmniSiftAuth(this IServiceCollection services)
     {
