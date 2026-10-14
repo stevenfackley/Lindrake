@@ -2,8 +2,6 @@
 // OmniSift.Api — OpenAI Configuration Options
 // ============================================================
 
-using System.ComponentModel.DataAnnotations;
-
 namespace OmniSift.Api.Options;
 
 /// <summary>
@@ -14,7 +12,10 @@ public sealed class OpenAiOptions
 {
     public const string Section = "OpenAI";
 
-    [Required]
+    /// <summary>
+    /// Required only when Embedding:Provider is OpenAi (enforced by
+    /// <see cref="EmbeddingOptionsValidator"/>).
+    /// </summary>
     public string ApiKey { get; set; } = string.Empty;
 
     public string EmbeddingModel { get; set; } = "text-embedding-3-large";

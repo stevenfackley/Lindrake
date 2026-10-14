@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 using OmniSift.Api.Services;
@@ -20,7 +21,7 @@ namespace OmniSift.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-[EnableRateLimiting("per-tenant")]
+[EnableRateLimiting(RateLimitPolicies.PerTenant)]
 public sealed class DataSourcesController(
     OmniSiftDbContext dbContext,
     ITenantContext tenantContext,

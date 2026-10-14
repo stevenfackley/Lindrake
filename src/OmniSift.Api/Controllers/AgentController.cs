@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using OmniSift.Api.Data;
+using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 using OmniSift.Api.Services;
@@ -23,7 +24,7 @@ namespace OmniSift.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-[EnableRateLimiting("per-tenant")]
+[EnableRateLimiting(RateLimitPolicies.PerTenant)]
 public sealed class AgentController(
     Kernel kernel,
     OmniSiftDbContext dbContext,
