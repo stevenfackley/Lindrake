@@ -28,7 +28,7 @@
 
     <!-- Document Parsing -->
     <PackageReference Include="PdfPig" Version="0.1.16" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.13.0" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.13.1" />
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
     <PackageReference Include="MimeKit" Version="4.18.1" />
 
