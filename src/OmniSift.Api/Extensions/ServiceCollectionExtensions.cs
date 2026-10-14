@@ -3,6 +3,7 @@
 // One extension per concern; Program.cs composes them.
 // ============================================================
 
+using System.Net.Http.Headers;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -142,8 +143,8 @@ public static class ServiceCollectionExtensions
         // OpenAI embedding client — with resilience pipeline.
         services.AddHttpClient<OpenAIEmbeddingService>((sp, client) =>
         {
-            var opts = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {opts.ApiKey}");
+            client.BaseAddress = OpenAIEmbeddingService.BaseAddress;
+            client.SetBearerToken(sp.GetRequiredService<IOptions<OpenAiOptions>>().Value.ApiKey);
             client.Timeout = TimeSpan.FromSeconds(60);
         })
         .AddStandardResilienceHandler();
@@ -229,11 +230,16 @@ public static class ServiceCollectionExtensions
         });
 
         // Plugins — WebScraper and WaybackMachine use typed HttpClients with resilience
-        services.AddHttpClient<WebScraperPlugin>()
-            .AddStandardResilienceHandler();
+        services.AddHttpClient<WebScraperPlugin>((sp, client) =>
+        {
+            client.BaseAddress = WebScraperPlugin.TavilyBaseAddress;
+            client.SetBearerToken(sp.GetRequiredService<IOptions<TavilyOptions>>().Value.ApiKey);
+        })
+        .AddStandardResilienceHandler();
 
-        services.AddHttpClient<WaybackMachinePlugin>()
-            .AddStandardResilienceHandler();
+        services.AddHttpClient<WaybackMachinePlugin>(client =>
+            client.BaseAddress = WaybackMachinePlugin.BaseAddress)
+        .AddStandardResilienceHandler();
 
         services.AddScoped<VectorSearchPlugin>();
 
@@ -284,6 +290,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<JwtTokenService>();
 
         return services;
+    }
+
+    /// <summary>Sets <c>Authorization: Bearer</c> unless the key is unset.</summary>
+    private static void SetBearerToken(this HttpClient client, string apiKey)
+    {
+        if (!string.IsNullOrWhiteSpace(apiKey))
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
     }
 
     private static void ConfigureJwtBearer(

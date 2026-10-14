@@ -28,12 +28,16 @@ public interface IEmbeddingService
 
 /// <summary>
 /// OpenAI embedding service implementation using text-embedding-3-large.
+/// The typed HttpClient carries <see cref="BaseAddress"/> and the bearer key
+/// (configured in AddOmniSiftEmbeddings); requests use relative URIs.
 /// </summary>
-public sealed class OpenAIEmbeddingService(
+public sealed partial class OpenAIEmbeddingService(
     HttpClient httpClient,
     IOptions<OpenAiOptions> openAiOptions,
     ILogger<OpenAIEmbeddingService> logger) : IEmbeddingService
 {
+    public static readonly Uri BaseAddress = new("https://api.openai.com/v1/");
+
     private readonly string _model = openAiOptions.Value.EmbeddingModel;
     private readonly int _dimensions = openAiOptions.Value.EmbeddingDimensions;
 
@@ -64,14 +68,16 @@ public sealed class OpenAIEmbeddingService(
         };
 
         var response = await httpClient.PostAsJsonAsync(
-            "https://api.openai.com/v1/embeddings",
+            "embeddings",
             request,
+            OpenAIJsonContext.Default.OpenAIEmbeddingRequest,
             cancellationToken).ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
 
-        var result = await response.Content.ReadFromJsonAsync<OpenAIEmbeddingResponse>(
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var result = await response.Content.ReadFromJsonAsync(
+            OpenAIJsonContext.Default.OpenAIEmbeddingResponse,
+            cancellationToken).ConfigureAwait(false);
 
         if (result?.Data is null || result.Data.Count != textList.Count)
         {
@@ -86,6 +92,10 @@ public sealed class OpenAIEmbeddingService(
     }
 
     // ── OpenAI API DTOs ─────────────────────────────
+
+    [JsonSerializable(typeof(OpenAIEmbeddingRequest))]
+    [JsonSerializable(typeof(OpenAIEmbeddingResponse))]
+    private sealed partial class OpenAIJsonContext : JsonSerializerContext;
 
     private sealed class OpenAIEmbeddingRequest
     {
