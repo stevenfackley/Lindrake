@@ -4,6 +4,7 @@
 // ============================================================
 
 using System.Net;
+using System.Net.Http.Headers;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -42,6 +43,18 @@ public sealed class HealthEndpointTests : IClassFixture<CustomWebApplicationFact
     public async Task Health_WithoutTenantHeader_Returns200()
     {
         var response = await _client.GetAsync("/health");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Health_WithInvalidBearerToken_Returns200()
+    {
+        // A probe configured with a stale or garbage token must not read as down.
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "not.a.jwt");
+
+        var response = await client.GetAsync("/health");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
