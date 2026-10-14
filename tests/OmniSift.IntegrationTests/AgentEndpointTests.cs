@@ -167,6 +167,144 @@ public sealed class AgentEndpointTests
         problem!.Errors.Keys.Should().Contain(k => k.EndsWith("Role", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task Stream_FailureBeforeFirstFrame_Returns500ProblemWithoutLeak()
+    {
+        // Nothing was written yet, so this is a plain error response, not a stream.
+        using var factory = FactoryWith(new FakeChatCompletionService
+        {
+            FailAfterChunks = new InvalidOperationException("connection string Password=hunter2")
+        });
+
+        var response = await factory.CreateTenantClient()
+            .PostAsJsonAsync("/api/agent/query/stream", new AgentQueryRequest { Query = "Tell me more" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        (await response.Content.ReadAsStringAsync()).Should().NotContain("hunter2");
+    }
+
+    [Fact]
+    public async Task Stream_DocumentSearchFails_ModelStillAnswersAndNeverSeesTheError()
+    {
+        var search = new Mock<IHybridSearchService>();
+        search.Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("connection string Password=hunter2"));
+        var llm = new ScriptedOpenAiStreamHandler(
+            ScriptedOpenAiStreamHandler.ToolCall("VectorSearch-SearchDocuments", new { query = "Michael Byrne" }),
+            ScriptedOpenAiStreamHandler.Text("I could not search your documents."));
+        using var factory = new CustomWebApplicationFactory
+        {
+            ConfigureKernel = builder => ScriptedOpenAiStreamHandler.AddTo(builder, llm),
+            ConfigureTestServices = services =>
+            {
+                services.RemoveAll<IHybridSearchService>();
+                services.AddScoped(_ => search.Object);
+            }
+        };
+
+        var response = await factory.CreateTenantClient()
+            .PostAsJsonAsync("/api/agent/query/stream", new AgentQueryRequest { Query = "Where was Michael Byrne born?" });
+
+        var body = await response.Content.ReadAsStringAsync();
+        var frames = ParseFrames(body);
+        frames.Select(f => f.GetProperty("type").GetString()).Should().Equal("delta", "final");
+        var final = frames[^1].Deserialize<AgentStreamFinalEvent>(WebJson)!;
+        final.PluginsUsed.Should().Equal("VectorSearch");
+        final.Sources.Should().BeEmpty();
+        body.Should().NotContain("hunter2");
+        llm.RequestBodies.Should().HaveCount(2).And.NotContain(b => b.Contains("hunter2"));
+    }
+
+    [Theory]
+    [InlineData("/api/agent/query")]
+    [InlineData("/api/agent/query/stream")]
+    public async Task Query_HistoryOverFiftyTurns_Returns400(string path)
+    {
+        var history = Enumerable.Range(0, AgentQueryRequest.MaxConversationTurns + 1)
+            .Select(i => new ConversationMessage { Role = i % 2 == 0 ? "user" : "assistant", Content = $"turn {i}" })
+            .ToList();
+
+        var response = await PostRejectedAsync(path, new AgentQueryRequest { Query = "And then?", ConversationHistory = history });
+
+        await ShouldNameInvalidFieldAsync(response, "ConversationHistory");
+    }
+
+    [Theory]
+    [InlineData("/api/agent/query")]
+    [InlineData("/api/agent/query/stream")]
+    public async Task Query_HistoryMessageOver32kChars_Returns400(string path)
+    {
+        var response = await PostRejectedAsync(path, new AgentQueryRequest
+        {
+            Query = "And then?",
+            ConversationHistory =
+                [new ConversationMessage { Role = "user", Content = new string('x', ConversationMessage.MaxContentLength + 1) }]
+        });
+
+        await ShouldNameInvalidFieldAsync(response, "Content");
+    }
+
+    [Theory]
+    [InlineData("/api/agent/query")]
+    [InlineData("/api/agent/query/stream")]
+    public async Task Query_HistoryRoleWrongCase_Returns400(string path)
+    {
+        var response = await PostRejectedAsync(path, new AgentQueryRequest
+        {
+            Query = "And then?",
+            ConversationHistory = [new ConversationMessage { Role = "User", Content = "Hello" }]
+        });
+
+        await ShouldNameInvalidFieldAsync(response, "Role");
+    }
+
+    [Theory]
+    [InlineData("/api/agent/query")]
+    [InlineData("/api/agent/query/stream")]
+    public async Task Query_QueryOver5000Chars_Returns400(string path)
+    {
+        var response = await PostRejectedAsync(path, new AgentQueryRequest { Query = new string('q', 5001) });
+
+        await ShouldNameInvalidFieldAsync(response, "Query");
+    }
+
+    [Fact]
+    public async Task Query_HistoryAndQueryAtTheirLimits_Returns200()
+    {
+        using var factory = FactoryWith(new FakeChatCompletionService("ok"));
+        var history = Enumerable.Range(0, AgentQueryRequest.MaxConversationTurns)
+            .Select(i => new ConversationMessage
+            {
+                Role = i % 2 == 0 ? "user" : "assistant",
+                Content = i == 0 ? new string('x', ConversationMessage.MaxContentLength) : $"turn {i}"
+            })
+            .ToList();
+
+        var response = await factory.CreateTenantClient().PostAsJsonAsync("/api/agent/query",
+            new AgentQueryRequest { Query = new string('q', 5000), ConversationHistory = history });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// Posts to a factory whose LLM must never be reached: model validation
+    /// rejects the request before the agent runs.
+    /// </summary>
+    private static async Task<HttpResponseMessage> PostRejectedAsync(string path, AgentQueryRequest request)
+    {
+        using var factory = FactoryWith(new FakeChatCompletionService("unused"));
+        return await factory.CreateTenantClient().PostAsJsonAsync(path, request);
+    }
+
+    private static async Task ShouldNameInvalidFieldAsync(HttpResponseMessage response, string field)
+    {
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        problem!.Errors.Keys.Should().Contain(k => k.EndsWith(field, StringComparison.Ordinal));
+    }
+
     private static CustomWebApplicationFactory FactoryWith(IChatCompletionService chat) => new()
     {
         ConfigureKernel = builder => builder.Services.AddSingleton(chat)
