@@ -48,6 +48,36 @@ public sealed class ErrorHandlingTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task Upload_SourceTypeLongerThanColumn_Returns400Validation()
+    {
+        using var content = new MultipartFormDataContent
+        {
+            { new ByteArrayContent("hello"u8.ToArray()), "file", "notes.pdf" },
+            { new StringContent(new string('x', 51)), "sourceType" }
+        };
+
+        var response = await _client.PostAsync("/api/datasources/upload", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
+        problem!.Errors.Should().ContainKey("sourceType");
+    }
+
+    [Fact]
+    public async Task Upload_FileNameLongerThanColumn_Returns400Problem()
+    {
+        var file = new ByteArrayContent("%PDF-1.4"u8.ToArray());
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        using var content = new MultipartFormDataContent { { file, "file", new string('a', 509) + ".pdf" } };
+
+        var response = await _client.PostAsync("/api/datasources/upload", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problem!.Detail.Should().Contain("File name");
+    }
+
+    [Fact]
     public async Task Upload_OctetStreamWithUnknownExtension_Returns400Problem()
     {
         var file = new ByteArrayContent("hello"u8.ToArray());

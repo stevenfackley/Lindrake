@@ -33,6 +33,7 @@ public sealed record WebIngestionRequest
 {
     [Required]
     [Url]
+    [MaxLength(2048)] // data_sources.original_url
     public string Url { get; init; } = string.Empty;
 }
 

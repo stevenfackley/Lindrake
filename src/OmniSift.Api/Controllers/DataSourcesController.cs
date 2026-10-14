@@ -3,6 +3,7 @@
 // Manages file uploads, web ingestion, and data source CRUD
 // ============================================================
 
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +38,10 @@ public sealed class DataSourcesController(
     /// </summary>
     private const long MaxFileSize = 50 * 1024 * 1024;
 
+    /// <summary>Column widths of data_sources.file_name / source_type.</summary>
+    private const int MaxFileNameLength = 512;
+    private const int MaxSourceTypeLength = 50;
+
     /// <summary>
     /// Upload a file for asynchronous ingestion into the document pipeline.
     /// Accepts PDF, CSV/JSON (SMS), HTML, DOCX, and EML/MBOX (email) files.
@@ -46,7 +51,7 @@ public sealed class DataSourcesController(
     [RequestSizeLimit(MaxFileSize)]
     public async Task<ActionResult<IngestionResponse>> Upload(
         IFormFile file,
-        [FromForm] string? sourceType,
+        [FromForm, MaxLength(MaxSourceTypeLength)] string? sourceType,
         CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
@@ -58,6 +63,14 @@ public sealed class DataSourcesController(
         {
             return Problem(
                 detail: $"File size exceeds the maximum allowed size of {MaxFileSize / (1024 * 1024)} MB.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // Longer would fail the insert with a DbUpdateException (500).
+        if (file.FileName.Length > MaxFileNameLength)
+        {
+            return Problem(
+                detail: $"File name exceeds the maximum length of {MaxFileNameLength} characters.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
