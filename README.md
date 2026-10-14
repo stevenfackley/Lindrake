@@ -60,6 +60,14 @@ docker compose --env-file .env.dev up --build
 
 The API image downloads the ONNX embedding model (about 127 MB, pinned and checksummed) during the build. On start the API applies EF Core migrations and loads the model; a missing model is a startup failure, not a degraded mode.
 
+> **Fresh database volume:** the app role cannot create the `pg_trgm` extension its migrations need, so the first start fails until the superuser creates it ([details](./docs/schema-provisioning.md#known-gap-pg_trgm-2026-10-14)). Start `db` first and, once `docker compose ps` shows it healthy, run:
+>
+> ```bash
+> docker compose --env-file .env.dev up -d db
+> # wait for (healthy), then:
+> docker compose --env-file .env.dev exec db psql -U omnisift -d omnisift -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+> ```
+
 ### 3. Access
 
 | Service | URL |
