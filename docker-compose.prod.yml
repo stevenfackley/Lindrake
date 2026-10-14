@@ -74,7 +74,9 @@ services:
       start_period: 60s
 
   web:
-    # Pull the pre-built image from GHCR
+    # Pull the pre-built image from GHCR. API_BASE_URL (from .env.prod) is
+    # rendered into app/appsettings.json at container start; leave it unset to
+    # have the client call api/... on its own origin (reverse proxy in front).
     image: ${IMAGE_WEB:-ghcr.io/stevenfackley/omnisift-web}:${IMAGE_TAG:-latest}
     build: null         # disable local build in prod
     restart: always

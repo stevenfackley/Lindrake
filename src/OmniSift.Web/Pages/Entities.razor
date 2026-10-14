@@ -30,11 +30,9 @@
             }
         </button>
 
-        @if (_state == PageState.Error && !string.IsNullOrWhiteSpace(_errorMessage))
+        @if (_state == PageState.Error)
         {
-            <div class="alert alert-error" style="margin-top: 1rem;">
-                @_errorMessage
-            </div>
+            <Alert Message="@_errorMessage" Style="margin-top: 1rem;" />
         }
     </div>
 
@@ -117,7 +115,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
-            _graphModule = await JS.InvokeAsync<IJSObjectReference>("import", "/js/entityGraph.js").ConfigureAwait(false);
+            _graphModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/entityGraph.js");
     }
 
     private async Task BuildGraph()
@@ -126,33 +124,36 @@
         _errorMessage = null;
         StateHasChanged();
 
-        try
+        var result = await Api.ExtractEntitiesAsync();
+        if (!result.IsSuccess)
         {
-            _graph = await Api.ExtractEntitiesAsync().ConfigureAwait(false);
-            _state = PageState.Loaded;
-            StateHasChanged();
+            _state = PageState.Error;
+            _errorMessage = $"Failed to build entity graph: {result.Error.Message}";
+            return;
+        }
 
-            // Give Blazor one render cycle so the DOM container exists before calling vis
-            await Task.Yield();
+        _graph = result.Value;
+        _state = PageState.Loaded;
+        StateHasChanged();
 
-            if (_graphModule is not null && _graph is not null)
+        // Give Blazor one render cycle so the DOM container exists before calling vis
+        await Task.Yield();
+
+        if (_graphModule is not null)
+        {
+            try
             {
                 await _graphModule.InvokeVoidAsync(
                     "renderGraph",
                     "entity-graph-container",
                     _graph.Nodes,
-                    _graph.Edges).ConfigureAwait(false);
+                    _graph.Edges);
             }
-        }
-        catch (HttpRequestException ex) when ((int?)ex.StatusCode == 503)
-        {
-            _state = PageState.Error;
-            _errorMessage = "LLM not configured — set Anthropic:ApiKey to build the graph.";
-        }
-        catch (Exception ex)
-        {
-            _state = PageState.Error;
-            _errorMessage = $"Failed to build entity graph: {ex.Message}";
+            catch (JSException ex)
+            {
+                _state = PageState.Error;
+                _errorMessage = $"Failed to draw the entity graph: {ex.Message}";
+            }
         }
     }
 }

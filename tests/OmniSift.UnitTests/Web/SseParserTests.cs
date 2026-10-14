@@ -5,109 +5,183 @@ namespace OmniSift.UnitTests.Web;
 
 public sealed class SseParserTests
 {
-    [Fact]
-    public void ParseLine_Delta_ReturnsDeltaEvent()
-    {
-        var line = """data: {"type":"delta","content":"Hello"}""";
-        var result = SseParser.ParseLine(line);
+    private const string DeltaHello = """{"type":"delta","content":"Hello"}""";
 
-        result.Should().BeOfType<SseEvent.Delta>();
-        ((SseEvent.Delta)result!).Content.Should().Be("Hello");
+    [Fact]
+    public void Delta_ReturnsDeltaEvent()
+    {
+        SseParser.ParseAll($"data: {DeltaHello}\n\n").Should().Equal(new SseEvent.Delta("Hello"));
     }
 
     [Fact]
-    public void ParseLine_Final_ReturnsFinalEvent()
+    public void Final_ReturnsFinalEvent()
     {
-        var line = """data: {"type":"final","pluginsUsed":["VectorSearch"],"durationMs":42,"sources":[]}""";
-        var result = SseParser.ParseLine(line);
+        var events = SseParser.ParseAll("""data: {"type":"final","pluginsUsed":["VectorSearch"],"durationMs":42,"sources":[{"type":"document","title":"Test Doc"}]}""" + "\n\n");
 
-        result.Should().BeOfType<SseEvent.Final>();
-        var final = (SseEvent.Final)result!;
+        var final = events.Should().ContainSingle().Which.Should().BeOfType<SseEvent.Final>().Subject;
         final.Data.DurationMs.Should().Be(42);
-        final.Data.PluginsUsed.Should().ContainSingle().Which.Should().Be("VectorSearch");
-        final.Data.Sources.Should().BeEmpty();
+        final.Data.PluginsUsed.Should().Equal("VectorSearch");
+        final.Data.Sources.Should().ContainSingle().Which.Title.Should().Be("Test Doc");
     }
 
     [Fact]
-    public void ParseLine_EmptyDataLine_ReturnsNull()
+    public void Error_ReturnsErrorEventWithTheMessage()
     {
-        var result = SseParser.ParseLine("data: ");
-        result.Should().BeNull();
+        SseParser.ParseAll("""data: {"type":"error","message":"Agent failed."}""" + "\n\n")
+            .Should().Equal(new SseEvent.Error("Agent failed."));
+    }
+
+    [Theory]
+    [InlineData("""{"type":"error"}""")]
+    [InlineData("""{"type":"error","message":""}""")]
+    [InlineData("""{"type":"error","message":7}""")]
+    public void Error_WithoutAMessage_UsesTheDefault(string json)
+    {
+        SseParser.ParseAll($"data: {json}\n\n").Should().Equal(new SseEvent.Error(SseEvent.Error.DefaultMessage));
+    }
+
+    [Theory]
+    [InlineData("data: ")]
+    [InlineData("data:")]
+    public void DataWithOrWithoutTheSpace_IsAccepted(string prefix)
+    {
+        SseParser.ParseAll($"{prefix}{DeltaHello}\n\n").Should().Equal(new SseEvent.Delta("Hello"));
     }
 
     [Fact]
-    public void ParseLine_NonDataLine_ReturnsNull()
+    public void OnlyOneLeadingSpace_IsStripped()
     {
-        var result = SseParser.ParseLine("event: message");
-        result.Should().BeNull();
+        // The JSON tolerates the remaining space; the content is untouched.
+        SseParser.ParseAll("""data:   {"type":"delta","content":"  x"}""" + "\n\n").Should().Equal(new SseEvent.Delta("  x"));
     }
 
     [Fact]
-    public void ParseLine_BlankLine_ReturnsNull()
+    public void MultipleDataLines_AreJoinedWithNewlines()
     {
-        var result = SseParser.ParseLine(string.Empty);
-        result.Should().BeNull();
+        var parser = new SseParser();
+
+        parser.PushLine("""data: {"type":"delta",""").Should().BeNull();
+        parser.PushLine("""data: "content":"split"}""").Should().BeNull();
+        parser.PushLine(string.Empty).Should().Be(new SseEvent.Delta("split"));
     }
 
     [Fact]
-    public void ParseLine_UnknownType_ReturnsNull()
+    public void MultipleDataLines_AreJoinedWithALineFeed_NotConcatenated()
     {
-        var result = SseParser.ParseLine("""data: {"type":"ping"}""");
-        result.Should().BeNull();
+        // Joined with "\n" the string literal holds a raw newline (invalid JSON, so
+        // ignored); concatenated it would wrongly parse as "abcd".
+        var parser = new SseParser();
+        parser.PushLine("""data: {"type":"delta","content":"ab""");
+        parser.PushLine("""data: cd"}""");
+
+        parser.PushLine(string.Empty).Should().BeNull();
     }
 
     [Fact]
-    public void ParseLine_MalformedJson_ReturnsNull()
+    public void Event_IsDispatchedOnlyOnABlankLine()
     {
-        var result = SseParser.ParseLine("data: {not valid json}");
-        result.Should().BeNull();
+        var parser = new SseParser();
+
+        parser.PushLine($"data: {DeltaHello}").Should().BeNull();
+        parser.PushLine(string.Empty).Should().Be(new SseEvent.Delta("Hello"));
+        parser.PushLine(string.Empty).Should().BeNull("the buffer was reset by the dispatch");
+    }
+
+    [Theory]
+    [InlineData("\r\n")]
+    [InlineData("\r")]
+    [InlineData("\n")]
+    public void AllLineEndings_AreSupported(string eol)
+    {
+        var text = $"data: {DeltaHello}{eol}{eol}: keep-alive{eol}data: {"""{"type":"delta","content":"!"}"""}{eol}{eol}";
+
+        SseParser.ParseAll(text).Should().Equal(new SseEvent.Delta("Hello"), new SseEvent.Delta("!"));
+    }
+
+    [Theory]
+    [InlineData(": keep-alive")]
+    [InlineData(":")]
+    [InlineData("event: message")]
+    [InlineData("event:delta")]
+    [InlineData("id: 42")]
+    [InlineData("retry: 3000")]
+    [InlineData("unknown: field")]
+    public void CommentsAndOtherFields_AreIgnored(string line)
+    {
+        SseParser.ParseAll($"{line}\ndata: {DeltaHello}\n{line}\n\n").Should().Equal(new SseEvent.Delta("Hello"));
     }
 
     [Fact]
-    public void ParseLine_DeltaEmptyContent_ReturnsEmptyString()
+    public void FieldWithoutColon_HasAnEmptyValue()
     {
-        var result = SseParser.ParseLine("""data: {"type":"delta","content":""}""");
-        result.Should().BeOfType<SseEvent.Delta>();
-        ((SseEvent.Delta)result!).Content.Should().BeEmpty();
+        // "data" alone appends an empty line: the payload becomes "\n{...}", still valid JSON.
+        SseParser.ParseAll($"data\ndata: {DeltaHello}\n\n").Should().Equal(new SseEvent.Delta("Hello"));
+    }
+
+    [Theory]
+    [InlineData("""{"type":"ping"}""")]
+    [InlineData("""{"content":"no type"}""")]
+    [InlineData("""{"type":5}""")]
+    [InlineData("{not valid json}")]
+    [InlineData("[1,2]")]
+    [InlineData("")]
+    public void UnknownOrMalformedPayloads_AreIgnored(string json)
+    {
+        SseParser.ParseAll($"data: {json}\n\ndata: {DeltaHello}\n\n").Should().Equal(new SseEvent.Delta("Hello"));
     }
 
     [Fact]
-    public void ParseLine_DeltaMissingContent_ReturnsEmptyString()
+    public void BlankLinesWithoutData_DispatchNothing()
     {
-        var result = SseParser.ParseLine("""data: {"type":"delta"}""");
-        result.Should().BeOfType<SseEvent.Delta>();
-        ((SseEvent.Delta)result!).Content.Should().BeEmpty();
+        SseParser.ParseAll("\n\n\n").Should().BeEmpty();
     }
 
     [Fact]
-    public void ParseLine_FinalWithSources_DeserializesCorrectly()
+    public void UnterminatedFinalEvent_IsDiscarded()
     {
-        var line = """data: {"type":"final","pluginsUsed":[],"durationMs":100,"sources":[{"type":"document","title":"Test Doc"}]}""";
-        var result = SseParser.ParseLine(line);
+        SseParser.ParseAll($"data: {DeltaHello}\n\ndata: {DeltaHello}\n").Should().ContainSingle();
+    }
 
-        result.Should().BeOfType<SseEvent.Final>();
-        var final = (SseEvent.Final)result!;
-        final.Data.Sources.Should().ContainSingle()
-            .Which.Title.Should().Be("Test Doc");
+    [Theory]
+    [InlineData("""{"type":"delta","content":""}""")]
+    [InlineData("""{"type":"delta"}""")]
+    public void DeltaWithoutContent_IsEmpty(string json)
+    {
+        SseParser.ParseAll($"data: {json}\n\n").Should().Equal(new SseEvent.Delta(string.Empty));
     }
 
     [Fact]
-    public void MultipleDeltas_AccumulateToFullText()
+    public void EscapedNewlinesInContent_ArePreserved()
     {
-        var lines = new[]
+        SseParser.ParseAll("""data: {"type":"delta","content":"line1\nline2"}""" + "\n\n")
+            .Should().Equal(new SseEvent.Delta("line1\nline2"));
+    }
+
+    [Fact]
+    public async Task ReadEventsAsync_StreamsEventsInOrder()
+    {
+        var text = $"data: {DeltaHello}\r\n\r\ndata: {"""{"type":"error","message":"x"}"""}\r\n\r\n";
+
+        var events = new List<SseEvent>();
+        await foreach (var evt in SseParser.ReadEventsAsync(new StringReader(text)))
+            events.Add(evt);
+
+        events.Should().Equal(new SseEvent.Delta("Hello"), new SseEvent.Error("x"));
+    }
+
+    [Fact]
+    public async Task ReadEventsAsync_HonoursCancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        var act = async () =>
         {
-            """data: {"type":"delta","content":"Hello"}""",
-            """data: {"type":"delta","content":", "}""",
-            """data: {"type":"delta","content":"world"}"""
+            await foreach (var _ in SseParser.ReadEventsAsync(new StringReader($"data: {DeltaHello}\n\n"), cts.Token))
+            {
+            }
         };
 
-        var sb = new System.Text.StringBuilder();
-        foreach (var line in lines)
-        {
-            if (SseParser.ParseLine(line) is SseEvent.Delta d)
-                sb.Append(d.Content);
-        }
-
-        sb.ToString().Should().Be("Hello, world");
+        await act.Should().ThrowAsync<OperationCanceledException>();
     }
 }

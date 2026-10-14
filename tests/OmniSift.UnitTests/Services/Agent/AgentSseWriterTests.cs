@@ -28,7 +28,7 @@ public sealed class AgentSseWriterTests
         var frame = AgentSseWriter.Format(new AgentStreamEvent.Delta("Hel\"lo\n"));
 
         frame.Should().StartWith("data: ").And.EndWith("\n\n");
-        SseParser.ParseLine(frame.TrimEnd('\n')).Should().Be(new SseEvent.Delta("Hel\"lo\n"));
+        SseParser.ParseAll(frame).Should().Equal(new SseEvent.Delta("Hel\"lo\n"));
     }
 
     [Fact]
@@ -38,19 +38,40 @@ public sealed class AgentSseWriterTests
 
         frame.Should().Be(
             """data: {"type":"final","pluginsUsed":["VectorSearch"],"durationMs":42,"sources":[{"type":"web","url":"https://example.test","title":"Example","relevanceScore":0.9}]}""" + "\n\n");
-        var final = SseParser.ParseLine(frame.TrimEnd('\n')).Should().BeOfType<SseEvent.Final>().Subject;
+        var final = SseParser.ParseAll(frame).Should().ContainSingle().Which.Should().BeOfType<SseEvent.Final>().Subject;
         final.Data.PluginsUsed.Should().Equal("VectorSearch");
         final.Data.DurationMs.Should().Be(42);
         final.Data.Sources.Should().ContainSingle().Which.Url.Should().Be("https://example.test");
     }
 
     [Fact]
-    public void ErrorFrame_HasTypeAndMessage_AndIsIgnoredByTheCurrentParser()
+    public void ErrorFrame_IsParsedBySseParser()
     {
-        var frame = AgentSseWriter.ErrorFrame("boom");
+        var frame = AgentSseWriter.ErrorFrame(AgentSseWriter.StreamFailedMessage);
 
-        frame.Should().Be("""data: {"type":"error","message":"boom"}""" + "\n\n");
-        SseParser.ParseLine(frame.TrimEnd('\n')).Should().BeNull();
+        frame.Should().Be($$"""data: {"type":"error","message":"{{AgentSseWriter.StreamFailedMessage}}"}""" + "\n\n");
+        SseParser.ParseAll(frame).Should().Equal(new SseEvent.Error(AgentSseWriter.StreamFailedMessage));
+    }
+
+    [Fact]
+    public async Task WrittenStream_RoundTripsThroughTheClientReader()
+    {
+        var context = NewContext(out var body);
+        await new AgentSseWriter(NullLogger<AgentSseWriter>.Instance).WriteAsync(
+            context.Response,
+            Events(new AgentStreamEvent.Delta("Hel"), new AgentStreamEvent.Delta("lo"), new AgentStreamEvent.Completed(Result)),
+            CancellationToken.None);
+        var text = Encoding.UTF8.GetString(body.ToArray()) + AgentSseWriter.ErrorFrame("boom");
+
+        var events = new List<SseEvent>();
+        await foreach (var evt in SseParser.ReadEventsAsync(new StringReader(text)))
+            events.Add(evt);
+
+        events.Should().HaveCount(4);
+        events[0].Should().Be(new SseEvent.Delta("Hel"));
+        events[1].Should().Be(new SseEvent.Delta("lo"));
+        events[2].Should().BeOfType<SseEvent.Final>().Which.Data.DurationMs.Should().Be(42);
+        events[3].Should().Be(new SseEvent.Error("boom"));
     }
 
     [Fact]

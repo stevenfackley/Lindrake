@@ -6,6 +6,7 @@
 
 using FluentAssertions;
 using OmniSift.Api.Models;
+using OmniSift.Shared.DTOs;
 
 namespace OmniSift.UnitTests.Models;
 
@@ -27,6 +28,26 @@ public sealed class IngestionStatusExtensionsTests
     {
         foreach (var status in Enum.GetValues<IngestionStatus>())
             status.ToWireString().Should().Be(status.ToString().ToLowerInvariant());
+    }
+
+    [Theory]
+    [InlineData(IngestionStatus.Pending, IngestionStatuses.Pending, false)]
+    [InlineData(IngestionStatus.Processing, IngestionStatuses.Processing, false)]
+    [InlineData(IngestionStatus.Completed, IngestionStatuses.Completed, true)]
+    [InlineData(IngestionStatus.Failed, IngestionStatuses.Failed, true)]
+    public void SharedConstants_MatchTheWireStrings(IngestionStatus status, string constant, bool terminal)
+    {
+        status.ToWireString().Should().Be(constant);
+        IngestionStatuses.IsTerminal(constant).Should().Be(terminal);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("done")]
+    public void IsTerminal_UnknownStatus_IsFalse(string? status)
+    {
+        IngestionStatuses.IsTerminal(status).Should().BeFalse();
     }
 
     [Fact]

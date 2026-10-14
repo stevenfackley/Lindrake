@@ -1,0 +1,14 @@
+@* Navigates to the login page, carrying the current location as returnUrl. *@
+@inject NavigationManager Nav
+
+@code {
+    protected override void OnInitialized()
+    {
+        var current = Nav.ToBaseRelativePath(Nav.Uri);
+        var target = PageAccess.SafeReturnUrl(current) is { Length: > 0 } returnUrl
+            ? $"login?returnUrl={Uri.EscapeDataString(returnUrl)}"
+            : "login";
+
+        Nav.NavigateTo(target, replace: true);
+    }
+}

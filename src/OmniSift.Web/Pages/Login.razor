@@ -1,4 +1,5 @@
 @page "/login"
+@attribute [AllowAnonymous]
 @inject OmniSiftApiClient Api
 @inject AuthStateService Auth
 @inject NavigationManager Nav
@@ -13,6 +14,17 @@
         </div>
 
         <div class="card">
+            <div class="form-group">
+                <label class="form-label" for="tenant">Tenant ID</label>
+                <input id="tenant" type="text" class="form-input"
+                       @bind="_tenantId" @bind:event="oninput"
+                       placeholder="00000000-0000-0000-0000-000000000000"
+                       disabled="@_busy" />
+                <p style="font-size: 0.78rem; color: var(--text-faint); margin-top: 0.3rem;">
+                    The tenant ID shown when your account was created.
+                </p>
+            </div>
+
             <div class="form-group">
                 <label class="form-label" for="email">Email</label>
                 <input id="email" type="email" class="form-input"
@@ -30,21 +42,7 @@
                        @onkeydown="HandleKeyDown" />
             </div>
 
-            <div class="form-group">
-                <label class="form-label" for="tenant">Tenant ID</label>
-                <input id="tenant" type="text" class="form-input"
-                       @bind="_tenantId" @bind:event="oninput"
-                       placeholder="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-                       disabled="@_busy" />
-                <p style="font-size: 0.78rem; color: var(--text-faint); margin-top: 0.3rem;">
-                    Leave blank to use the default dev tenant.
-                </p>
-            </div>
-
-            @if (!string.IsNullOrWhiteSpace(_error))
-            {
-                <div class="alert alert-error">@_error</div>
-            }
+            <Alert Message="@_error" />
 
             <button class="btn btn-primary" style="width: 100%;"
                     @onclick="DoLogin"
@@ -61,24 +59,52 @@
             </button>
 
             <p style="margin-top: 1.25rem; font-size: 0.88rem; color: var(--text-muted); text-align: center;">
-                No account? <a href="/register">Create one →</a>
+                No account? <a href="register">Create one →</a>
             </p>
         </div>
     </div>
 </div>
 
 @code {
+    /// <summary>Prefills the tenant (e.g. straight after registration).</summary>
+    [SupplyParameterFromQuery(Name = "tenant")]
+    public string? TenantQuery { get; set; }
+
+    /// <summary>Where to go after signing in (set by RedirectToLogin).</summary>
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
     private string _email = string.Empty;
     private string _password = string.Empty;
     private string _tenantId = string.Empty;
     private bool _busy;
     private string? _error;
 
-    private bool CanSubmit => !string.IsNullOrWhiteSpace(_email) && !string.IsNullOrWhiteSpace(_password);
+    private bool CanSubmit =>
+        !string.IsNullOrWhiteSpace(_email) &&
+        !string.IsNullOrWhiteSpace(_password) &&
+        TryGetTenantId(out _);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo(PageAccess.SafeReturnUrl(ReturnUrl));
+            return;
+        }
+
+        if (Guid.TryParse(TenantQuery, out var fromQuery) && fromQuery != Guid.Empty)
+            _tenantId = fromQuery.ToString();
+        else if (await Auth.GetLastTenantIdAsync() is { } last)
+            _tenantId = last.ToString();
+    }
+
+    private bool TryGetTenantId(out Guid tenantId) =>
+        Guid.TryParse(_tenantId.Trim(), out tenantId) && tenantId != Guid.Empty;
 
     private async Task DoLogin()
     {
-        if (!CanSubmit || _busy)
+        if (_busy || !CanSubmit || !TryGetTenantId(out var tenantId))
             return;
 
         _busy = true;
@@ -86,26 +112,29 @@
 
         try
         {
-            var tid = Guid.TryParse(_tenantId.Trim(), out var parsed)
-                ? parsed
-                : Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-
-            var req = new OmniSift.Shared.DTOs.LoginRequest
+            var req = new LoginRequest
             {
                 Email = _email.Trim(),
                 Password = _password,
-                TenantId = tid
+                TenantId = tenantId
             };
 
-            var result = await Api.LoginAsync(req).ConfigureAwait(false);
-            await Auth.SignInAsync(result.Token, result.TenantId).ConfigureAwait(false);
-            Nav.NavigateTo("/");
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message.Contains("401") || ex.Message.Contains("Unauthorized")
-                ? "Invalid email or password."
-                : $"Sign-in failed: {ex.Message}";
+            var result = await Api.LoginAsync(req);
+            if (!result.IsSuccess)
+            {
+                _error = result.Error.IsUnauthorized
+                    ? "Invalid email, password or tenant ID."
+                    : $"Sign-in failed: {result.Error.Message}";
+                return;
+            }
+
+            if (!await Auth.SignInAsync(result.Value.Token, result.Value.TenantId))
+            {
+                _error = "Sign-in failed: the server returned a token this app cannot read.";
+                return;
+            }
+
+            Nav.NavigateTo(PageAccess.SafeReturnUrl(ReturnUrl));
         }
         finally
         {
@@ -116,6 +145,6 @@
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
-            await DoLogin().ConfigureAwait(false);
+            await DoLogin();
     }
 }

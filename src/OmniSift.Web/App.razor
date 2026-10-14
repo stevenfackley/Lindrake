@@ -1,8 +1,6 @@
-@inject OmniSift.Web.Services.AuthStateService Auth
-
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+        <AuthRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>
@@ -14,16 +12,9 @@
                     <p style="margin-top: 0.5rem; color: var(--text-muted);">
                         Sorry, the page you requested could not be found.
                     </p>
-                    <a href="/" class="btn btn-primary" style="margin-top: 1rem;">Go Home</a>
+                    <a href="" class="btn btn-primary" style="margin-top: 1rem;">Go Home</a>
                 </div>
             </div>
         </LayoutView>
     </NotFound>
 </Router>
-
-@code {
-    protected override async Task OnInitializedAsync()
-    {
-        await Auth.InitializeAsync().ConfigureAwait(false);
-    }
-}

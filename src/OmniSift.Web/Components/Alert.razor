@@ -1,0 +1,46 @@
+@* One alert box (the alert-* CSS classes). Renders nothing without a message. *@
+
+@if (Text is { Length: > 0 } || ChildContent is not null)
+{
+    <div class="alert @CssClass(EffectiveKind)" role="@(EffectiveKind == AlertKind.Error ? "alert" : "status")" style="@Style">
+        @if (ChildContent is not null)
+        {
+            @ChildContent
+        }
+        else
+        {
+            @Text
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Presentation; ignored when <see cref="Status"/> is set.</summary>
+    [Parameter]
+    public AlertKind Kind { get; set; } = AlertKind.Error;
+
+    /// <summary>Plain-text message; ignored when <see cref="Status"/> or child content is set.</summary>
+    [Parameter]
+    public string? Message { get; set; }
+
+    /// <summary>A view model's status line (kind + text).</summary>
+    [Parameter]
+    public StatusMessage? Status { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? Style { get; set; }
+
+    private AlertKind EffectiveKind => Status?.Kind ?? Kind;
+
+    private string? Text => Status?.Text ?? (string.IsNullOrWhiteSpace(Message) ? null : Message);
+
+    private static string CssClass(AlertKind kind) => kind switch
+    {
+        AlertKind.Success => "alert-success",
+        AlertKind.Info => "alert-info",
+        _ => "alert-error"
+    };
+}
