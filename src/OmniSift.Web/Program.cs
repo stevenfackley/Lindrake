@@ -14,13 +14,17 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5000";
 
-builder.Services.AddScoped(sp => new HttpClient
-{
-    BaseAddress = new Uri(apiBaseUrl)
-});
-
-builder.Services.AddScoped<AuthStateService>();
-builder.Services.AddScoped<OmniSiftApiClient>();
+// Singleton: AuthHandler is created in the HTTP client factory's own scope and
+// must share the components' auth state.
+builder.Services.AddSingleton<AuthStateService>();
+builder.Services.AddTransient<AuthHandler>();
+builder.Services.AddHttpClient<OmniSiftApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<AuthHandler>();
 builder.Services.AddSingleton<MarkdownService>();
 
-await builder.Build().RunAsync().ConfigureAwait(false);
+var host = builder.Build();
+
+// Hydrate the stored token before the first render so routing sees it.
+await host.Services.GetRequiredService<AuthStateService>().InitializeAsync().ConfigureAwait(false);
+
+await host.RunAsync().ConfigureAwait(false);

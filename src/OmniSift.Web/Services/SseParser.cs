@@ -1,4 +1,5 @@
 using System.Text.Json;
+using OmniSift.Shared;
 using OmniSift.Shared.DTOs;
 
 namespace OmniSift.Web.Services;
@@ -9,8 +10,6 @@ namespace OmniSift.Web.Services;
 /// </summary>
 public static class SseParser
 {
-    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
-
     /// <summary>
     /// Parse a single raw SSE line (e.g. "data: {...}") into a typed event.
     /// Returns null if the line is not a data frame or cannot be parsed.
@@ -42,7 +41,7 @@ public static class SseParser
 
             if (type == "final")
             {
-                var final = JsonSerializer.Deserialize<AgentStreamFinalEvent>(json, JsonOpts);
+                var final = JsonSerializer.Deserialize(json, OmniSiftJsonContext.Default.AgentStreamFinalEvent);
                 return final is null ? null : new SseEvent.Final(final);
             }
 

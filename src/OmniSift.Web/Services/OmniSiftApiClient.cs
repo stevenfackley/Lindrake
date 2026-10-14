@@ -3,67 +3,55 @@
 // Typed HTTP client for communicating with the OmniSift API
 // ============================================================
 
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.AspNetCore.Components.WebAssembly.Http;
+using OmniSift.Shared;
 using OmniSift.Shared.DTOs;
 
 namespace OmniSift.Web.Services;
 
 /// <summary>
-/// Strongly-typed HTTP client for the OmniSift API.
-/// Automatically includes the X-Tenant-Id header on all requests.
-/// When AuthStateService carries a JWT it is sent as Bearer as well.
+/// Strongly-typed HTTP client for the OmniSift API, registered with
+/// <c>AddHttpClient</c>. <see cref="AuthHandler"/> adds the bearer token; the
+/// tenant is the token's <c>tenant_id</c> claim. All JSON goes through the
+/// source-generated <see cref="OmniSiftJsonContext"/> (no reflection).
 /// </summary>
-public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService auth)
+public sealed class OmniSiftApiClient(HttpClient httpClient)
 {
-    /// <summary>
-    /// The current tenant ID. Overridden by AuthStateService when the user is signed in.
-    /// </summary>
-    public Guid TenantId => auth.IsAuthenticated && auth.TenantId != Guid.Empty
-        ? auth.TenantId
-        : Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-
-    private HttpRequestMessage CreateRequest(HttpMethod method, string url)
-    {
-        var request = new HttpRequestMessage(method, url);
-        request.Headers.Add("X-Tenant-Id", TenantId.ToString());
-
-        if (auth.IsAuthenticated && !string.IsNullOrEmpty(auth.Token))
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", auth.Token);
-
-        return request;
-    }
+    private static OmniSiftJsonContext Json => OmniSiftJsonContext.Default;
 
     // ── Auth ────────────────────────────────────────────────
 
-    /// <summary>Registers a new account. Returns null on success; non-null string = error.</summary>
-    public async Task<string?> RegisterAsync(RegisterRequest req)
+    /// <summary>Registers a new account and tenant. Returns the account, or an error message.</summary>
+    public async Task<(AuthResponse? Account, string? Error)> RegisterAsync(RegisterRequest req)
     {
-        var response = await httpClient
-            .PostAsJsonAsync("api/auth/register", req)
+        using var response = await httpClient
+            .PostAsJsonAsync("api/auth/register", req, Json.RegisterRequest)
             .ConfigureAwait(false);
 
-        if (response.IsSuccessStatusCode)
-            return null;
+        if (response.StatusCode == HttpStatusCode.Conflict)
+            return (null, "An account with that email already exists.");
 
-        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
-            return "An account with that email already exists.";
+        if (!response.IsSuccessStatusCode)
+            return (null, $"Registration failed ({(int)response.StatusCode}).");
 
-        return $"Registration failed ({(int)response.StatusCode}).";
+        var account = await response.Content.ReadFromJsonAsync(Json.AuthResponse).ConfigureAwait(false);
+        return account is null ? (null, "Empty registration response.") : (account, null);
     }
 
     /// <summary>Logs in. Returns AuthResponse on success; throws on failure.</summary>
     public async Task<AuthResponse> LoginAsync(LoginRequest req)
     {
-        var response = await httpClient
-            .PostAsJsonAsync("api/auth/login", req)
+        using var response = await httpClient
+            .PostAsJsonAsync("api/auth/login", req, Json.LoginRequest)
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<AuthResponse>().ConfigureAwait(false)
+        return await response.Content.ReadFromJsonAsync(Json.AuthResponse).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Empty login response.");
     }
 
@@ -71,22 +59,20 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
 
     public async Task<List<DataSourceDto>> GetDataSourcesAsync()
     {
-        var request = CreateRequest(HttpMethod.Get, "api/datasources");
-        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        using var response = await httpClient.GetAsync("api/datasources").ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<List<DataSourceDto>>().ConfigureAwait(false) ?? [];
+        return await response.Content.ReadFromJsonAsync(Json.ListDataSourceDto).ConfigureAwait(false) ?? [];
     }
 
     public async Task<DataSourceDto?> GetDataSourceAsync(Guid id)
     {
-        var request = CreateRequest(HttpMethod.Get, $"api/datasources/{id}");
-        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        using var response = await httpClient.GetAsync($"api/datasources/{id}").ConfigureAwait(false);
 
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<DataSourceDto>().ConfigureAwait(false);
+        return await response.Content.ReadFromJsonAsync(Json.DataSourceDto).ConfigureAwait(false);
     }
 
     public async Task<IngestionResponse> UploadFileAsync(Stream fileStream, string fileName, string? sourceType = null)
@@ -99,34 +85,25 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
         if (!string.IsNullOrWhiteSpace(sourceType))
             content.Add(new StringContent(sourceType), "sourceType");
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "api/datasources/upload")
-        {
-            Content = content
-        };
-        request.Headers.Add("X-Tenant-Id", TenantId.ToString());
-        if (auth.IsAuthenticated && !string.IsNullOrEmpty(auth.Token))
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", auth.Token);
-
-        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        using var response = await httpClient.PostAsync("api/datasources/upload", content).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<IngestionResponse>().ConfigureAwait(false)
+        return await response.Content.ReadFromJsonAsync(Json.IngestionResponse).ConfigureAwait(false)
             ?? new IngestionResponse { Status = "error", Message = "Failed to parse response." };
     }
 
     public async Task<IngestionResponse> IngestWebAsync(string url)
     {
-        var request = CreateRequest(HttpMethod.Post, "api/datasources/web");
-        request.Content = JsonContent.Create(new WebIngestionRequest { Url = url });
-        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        using var response = await httpClient
+            .PostAsJsonAsync("api/datasources/web", new WebIngestionRequest { Url = url }, Json.WebIngestionRequest)
+            .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<IngestionResponse>().ConfigureAwait(false)
+        return await response.Content.ReadFromJsonAsync(Json.IngestionResponse).ConfigureAwait(false)
             ?? new IngestionResponse { Status = "error", Message = "Failed to parse response." };
     }
 
     public async Task DeleteDataSourceAsync(Guid id)
     {
-        var request = CreateRequest(HttpMethod.Delete, $"api/datasources/{id}");
-        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        using var response = await httpClient.DeleteAsync($"api/datasources/{id}").ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
     }
 
@@ -134,11 +111,11 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
 
     public async Task<AgentQueryResponse> QueryAgentAsync(AgentQueryRequest queryRequest)
     {
-        var request = CreateRequest(HttpMethod.Post, "api/agent/query");
-        request.Content = JsonContent.Create(queryRequest);
-        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        using var response = await httpClient
+            .PostAsJsonAsync("api/agent/query", queryRequest, Json.AgentQueryRequest)
+            .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<AgentQueryResponse>().ConfigureAwait(false)
+        return await response.Content.ReadFromJsonAsync(Json.AgentQueryResponse).ConfigureAwait(false)
             ?? new AgentQueryResponse { Response = "Failed to parse response." };
     }
 
@@ -150,20 +127,22 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
         AgentQueryRequest queryRequest,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var request = CreateRequest(HttpMethod.Post, "api/agent/query/stream");
-        request.Content = JsonContent.Create(queryRequest);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/agent/query/stream")
+        {
+            Content = JsonContent.Create(queryRequest, Json.AgentQueryRequest)
+        };
 
         // Blazor WASM requires this to enable streaming response bodies
         request.SetBrowserResponseStreamingEnabled(true);
 
-        var response = await httpClient
+        using var response = await httpClient
             .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
 
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        using var reader = new System.IO.StreamReader(stream, Encoding.UTF8);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -184,9 +163,9 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
     /// </summary>
     public async Task<byte[]> GenerateReportPdfAsync(GenerateReportRequest reportRequest)
     {
-        var request = CreateRequest(HttpMethod.Post, "api/agent/report/pdf");
-        request.Content = JsonContent.Create(reportRequest);
-        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        using var response = await httpClient
+            .PostAsJsonAsync("api/agent/report/pdf", reportRequest, Json.GenerateReportRequest)
+            .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
     }
@@ -195,10 +174,9 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
 
     public async Task<EntityGraphResponse> ExtractEntitiesAsync()
     {
-        var request = CreateRequest(HttpMethod.Post, "api/entities/extract");
-        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        using var response = await httpClient.PostAsync("api/entities/extract", content: null).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<EntityGraphResponse>().ConfigureAwait(false)
+        return await response.Content.ReadFromJsonAsync(Json.EntityGraphResponse).ConfigureAwait(false)
             ?? new EntityGraphResponse();
     }
 
@@ -208,10 +186,10 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
     {
         try
         {
-            var response = await httpClient.GetAsync("health").ConfigureAwait(false);
+            using var response = await httpClient.GetAsync("health").ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
-        catch
+        catch (HttpRequestException)
         {
             return false;
         }
