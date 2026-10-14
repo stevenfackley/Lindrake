@@ -6,7 +6,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using OmniSift.Api.Infrastructure;
+using OmniSift.Api.Options;
 using OmniSift.Api.Services;
 using OmniSift.Api.Services.Agent;
 using OmniSift.Shared.DTOs;
@@ -19,7 +21,8 @@ namespace OmniSift.Api.Controllers;
 [EnableRateLimiting(RateLimitPolicies.PerTenant)]
 public sealed class AgentController(
     IResearchAgentService agent,
-    AgentSseWriter sseWriter) : ControllerBase
+    AgentSseWriter sseWriter,
+    IOptions<ResearchProfileOptions> profileOptions) : ControllerBase
 {
     /// <summary>
     /// Submit a research query to the AI agent.
@@ -58,7 +61,7 @@ public sealed class AgentController(
     {
         var now = DateTime.UtcNow;
         var timestamp = now.ToString("yyyy-MM-ddTHH:mm:ssZ");
-        var title = string.IsNullOrWhiteSpace(request.Title) ? "Research Report" : request.Title;
+        var title = string.IsNullOrWhiteSpace(request.Title) ? profileOptions.Value.FormatReportTitle(now) : request.Title;
 
         var reportRequest = new ReportRequest
         {
@@ -90,7 +93,7 @@ public sealed class AgentController(
     {
         var now = DateTime.UtcNow;
         var timestamp = now.ToString("yyyy-MM-ddTHH:mm:ssZ");
-        var title = string.IsNullOrWhiteSpace(request.Title) ? "Research Report" : request.Title;
+        var title = string.IsNullOrWhiteSpace(request.Title) ? profileOptions.Value.FormatReportTitle(now) : request.Title;
 
         var reportRequest = new ReportRequest
         {

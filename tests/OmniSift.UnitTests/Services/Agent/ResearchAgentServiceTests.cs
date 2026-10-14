@@ -137,7 +137,7 @@ public sealed class ResearchAgentServiceTests
         await CreateService(KernelWith(chat), maxHistoryMessages: 4).RunAsync(request, CancellationToken.None);
 
         chat.LastHistory!.Select(m => m.Content).Should().Equal(
-            ChatHistoryFactory.SystemPrompt, "m26", "m27", "m28", "m29", request.Query);
+            ResearchProfiles.FamilyHistory.SystemPrompt, "m26", "m27", "m28", "m29", request.Query);
     }
 
     private ResearchAgentService CreateService(Kernel kernel, int maxHistoryMessages = 20)
@@ -149,8 +149,9 @@ public sealed class ResearchAgentServiceTests
 
         return new ResearchAgentService(
             kernel,
-            new ChatHistoryFactory(Microsoft.Extensions.Options.Options.Create(
-                new AgentOptions { MaxHistoryMessages = maxHistoryMessages })),
+            new ChatHistoryFactory(
+                Microsoft.Extensions.Options.Options.Create(new AgentOptions { MaxHistoryMessages = maxHistoryMessages }),
+                Microsoft.Extensions.Options.Options.Create(new ResearchProfileOptions())),
             _tracker,
             _citations,
             new QueryHistoryRecorder(db, tenant, audit),

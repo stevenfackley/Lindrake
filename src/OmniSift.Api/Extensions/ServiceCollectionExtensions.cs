@@ -226,6 +226,8 @@ public static class ServiceCollectionExtensions
         services.AddValidatedOptions<AnthropicOptions>(AnthropicOptions.Section);
         services.AddValidatedOptions<TavilyOptions>(TavilyOptions.Section);
         services.AddValidatedOptions<AgentOptions>(AgentOptions.Section);
+        services.AddValidatedOptions<ResearchProfileOptions>(ResearchProfileOptions.Section);
+        services.AddSingleton<IValidateOptions<ResearchProfileOptions>, ResearchProfileOptionsValidator>();
 
         services.AddScoped<ICitationAccumulator, CitationAccumulator>();
         services.AddScoped<IInvocationTracker, InvocationTracker>();
@@ -283,14 +285,14 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<VectorSearchPlugin>();
 
-        // Register a scoped Kernel that includes plugins for each request.
+        // Register a scoped Kernel with the research profile's plugins for each request.
         services.AddScoped(sp =>
         {
             var kernel = sp.GetRequiredService<Func<Kernel>>()();
+            var profile = sp.GetRequiredService<IOptions<ResearchProfileOptions>>().Value;
 
-            kernel.ImportPluginFromObject(sp.GetRequiredService<VectorSearchPlugin>(), "VectorSearch");
-            kernel.ImportPluginFromObject(sp.GetRequiredService<WebScraperPlugin>(), "WebScraper");
-            kernel.ImportPluginFromObject(sp.GetRequiredService<WaybackMachinePlugin>(), "WaybackMachine");
+            foreach (var plugin in profile.ResolvedPlugins)
+                kernel.ImportPluginFromObject(ResolvePlugin(sp, plugin), plugin);
 
             // Feeds IInvocationTracker → AgentRunResult.PluginsUsed.
             kernel.AutoFunctionInvocationFilters.Add(sp.GetRequiredService<PluginInvocationTrackingFilter>());
@@ -300,6 +302,16 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>The plugin instance behind an <see cref="AgentPlugins"/> name.</summary>
+    private static object ResolvePlugin(IServiceProvider sp, string name) => name switch
+    {
+        AgentPlugins.VectorSearch => sp.GetRequiredService<VectorSearchPlugin>(),
+        AgentPlugins.WebScraper => sp.GetRequiredService<WebScraperPlugin>(),
+        AgentPlugins.WaybackMachine => sp.GetRequiredService<WaybackMachinePlugin>(),
+        // Unreachable once ResearchProfileOptionsValidator has run at startup.
+        _ => throw new InvalidOperationException($"Unknown agent plugin '{name}'.")
+    };
 
     /// <summary>
     /// JWT bearer authentication.
