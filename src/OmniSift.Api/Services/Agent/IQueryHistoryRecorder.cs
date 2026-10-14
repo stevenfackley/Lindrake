@@ -41,6 +41,7 @@ public sealed class QueryHistoryRecorder(
             QueryText = queryText,
             ResponseText = result.Response,
             PluginsUsed = [.. result.PluginsUsed],
+            Sources = [.. result.Sources],
             DurationMs = result.DurationMs
         };
 

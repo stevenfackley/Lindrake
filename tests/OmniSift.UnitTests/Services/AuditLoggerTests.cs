@@ -30,7 +30,7 @@ public sealed class AuditLoggerTests
 
         await LogAsync(http);
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, _tenantId);
         var entry = await verify.AuditLogs.SingleAsync();
         entry.UserId.Should().Be(userId);
         entry.TenantId.Should().Be(_tenantId);
@@ -43,7 +43,7 @@ public sealed class AuditLoggerTests
     {
         await LogAsync(new DefaultHttpContext());
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, _tenantId);
         (await verify.AuditLogs.SingleAsync()).UserId.Should().BeNull();
     }
 
@@ -52,7 +52,7 @@ public sealed class AuditLoggerTests
         var tenant = new TenantContext();
         tenant.Set(_tenantId);
 
-        await using var db = InMemoryDb.Create(_databaseName);
+        await using var db = InMemoryDb.Create(_databaseName, tenant);
         var sut = new AuditLogger(db, tenant, new HttpContextAccessor { HttpContext = http });
 
         await sut.LogAsync("delete", "data_source", Guid.NewGuid());

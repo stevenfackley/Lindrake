@@ -117,7 +117,6 @@ public sealed class IngestionPipeline(
                 : null;
             dataSource.Status = IngestionStatus.Completed;
             dataSource.ErrorMessage = null;
-            dataSource.UpdatedAt = DateTime.UtcNow;
             dataSource.Metadata = new Dictionary<string, object>
             {
                 ["chunk_count"] = documentChunks.Count,
@@ -218,7 +217,6 @@ public sealed class IngestionPipeline(
     {
         dataSource.Status = IngestionStatus.Failed;
         dataSource.ErrorMessage = reason;
-        dataSource.UpdatedAt = DateTime.UtcNow;
         return dataSource;
     }
 }

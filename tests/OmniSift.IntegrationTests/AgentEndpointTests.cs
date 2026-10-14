@@ -49,7 +49,7 @@ public sealed class AgentEndpointTests
         frames[2].TryGetProperty("sources", out _).Should().BeTrue();
         frames[2].TryGetProperty("durationMs", out _).Should().BeTrue();
 
-        using var scope = factory.Services.CreateScope();
+        using var scope = factory.CreateTenantScope();
         var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
         var history = await db.QueryHistories.SingleAsync(h => h.QueryText == query);
         history.ResponseText.Should().Be("Born in Cork.");
@@ -96,7 +96,7 @@ public sealed class AgentEndpointTests
         source.Title.Should().Be("census-1901.pdf");
         source.RelevanceScore.Should().Be(0.8123);
 
-        using var scope = factory.Services.CreateScope();
+        using var scope = factory.CreateTenantScope();
         var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
         var history = await db.QueryHistories.SingleAsync(h => h.QueryText == query);
         history.ResponseText.Should().Be("He was born in Cork.");
@@ -146,7 +146,7 @@ public sealed class AgentEndpointTests
         var body = await response.Content.ReadFromJsonAsync<AgentQueryResponse>();
         body!.Response.Should().Be("Forty-two");
 
-        using var scope = factory.Services.CreateScope();
+        using var scope = factory.CreateTenantScope();
         var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
         (await db.QueryHistories.SingleAsync(h => h.QueryText == query)).ResponseText.Should().Be("Forty-two");
     }

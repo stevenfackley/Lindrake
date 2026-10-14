@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Data.Projections;
 using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
@@ -122,7 +123,7 @@ public sealed class DataSourcesController(
         await auditLogger.LogAsync("upload", "data_source", dataSource.Id, cancellationToken).ConfigureAwait(false);
 
         // Enqueue for background processing. The worker carries tenantId
-        // and sets the PG session variable itself to preserve RLS.
+        // and binds its scope to that tenant (query filter + RLS).
         var workItem = new IngestionWorkItem(
             DataSourceId: dataSource.Id,
             TenantId: tenantId,
@@ -149,7 +150,7 @@ public sealed class DataSourcesController(
         return Accepted(new IngestionResponse
         {
             DataSourceId = dataSource.Id,
-            Status = dataSource.Status.ToString().ToLowerInvariant(),
+            Status = dataSource.Status.ToWireString(),
             Message = "File accepted. Poll GET /api/datasources/{id} for ingestion status."
         });
     }
@@ -189,38 +190,27 @@ public sealed class DataSourcesController(
         return Ok(new IngestionResponse
         {
             DataSourceId = dataSource.Id,
-            Status = dataSource.Status.ToString().ToLowerInvariant(),
+            Status = dataSource.Status.ToWireString(),
             Message = dataSource.Status == IngestionStatus.Completed
                 ? "Web page ingested successfully."
-                : $"Ingestion {dataSource.Status.ToString().ToLowerInvariant()}: {dataSource.ErrorMessage}"
+                : $"Ingestion {dataSource.Status.ToWireString()}: {dataSource.ErrorMessage}"
         });
     }
 
     /// <summary>
-    /// List all data sources for the current tenant.
+    /// List the current tenant's data sources, newest first, one page at a time
+    /// (<paramref name="take"/> defaults to <see cref="DataSourceProjections.DefaultTake"/>,
+    /// at most <see cref="DataSourceProjections.MaxTake"/>).
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<DataSourceDto>>> List(CancellationToken cancellationToken)
+    public async Task<ActionResult<List<DataSourceDto>>> List(
+        [FromQuery, Range(0, int.MaxValue)] int skip = 0,
+        [FromQuery, Range(1, DataSourceProjections.MaxTake)] int take = DataSourceProjections.DefaultTake,
+        CancellationToken cancellationToken = default)
     {
-        var entities = await dbContext.DataSources
-            .Where(ds => ds.TenantId == tenantContext.TenantId)
-            .OrderByDescending(ds => ds.CreatedAt)
-            .Include(ds => ds.Chunks)
+        var sources = await dbContext.DataSources
+            .ToDtoPage(skip, take)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var sources = entities.Select(ds => new DataSourceDto
-        {
-            Id = ds.Id,
-            SourceType = ds.SourceType,
-            FileName = ds.FileName,
-            OriginalUrl = ds.OriginalUrl,
-            Status = ds.Status.ToString().ToLowerInvariant(),
-            ErrorMessage = ds.ErrorMessage,
-            Metadata = ds.Metadata,
-            CreatedAt = ds.CreatedAt,
-            UpdatedAt = ds.UpdatedAt,
-            ChunkCount = ds.Chunks.Count
-        }).ToList();
 
         return Ok(sources);
     }
@@ -231,28 +221,13 @@ public sealed class DataSourcesController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<DataSourceDto>> Get(Guid id, CancellationToken cancellationToken)
     {
-        var ds = await dbContext.DataSources
-            .Include(ds => ds.Chunks)
-            .FirstOrDefaultAsync(
-                ds => ds.TenantId == tenantContext.TenantId && ds.Id == id,
-                cancellationToken).ConfigureAwait(false);
+        var source = await dbContext.DataSources
+            .Where(ds => ds.Id == id)
+            .Select(DataSourceProjections.ToDto)
+            .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
-        if (ds is null)
+        if (source is null)
             return Problem(detail: $"Data source '{id}' not found.", statusCode: StatusCodes.Status404NotFound);
-
-        var source = new DataSourceDto
-        {
-            Id = ds.Id,
-            SourceType = ds.SourceType,
-            FileName = ds.FileName,
-            OriginalUrl = ds.OriginalUrl,
-            Status = ds.Status.ToString().ToLowerInvariant(),
-            ErrorMessage = ds.ErrorMessage,
-            Metadata = ds.Metadata,
-            CreatedAt = ds.CreatedAt,
-            UpdatedAt = ds.UpdatedAt,
-            ChunkCount = ds.Chunks.Count
-        };
 
         return Ok(source);
     }
@@ -264,7 +239,7 @@ public sealed class DataSourcesController(
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var source = await dbContext.DataSources
-            .FirstOrDefaultAsync(ds => ds.TenantId == tenantContext.TenantId && ds.Id == id, cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(ds => ds.Id == id, cancellationToken).ConfigureAwait(false);
 
         if (source is null)
             return Problem(detail: $"Data source '{id}' not found.", statusCode: StatusCodes.Status404NotFound);

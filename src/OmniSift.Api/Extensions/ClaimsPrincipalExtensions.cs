@@ -9,6 +9,9 @@ namespace OmniSift.Api.Extensions;
 /// </summary>
 public static class ClaimsPrincipalExtensions
 {
+    /// <summary>JWT claim carrying the tenant id.</summary>
+    public const string TenantIdClaim = "tenant_id";
+
     /// <summary>
     /// The user id (JWT <c>sub</c>) — the Supabase auth user id, or the in-house
     /// <c>AppUser.Id</c> for legacy tokens. Null when missing or not a GUID.
@@ -26,7 +29,7 @@ public static class ClaimsPrincipalExtensions
     /// </summary>
     public static Guid? TryGetTenantId(this ClaimsPrincipal user)
     {
-        var tenant = user.FindFirst("tenant_id")?.Value;
+        var tenant = user.FindFirst(TenantIdClaim)?.Value;
         return Guid.TryParse(tenant, out var id) ? id : null;
     }
 }

@@ -9,7 +9,7 @@ namespace OmniSift.Api.Models;
 /// Represents an organizational tenant in the multi-tenant system.
 /// Each tenant has isolated data via PostgreSQL Row-Level Security.
 /// </summary>
-public sealed class Tenant
+public sealed class Tenant : ITimestamped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -34,8 +34,8 @@ public sealed class Tenant
     /// </summary>
     public bool IsActive { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
     public ICollection<DataSource> DataSources { get; set; } = [];

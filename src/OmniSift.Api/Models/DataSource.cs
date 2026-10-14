@@ -9,7 +9,7 @@ namespace OmniSift.Api.Models;
 /// Tracks every uploaded or ingested data source for a tenant.
 /// Supports PDF, SMS exports, and web page captures.
 /// </summary>
-public sealed class DataSource
+public sealed class DataSource : ITenantOwned, ITimestamped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -54,8 +54,8 @@ public sealed class DataSource
     /// <summary>True if any PII was detected.</summary>
     public bool HasPii { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
     public Tenant Tenant { get; set; } = null!;

@@ -25,9 +25,12 @@ public sealed partial class HybridSearchServiceTests : IDisposable
     private static readonly Guid TenantId = Guid.Parse("11111111-2222-3333-4444-555555555555");
     private static readonly Vector Embedding = new(new float[384]);
 
-    private readonly OmniSiftDbContext _db = new(new DbContextOptionsBuilder<OmniSiftDbContext>()
+    private readonly TenantContext _tenant = BoundTenant();
+    private readonly OmniSiftDbContext _db;
+
+    public HybridSearchServiceTests() => _db = new(new DbContextOptionsBuilder<OmniSiftDbContext>()
         .UseNpgsql("Host=unused.invalid;Database=omnisift", npgsql => npgsql.UseVector())
-        .Options);
+        .Options, _tenant);
 
     [Fact]
     public void VectorArm_FiltersOnTenantAndOrdersByCosineDistance()
@@ -70,14 +73,18 @@ public sealed partial class HybridSearchServiceTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    private HybridSearchService Service()
+    private HybridSearchService Service() =>
+        new(_db, _tenant, Mock.Of<IEmbeddingService>(), NullLogger<HybridSearchService>.Instance);
+
+    private static TenantContext BoundTenant()
     {
         var tenant = new TenantContext();
         tenant.Set(TenantId);
-        return new HybridSearchService(_db, tenant, Mock.Of<IEmbeddingService>(), NullLogger<HybridSearchService>.Instance);
+        return tenant;
     }
 
-    // e.g.  WHERE d.tenant_id = @tenantId
-    [GeneratedRegex(@"\.tenant_id\s*=\s*@\w+")]
+    // The explicit predicate, e.g.  WHERE d.tenant_id = @tenantId. Matching the
+    // parameter name keeps the global tenant filter (@ef_filter__…) from satisfying it.
+    [GeneratedRegex(@"\.tenant_id\s*=\s*@tenantId\b")]
     private static partial Regex TenantPredicate();
 }

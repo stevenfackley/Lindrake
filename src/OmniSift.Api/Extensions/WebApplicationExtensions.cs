@@ -84,14 +84,16 @@ public static class WebApplicationExtensions
         // shared one "anonymous" bucket).
         app.UseRateLimiter();
 
-        // Tenant resolution middleware — derives the tenant from the validated JWT
-        // (tenant_id claim) and sets the RLS session variable. Runs after auth so the
+        // Tenant resolution middleware — binds the scope to the validated JWT's
+        // tenant_id claim (the RLS session variable is set per connection open by
+        // TenantConnectionInterceptor). Runs after auth so the
         // ClaimsPrincipal is populated. The legacy X-Tenant-Id/X-API-Key header path
         // was removed: it allowed tenant spoofing.
         app.UseTenantMiddleware();
 
-        app.MapControllers();
-        app.MapHealthChecks("/health");
+        // Default policy (tenant-scoped identity) on every controller; [AllowAnonymous] opts out.
+        app.MapControllers().RequireAuthorization();
+        app.MapHealthChecks("/health").AllowAnonymous();
 
         return app;
     }

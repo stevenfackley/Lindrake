@@ -3,13 +3,15 @@
 // Stores agent query/response pairs for audit and context
 // ============================================================
 
+using OmniSift.Shared.DTOs;
+
 namespace OmniSift.Api.Models;
 
 /// <summary>
 /// Records every agent query and response for audit trails
 /// and potential conversation context retrieval.
 /// </summary>
-public sealed class QueryHistory
+public sealed class QueryHistory : ITenantOwned, ICreationTimestamped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -34,16 +36,17 @@ public sealed class QueryHistory
     public List<string> PluginsUsed { get; set; } = [];
 
     /// <summary>
-    /// Source citations included in the response.
+    /// Source citations included in the response, stored as JSON (jsonb) through the
+    /// source-generated <see cref="OmniSift.Shared.OmniSiftJsonContext"/> (camelCase).
     /// </summary>
-    public List<object> Sources { get; set; } = [];
+    public List<SourceCitation> Sources { get; set; } = [];
 
     /// <summary>
     /// Processing duration in milliseconds.
     /// </summary>
     public int? DurationMs { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
 
     // Navigation properties
     public Tenant Tenant { get; set; } = null!;

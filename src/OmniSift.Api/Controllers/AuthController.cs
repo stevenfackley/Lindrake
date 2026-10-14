@@ -1,7 +1,9 @@
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 using OmniSift.Api.Services;
 using OmniSift.Shared.DTOs;
@@ -9,9 +11,11 @@ using OmniSift.Shared.DTOs;
 namespace OmniSift.Api.Controllers;
 
 [ApiController]
+[AllowAnonymous]
 [Route("api/[controller]")]
 public sealed class AuthController(
     OmniSiftDbContext dbContext,
+    ITenantContext tenantContext,
     IPasswordHasher passwordHasher,
     JwtTokenService jwtTokenService) : ControllerBase
 {
@@ -20,7 +24,10 @@ public sealed class AuthController(
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
+        // Emails are unique across ALL tenants (unique index) and no tenant exists
+        // yet, so this check must see every tenant's users: bypass the tenant filter.
         var emailExists = await dbContext.Users
+            .IgnoreQueryFilters([OmniSiftDbContext.TenantFilter])
             .AnyAsync(u => u.Email == request.Email, cancellationToken)
             .ConfigureAwait(false);
         if (emailExists)
@@ -67,8 +74,15 @@ public sealed class AuthController(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
+        // The request names its tenant: bind the scope to it so the tenant query
+        // filter scopes the lookup (Guid.Empty is never a tenant: no such user).
+        if (request.TenantId == Guid.Empty)
+            return Problem(detail: "Invalid credentials.", statusCode: StatusCodes.Status401Unauthorized);
+
+        tenantContext.Set(request.TenantId);
+
         var user = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.TenantId == request.TenantId && u.Email == request.Email, cancellationToken)
+            .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken)
             .ConfigureAwait(false);
 
         if (user is null || !passwordHasher.Verify(request.Password, user.PasswordHash))

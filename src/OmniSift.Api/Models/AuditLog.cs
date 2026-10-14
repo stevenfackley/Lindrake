@@ -1,6 +1,6 @@
 namespace OmniSift.Api.Models;
 
-public sealed class AuditLog
+public sealed class AuditLog : ITenantOwned, ICreationTimestamped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
@@ -9,7 +9,7 @@ public sealed class AuditLog
     public string ResourceType { get; set; } = string.Empty;
     public Guid? ResourceId { get; set; }
     public string? IpAddress { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
 
     public Tenant Tenant { get; set; } = null!;
 }

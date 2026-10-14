@@ -74,11 +74,15 @@ OmniSift uses a **shared database, shared schema** multi-tenancy model with Post
 ### 3.2 Tenant Resolution Flow
 
 ```
-1. HTTP Request arrives with header: X-Tenant-Id: {guid}
-2. TenantMiddleware extracts and validates the tenant ID
-3. Middleware sets PostgreSQL session variable: SET app.current_tenant = '{guid}'
-4. All subsequent queries are automatically filtered by RLS policies
-5. Response returned to client
+1. HTTP request arrives with a Bearer JWT carrying a tenant_id claim
+2. Authorization requires an authenticated identity with that claim (default
+   policy on every controller; [AllowAnonymous] on auth + health)
+3. TenantMiddleware binds the request's ITenantContext to the claim
+4. EF applies a global tenant query filter to every ITenantOwned entity
+5. TenantConnectionInterceptor runs set_config('app.current_tenant', ...) on
+   every connection EF opens
+6. RLS policies filter every query as the second line of defence
+7. Response returned to client
 ```
 
 ### 3.3 Row-Level Security Policies

@@ -49,7 +49,7 @@ public sealed class ResearchAgentServiceTests
         result.Response.Should().Be("He was born in Cork.");
         result.PluginsUsed.Should().Equal("VectorSearch");
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, _tenantId);
         var history = await verify.QueryHistories.SingleAsync();
         history.PluginsUsed.Should().Equal("VectorSearch");
     }
@@ -62,7 +62,7 @@ public sealed class ResearchAgentServiceTests
         var result = await CreateService(kernel).RunAsync(Request, CancellationToken.None);
 
         result.Response.Should().Be("Hello world");
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, _tenantId);
         var history = await verify.QueryHistories.SingleAsync();
         history.TenantId.Should().Be(_tenantId);
         history.QueryText.Should().Be(Request.Query);
@@ -70,6 +70,21 @@ public sealed class ResearchAgentServiceTests
         var audit = await verify.AuditLogs.SingleAsync();
         audit.Action.Should().Be("agent_query");
         audit.ResourceId.Should().Be(history.Id);
+    }
+
+    [Fact]
+    public async Task RunAsync_PersistsTheCitationsInQueryHistory()
+    {
+        _citations.AddWebResult("https://example.test/cork", "Cork records", 0.9);
+        var kernel = KernelWith(new ScriptedChatCompletionService("Cork."));
+
+        var result = await CreateService(kernel).RunAsync(Request, CancellationToken.None);
+
+        result.Sources.Should().ContainSingle();
+        await using var verify = InMemoryDb.ForTenant(_databaseName, _tenantId);
+        var history = await verify.QueryHistories.SingleAsync();
+        history.Sources.Should().ContainSingle().Which.Should().BeEquivalentTo(result.Sources[0]);
+        history.Sources[0].Url.Should().Be("https://example.test/cork");
     }
 
     [Fact]
@@ -99,7 +114,7 @@ public sealed class ResearchAgentServiceTests
         var events = await CollectAsync(CreateService(KernelWith(chat)).StreamAsync(Request, requestAborted.Token));
 
         events.Last().Should().BeOfType<AgentStreamEvent.Completed>();
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, _tenantId);
         (await verify.QueryHistories.SingleAsync()).ResponseText.Should().Be("Done.");
         (await verify.AuditLogs.SingleAsync()).Action.Should().Be("agent_query_stream");
     }
@@ -144,7 +159,7 @@ public sealed class ResearchAgentServiceTests
     {
         var tenant = new TenantContext();
         tenant.Set(_tenantId);
-        var db = InMemoryDb.Create(_databaseName);
+        var db = InMemoryDb.Create(_databaseName, tenant);
         var audit = new AuditLogger(db, tenant, new HttpContextAccessor());
 
         return new ResearchAgentService(

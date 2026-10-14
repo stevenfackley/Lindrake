@@ -6,12 +6,13 @@
 // TENANT / RLS SAFETY:
 //   The work item carries the tenantId captured at enqueue time.
 //   For each item this service:
-//     1. Creates a fresh DI scope (own DbContext connection).
-//     2. Binds the scope's ITenantContext to the item's tenant.
-//     3. Sets app.current_tenant on the connection
+//     1. Creates a fresh DI scope (own DbContext).
+//     2. Binds the scope's ITenantContext to the item's tenant
 //        — identical to what TenantMiddleware does per HTTP request.
-//     4. Only then loads the DataSource and runs the pipeline.
-//   This ensures RLS is active for every DB write made by the worker.
+//     3. Only then loads the DataSource and runs the pipeline.
+//   TenantConnectionInterceptor sets app.current_tenant on every
+//   connection the scope's DbContext opens, so RLS is active for
+//   every DB write made by the worker.
 // ============================================================
 
 using Microsoft.EntityFrameworkCore;
@@ -67,15 +68,13 @@ public sealed class IngestionBackgroundService(
         var services = scope.ServiceProvider;
 
         // Background equivalent of TenantMiddleware: bind the scope to the item's
-        // tenant, then scope the connection to it (RLS) BEFORE any EF query.
+        // tenant BEFORE any EF query. The tenant query filter and the RLS
+        // connection interceptor both read it from here.
         services.GetRequiredService<ITenantContext>().Set(item.TenantId);
         var dbContext = services.GetRequiredService<OmniSiftDbContext>();
-        await dbContext.SetTenantSessionAsync(item.TenantId, stoppingToken).ConfigureAwait(false);
 
         var dataSource = await dbContext.DataSources
-            .FirstOrDefaultAsync(
-                ds => ds.Id == item.DataSourceId && ds.TenantId == item.TenantId,
-                stoppingToken)
+            .FirstOrDefaultAsync(ds => ds.Id == item.DataSourceId, stoppingToken)
             .ConfigureAwait(false);
 
         if (dataSource is null)
@@ -87,7 +86,6 @@ public sealed class IngestionBackgroundService(
         }
 
         dataSource.Status = IngestionStatus.Processing;
-        dataSource.UpdatedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(stoppingToken).ConfigureAwait(false);
 
         using var content = new MemoryStream(item.Content, writable: false);
