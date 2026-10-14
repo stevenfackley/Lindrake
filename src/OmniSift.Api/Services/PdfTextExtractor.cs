@@ -27,12 +27,9 @@ public sealed class PdfTextExtractor(ILogger<PdfTextExtractor> logger) : ITextEx
 
         logger.LogDebug("Extracting text from PDF: {FileName}", fileName ?? "unknown");
 
-        // PdfPig requires a seekable stream; buffer if needed
-        using var memoryStream = new MemoryStream();
-        await stream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
-        memoryStream.Position = 0;
-
-        using var document = PdfDocument.Open(memoryStream);
+        // PdfPig requires a seekable stream; buffer only if needed.
+        using var buffered = await SeekableStream.BufferIfNeededAsync(stream, cancellationToken).ConfigureAwait(false);
+        using var document = PdfDocument.Open(buffered ?? stream);
 
         var pages = new List<string>();
 

@@ -44,14 +44,12 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
                 "Please export the message as .eml and re-upload.");
         }
 
-        // Buffer into a seekable MemoryStream (MimeKit reads ahead).
-        using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
-        ms.Position = 0;
+        // The mbox sniff rewinds, so the input must be seekable.
+        using var buffered = await SeekableStream.BufferIfNeededAsync(stream, cancellationToken).ConfigureAwait(false);
+        var input = buffered ?? stream;
 
         // Detect mbox vs. single EML by checking for the "From " mbox envelope line.
-        var isMbox = IsMboxFormat(ms);
-        ms.Position = 0;
+        var isMbox = IsMboxFormat(input);
 
         var messages = new List<MimeMessage>();
 
@@ -59,7 +57,7 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
         {
             // MimeKit parses mbox via MimeParser with MimeFormat.Mbox.
             // ParseMessageAsync returns the next mbox record; loop until IsEndOfStream.
-            var parser = new MimeParser(ms, MimeFormat.Mbox);
+            var parser = new MimeParser(input, MimeFormat.Mbox);
             while (!parser.IsEndOfStream)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -82,7 +80,7 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
         }
         else
         {
-            var msg = await MimeMessage.LoadAsync(ms, cancellationToken).ConfigureAwait(false);
+            var msg = await MimeMessage.LoadAsync(input, cancellationToken).ConfigureAwait(false);
             messages.Add(msg);
         }
 
@@ -141,18 +139,17 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
     }
 
     /// <summary>
-    /// Returns true if the stream starts with an mbox "From " envelope line.
+    /// Returns true if the stream, from its current position, starts with an mbox
+    /// "From " envelope line. The position is restored.
     /// </summary>
-    private static bool IsMboxFormat(MemoryStream ms)
+    private static bool IsMboxFormat(Stream input)
     {
-        if (ms.Length < 5)
-            return false;
-
+        var start = input.Position;
         Span<byte> peek = stackalloc byte[5];
-        _ = ms.Read(peek);
-        ms.Position = 0;
+        var read = input.ReadAtLeast(peek, peek.Length, throwOnEndOfStream: false);
+        input.Position = start;
 
-        return peek.SequenceEqual("From "u8);
+        return read == peek.Length && peek.SequenceEqual("From "u8);
     }
 
     /// <summary>
