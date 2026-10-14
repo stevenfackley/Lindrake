@@ -4,6 +4,7 @@
 // ============================================================
 
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using OmniSift.Shared.DTOs;
@@ -70,6 +71,22 @@ public sealed class DataSourcesEndpointTests : IClassFixture<CustomWebApplicatio
         var response = await _client.PostAsync("/api/datasources/upload", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Upload_OctetStreamWithKnownExtension_Returns202()
+    {
+        // The Blazor client labels every upload application/octet-stream; the
+        // source type must then come from the file extension.
+        var file = new ByteArrayContent("sender,timestamp,message\nAlice,2026-01-01,hi\n"u8.ToArray());
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        using var content = new MultipartFormDataContent { { file, "file", "texts.csv" } };
+
+        var response = await _client.PostAsync("/api/datasources/upload", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var body = await response.Content.ReadFromJsonAsync<IngestionResponse>();
+        body!.Status.Should().Be("pending");
     }
 
     [Fact]

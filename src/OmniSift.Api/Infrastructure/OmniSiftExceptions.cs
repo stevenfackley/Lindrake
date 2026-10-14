@@ -31,6 +31,13 @@ public sealed class UnsupportedSourceTypeException(string sourceType, IEnumerabl
     public string SourceType { get; } = sourceType;
 }
 
+/// <summary>An upload's MIME type / file extension maps to no source type (400).</summary>
+public sealed class UnsupportedFileTypeException(string? contentType, string? fileName, IEnumerable<string> allowed)
+    : OmniSiftException(
+        StatusCodes.Status400BadRequest,
+        $"Unsupported file type: '{contentType}' ({Path.GetExtension(fileName)}). " +
+        $"Supported source types: {string.Join(", ", allowed)}");
+
 /// <summary>The request carries no resolved tenant (403).</summary>
 public sealed class TenantContextMissingException()
     : OmniSiftException(StatusCodes.Status403Forbidden, "No tenant context is available for this request.");

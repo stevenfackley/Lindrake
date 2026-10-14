@@ -18,6 +18,7 @@ using OmniSift.Api.Middleware;
 using OmniSift.Api.Options;
 using OmniSift.Api.Plugins;
 using OmniSift.Api.Services;
+using OmniSift.Api.Services.Extraction;
 using OmniSift.Api.Services.Ingestion;
 using OmniSift.Shared;
 using OpenTelemetry.Metrics;
@@ -166,13 +167,15 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<ITextChunker, TextChunker>();
 
-        // Keyed DI: each extractor registered by its source-type key.
-        // IngestionPipeline resolves via [FromKeyedServices] — no runtime scan.
-        services.AddKeyedScoped<ITextExtractor, PdfTextExtractor>("pdf");
-        services.AddKeyedScoped<ITextExtractor, SmsTextExtractor>("sms");
-        services.AddKeyedScoped<ITextExtractor, WebTextExtractor>("web");
-        services.AddKeyedScoped<ITextExtractor, DocxTextExtractor>("docx");
-        services.AddKeyedScoped<ITextExtractor, EmailTextExtractor>("email");
+        // Extractors are stateless; the registry keys them by ITextExtractor.SourceType
+        // and is the only list of supported source types. Adding a format = adding
+        // one registration here (plus its MIME/extension mapping in the registry).
+        services.AddSingleton<ITextExtractor, PdfTextExtractor>();
+        services.AddSingleton<ITextExtractor, SmsTextExtractor>();
+        services.AddSingleton<ITextExtractor, WebTextExtractor>();
+        services.AddSingleton<ITextExtractor, DocxTextExtractor>();
+        services.AddSingleton<ITextExtractor, EmailTextExtractor>();
+        services.AddSingleton<ITextExtractorRegistry, TextExtractorRegistry>();
 
         // One pipeline for both paths: the synchronous web endpoint and the
         // background worker (which binds ITenantContext from the work item).

@@ -2,29 +2,18 @@
 // OmniSift.Api — Ingestion source-type keys
 // ============================================================
 
-using System.Collections.Frozen;
-using OmniSift.Api.Infrastructure;
-
 namespace OmniSift.Api.Services;
 
 /// <summary>
-/// Source-type keys accepted by the ingestion pipeline. Each maps to a keyed
-/// <see cref="ITextExtractor"/> registration.
+/// Source-type keys, as returned by each <see cref="ITextExtractor.SourceType"/>.
+/// Which of them are accepted is decided by
+/// <see cref="Extraction.ITextExtractorRegistry"/>, not by this list.
 /// </summary>
 public static class SourceTypes
 {
-    public static readonly FrozenSet<string> All =
-        new[] { "pdf", "sms", "web", "docx", "email" }.ToFrozenSet(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Lower-cases <paramref name="sourceType"/> and returns it, or throws
-    /// <see cref="UnsupportedSourceTypeException"/> when no extractor handles it.
-    /// </summary>
-    public static string Normalize(string sourceType)
-    {
-        var normalized = sourceType.ToLowerInvariant();
-        return All.Contains(normalized)
-            ? normalized
-            : throw new UnsupportedSourceTypeException(sourceType, All.Order(StringComparer.Ordinal));
-    }
+    public const string Pdf = "pdf";
+    public const string Sms = "sms";
+    public const string Web = "web";
+    public const string Docx = "docx";
+    public const string Email = "email";
 }

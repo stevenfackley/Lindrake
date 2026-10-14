@@ -16,7 +16,7 @@ namespace OmniSift.Api.Services;
 public sealed class SmsTextExtractor(ILogger<SmsTextExtractor> logger) : ITextExtractor
 {
     /// <inheritdoc />
-    public string SourceType => "sms";
+    public string SourceType => SourceTypes.Sms;
 
     /// <inheritdoc />
     public async Task<string> ExtractTextAsync(

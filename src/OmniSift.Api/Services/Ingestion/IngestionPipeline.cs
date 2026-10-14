@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
+using OmniSift.Api.Services.Extraction;
 
 namespace OmniSift.Api.Services.Ingestion;
 
@@ -38,11 +39,7 @@ public interface IIngestionPipeline
 public sealed class IngestionPipeline(
     OmniSiftDbContext dbContext,
     ITenantContext tenantContext,
-    [FromKeyedServices("pdf")] ITextExtractor pdfExtractor,
-    [FromKeyedServices("sms")] ITextExtractor smsExtractor,
-    [FromKeyedServices("web")] ITextExtractor webExtractor,
-    [FromKeyedServices("docx")] ITextExtractor docxExtractor,
-    [FromKeyedServices("email")] ITextExtractor emailExtractor,
+    ITextExtractorRegistry extractors,
     ITextChunker chunker,
     IEmbeddingService embeddingService,
     ILogger<IngestionPipeline> logger) : IIngestionPipeline
@@ -73,16 +70,7 @@ public sealed class IngestionPipeline(
         var stage = IngestionFailures.UnsupportedSourceType;
         try
         {
-            var extractor = dataSource.SourceType switch
-            {
-                "pdf" => pdfExtractor,
-                "sms" => smsExtractor,
-                "web" => webExtractor,
-                "docx" => docxExtractor,
-                "email" => emailExtractor,
-                _ => null
-            };
-            if (extractor is null)
+            if (!extractors.TryGet(dataSource.SourceType, out var extractor))
                 return await MarkFailedAsync(dataSource, stage, exception: null).ConfigureAwait(false);
 
             stage = IngestionFailures.ExtractionFailed;

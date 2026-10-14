@@ -38,7 +38,7 @@ public sealed class WebTextExtractor(ILogger<WebTextExtractor> logger) : ITextEx
     ];
 
     /// <inheritdoc />
-    public string SourceType => "web";
+    public string SourceType => SourceTypes.Web;
 
     /// <inheritdoc />
     public async Task<string> ExtractTextAsync(

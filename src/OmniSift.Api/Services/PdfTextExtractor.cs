@@ -15,7 +15,7 @@ namespace OmniSift.Api.Services;
 public sealed class PdfTextExtractor(ILogger<PdfTextExtractor> logger) : ITextExtractor
 {
     /// <inheritdoc />
-    public string SourceType => "pdf";
+    public string SourceType => SourceTypes.Pdf;
 
     /// <inheritdoc />
     public async Task<string> ExtractTextAsync(

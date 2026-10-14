@@ -17,7 +17,7 @@ namespace OmniSift.Api.Services;
 public sealed class DocxTextExtractor(ILogger<DocxTextExtractor> logger) : ITextExtractor
 {
     /// <inheritdoc />
-    public string SourceType => "docx";
+    public string SourceType => SourceTypes.Docx;
 
     /// <inheritdoc />
     public async Task<string> ExtractTextAsync(

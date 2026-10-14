@@ -14,6 +14,7 @@ using OmniSift.Api.Data;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 using OmniSift.Api.Services;
+using OmniSift.Api.Services.Extraction;
 using OmniSift.Api.Services.Ingestion;
 using OmniSift.UnitTests.TestSupport;
 using Pgvector;
@@ -144,6 +145,20 @@ public sealed class IngestionPipelineTests
     }
 
     [Fact]
+    public async Task RunAsync_NoExtractorForSourceType_CommitsFailed()
+    {
+        var (db, dataSource) = await SeedAsync();
+        dataSource.SourceType = "spreadsheet";
+
+        await CreatePipeline(db).RunAsync(dataSource, Stream.Null);
+
+        await using var verify = InMemoryDb.Create(_databaseName);
+        var saved = await verify.DataSources.SingleAsync();
+        saved.Status.Should().Be(IngestionStatus.Failed);
+        saved.ErrorMessage.Should().Be(IngestionFailures.UnsupportedSourceType);
+    }
+
+    [Fact]
     public async Task RunAsync_DataSourceOfAnotherTenant_Throws()
     {
         var (db, dataSource) = await SeedAsync();
@@ -182,15 +197,10 @@ public sealed class IngestionPipelineTests
             tenantContext = context;
         }
 
-        var unused = Mock.Of<ITextExtractor>();
         return new IngestionPipeline(
             db,
             tenantContext,
-            pdfExtractor: _extractor.Object,
-            smsExtractor: unused,
-            webExtractor: unused,
-            docxExtractor: unused,
-            emailExtractor: unused,
+            new TextExtractorRegistry([_extractor.Object]),
             new TextChunker(),
             _embeddings.Object,
             NullLogger<IngestionPipeline>.Instance);

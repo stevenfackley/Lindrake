@@ -3,7 +3,6 @@
 // Manages file uploads, web ingestion, and data source CRUD
 // ============================================================
 
-using System.Collections.Frozen;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +13,7 @@ using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 using OmniSift.Api.Services;
+using OmniSift.Api.Services.Extraction;
 using OmniSift.Api.Services.Ingestion;
 using OmniSift.Shared.DTOs;
 
@@ -27,6 +27,7 @@ public sealed class DataSourcesController(
     OmniSiftDbContext dbContext,
     ITenantContext tenantContext,
     IIngestionPipeline ingestionPipeline,
+    ITextExtractorRegistry extractorRegistry,
     IngestionChannel ingestionChannel,
     IAuditLogger auditLogger,
     ILogger<DataSourcesController> logger) : ControllerBase
@@ -35,25 +36,6 @@ public sealed class DataSourcesController(
     /// Maximum upload file size (50 MB).
     /// </summary>
     private const long MaxFileSize = 50 * 1024 * 1024;
-
-    /// <summary>
-    /// Allowed MIME types for file uploads mapped to their ingestion source-type key.
-    /// FrozenDictionary provides optimised read-only lookups for this static mapping.
-    /// </summary>
-    private static readonly FrozenDictionary<string, string> AllowedMimeTypes =
-        new Dictionary<string, string>
-        {
-            ["application/pdf"] = "pdf",
-            ["text/csv"] = "sms",
-            ["application/json"] = "sms",
-            ["text/html"] = "web",
-            // Word documents
-            ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] = "docx",
-            ["application/msword"] = "docx",
-            // Email formats (RFC-2822 / MBOX)
-            ["message/rfc822"] = "email",
-            ["application/mbox"] = "email"
-        }.ToFrozenDictionary();
 
     /// <summary>
     /// Upload a file for asynchronous ingestion into the document pipeline.
@@ -79,24 +61,20 @@ public sealed class DataSourcesController(
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        // Determine source type from the explicit parameter (validated here, not
-        // in the background worker) or from the MIME type.
+        // Determine the source type from the explicit parameter or from the
+        // MIME type / file extension — validated here, not in the background worker.
         string? resolvedSourceType;
 
         if (!string.IsNullOrWhiteSpace(sourceType))
         {
-            resolvedSourceType = SourceTypes.Normalize(sourceType);
-        }
-        else
-        {
-            var contentType = file.ContentType?.ToLowerInvariant() ?? string.Empty;
+            if (!extractorRegistry.TryGet(sourceType, out var extractor))
+                throw new UnsupportedSourceTypeException(sourceType, extractorRegistry.SupportedSourceTypes);
 
-            if (!AllowedMimeTypes.TryGetValue(contentType, out resolvedSourceType))
-            {
-                return Problem(
-                    detail: $"Unsupported file type: '{contentType}'. Allowed: {string.Join(", ", AllowedMimeTypes.Keys)}",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
+            resolvedSourceType = extractor.SourceType;
+        }
+        else if (!extractorRegistry.TryResolveSourceType(file.ContentType, file.FileName, out resolvedSourceType))
+        {
+            throw new UnsupportedFileTypeException(file.ContentType, file.FileName, extractorRegistry.SupportedSourceTypes);
         }
 
         var tenantId = tenantContext.TenantId;
@@ -186,7 +164,7 @@ public sealed class DataSourcesController(
         var dataSource = new DataSource
         {
             TenantId = tenantContext.TenantId,
-            SourceType = "web",
+            SourceType = SourceTypes.Web,
             OriginalUrl = request.Url,
             Status = IngestionStatus.Processing
         };

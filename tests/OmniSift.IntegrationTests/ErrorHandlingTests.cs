@@ -5,6 +5,7 @@
 // ============================================================
 
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -44,5 +45,19 @@ public sealed class ErrorHandlingTests : IClassFixture<CustomWebApplicationFacto
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         problem!.Detail.Should().Contain("Unsupported source type: 'spreadsheet'");
+    }
+
+    [Fact]
+    public async Task Upload_OctetStreamWithUnknownExtension_Returns400Problem()
+    {
+        var file = new ByteArrayContent("hello"u8.ToArray());
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        using var content = new MultipartFormDataContent { { file, "file", "notes.txt" } };
+
+        var response = await _client.PostAsync("/api/datasources/upload", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problem!.Detail.Should().Contain("Unsupported file type");
     }
 }

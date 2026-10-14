@@ -20,7 +20,7 @@ namespace OmniSift.Api.Services;
 public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITextExtractor
 {
     /// <inheritdoc />
-    public string SourceType => "email";
+    public string SourceType => SourceTypes.Email;
 
     /// <inheritdoc />
     public async Task<string> ExtractTextAsync(
