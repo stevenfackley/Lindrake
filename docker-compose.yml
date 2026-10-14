@@ -38,7 +38,7 @@ services:
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       # Use the omnisift_app role (not superuser) so RLS policies are enforced
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=omnisift_app;Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=omnisift_app;Password=${POSTGRES_APP_PASSWORD}"
     ports:
       - "5000:8080"
     depends_on:

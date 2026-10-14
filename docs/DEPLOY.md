@@ -138,7 +138,7 @@ chmod 600 secrets/*.txt
 
 ### First-time database setup
 
-`infra/db/init.sql` runs once, on an empty data volume, as the superuser. It creates every extension the migrations use (`uuid-ossp`, `vector`, `pg_trgm`) and the `omnisift_app` role **with the fixed password `omnisift_dev`**, which must be replaced by hand, as the superuser, before the API starts for the first time:
+`infra/db/init.sql` runs once, on an empty data volume, as the superuser. It creates every extension the migrations use (`uuid-ossp`, `vector`, `pg_trgm`) and the `omnisift_app` role, whose password it takes from `POSTGRES_APP_PASSWORD`. The prod overlay does not set that variable, so in production the role is created **without a password** and cannot log in (the init log says so) until you set one by hand, as the superuser, before the API starts for the first time:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d db
@@ -197,7 +197,8 @@ See `.env.example` for the full reference with comments.
 
 | Variable | Purpose |
 |----------|---------|
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Local Postgres credentials |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Local Postgres superuser and database (`omnisift` / `omnisift_dev` / `omnisift`) |
+| `POSTGRES_APP_PASSWORD` | Password `init.sql` gives the RLS-bound `omnisift_app` role, and the one the `api` service connects with (`omnisift_dev`; `appsettings.Development.json` uses the same for a host-run API) |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `TAVILY_API_KEY` | LLM, optional OpenAI embeddings, web search |
 | `JWT_SECRET` / `JWT_ISSUER` / `JWT_AUDIENCE` | HS256 identity provider settings (mapped to `Jwt__*` by `docker-compose.yml`) |
 | `ASPNETCORE_ENVIRONMENT` | `Development` in dev (enables Swagger and the dev CORS origins) |

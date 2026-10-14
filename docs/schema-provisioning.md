@@ -28,7 +28,7 @@ EF wins because:
 
 1. `init.sql` (superuser, runs first):
    - `CREATE EXTENSION IF NOT EXISTS` for `uuid-ossp`, `vector` and `pg_trgm` — **must be here** because `omnisift_app` can create none of them. A migration that needs a new extension needs a matching line in `init.sql` (and a one-off superuser `CREATE EXTENSION` on databases that already exist).
-   - Creates `omnisift_app` role (idempotent `DO $$` block).
+   - Creates the `omnisift_app` role (idempotent), with the password in the db container's `POSTGRES_APP_PASSWORD` environment variable, read with psql's `\getenv` (the image runs init files through psql). Dev: `omnisift_dev` from `.env.dev`. Unset (production): the role has no password and cannot log in until the superuser sets one. The API must connect as this role: the superuser bypasses RLS.
    - `GRANT USAGE, CREATE ON SCHEMA public TO omnisift_app` — in PG15+, the public schema no longer grants CREATE to PUBLIC by default. `omnisift_app` needs CREATE to run EF's `CREATE TABLE` statements (including `__EFMigrationsHistory`).
    - GRANTs current + future table/sequence privileges via `ALTER DEFAULT PRIVILEGES FOR ROLE omnisift_app`.
 
@@ -95,5 +95,5 @@ This proves EF can stand alone without init.sql. The tradeoff: in production you
 
 ## TODO: production hardening
 
-- `omnisift_dev` is hard-coded as the `omnisift_app` password in init.sql, independent of `POSTGRES_PASSWORD` (which only sets the bootstrap superuser's password). Production deployments must run `ALTER ROLE omnisift_app WITH PASSWORD '...'` as the superuser and put that password in the `ConnectionStrings__DefaultConnection` secret (see `docs/DEPLOY.md`, First-time database setup).
+- Production does not set `POSTGRES_APP_PASSWORD`, so `omnisift_app` starts without a password; the operator runs `ALTER ROLE omnisift_app WITH PASSWORD '...'` as the superuser and puts that password in the `ConnectionStrings__DefaultConnection` secret (see `docs/DEPLOY.md`, First-time database setup). Reading it from a Docker secret in `init.sql` would remove that manual step.
 - Consider extracting the role-creation block into a separate `infra/db/create-role.sql` script that can be run by a DBA without re-running the full init sequence.

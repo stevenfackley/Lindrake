@@ -61,7 +61,7 @@ docker compose --env-file .env.dev up --build
 docker compose up -d db
 ```
 
-Running the API from the host against the compose `db`: `appsettings.json` points at `omnisift/omnisift`, which matches neither `.env.dev`'s password (`omnisift_dev`) nor the RLS-bound role. Set `ConnectionStrings__DefaultConnection=Host=localhost;Database=omnisift;Username=omnisift_app;Password=omnisift_dev`.
+Running the API from the host against the compose `db`: run it with `ASPNETCORE_ENVIRONMENT=Development`; `appsettings.Development.json` connects to `localhost:5432` as `omnisift_app` with the dev password `omnisift_dev` (`POSTGRES_APP_PASSWORD` in `.env.dev`, which `init.sql` gives the role). `appsettings.json` has no connection string.
 
 ## CI/CD mental model
 

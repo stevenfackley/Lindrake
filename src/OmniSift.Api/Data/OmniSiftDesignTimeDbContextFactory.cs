@@ -19,8 +19,10 @@ public sealed class OmniSiftDesignTimeDbContextFactory : IDesignTimeDbContextFac
             .AddEnvironmentVariables()
             .Build();
 
+        // Fallback = appsettings.Development.json's value: the compose db's
+        // omnisift_app role with the .env.dev password.
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Database=omnisift;Username=omnisift;Password=omnisift";
+            ?? "Host=localhost;Port=5432;Database=omnisift;Username=omnisift_app;Password=omnisift_dev";
 
         var options = new DbContextOptionsBuilder<OmniSiftDbContext>()
             .UseNpgsql(connectionString, npgsql =>
