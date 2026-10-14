@@ -21,7 +21,7 @@
     <PackageReference Include="Pgvector" Version="0.3.2" />
 
     <!-- Microsoft Semantic Kernel -->
-    <PackageReference Include="Microsoft.SemanticKernel" Version="1.80.1" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.81.0" />
 
     <!-- Document Parsing -->
     <PackageReference Include="PdfPig" Version="0.1.16" />
