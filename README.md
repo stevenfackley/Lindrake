@@ -153,7 +153,7 @@ Supported upload formats. The source type comes from the optional `sourceType` f
 - **PDF** (`.pdf`): text extracted with PdfPig
 - **SMS exports** (`.csv`, `.json`): CSV or JSON message lists normalized to `sender (timestamp) message` lines
 - **HTML pages** (`.html`, `.htm`): article text isolated with HtmlAgilityPack
-- **Word documents** (`.docx`): extracted with DocumentFormat.OpenXml
+- **Word documents** (`.docx`): extracted with DocumentFormat.OpenXml (legacy binary `.doc` is rejected)
 - **Email** (`.eml`, `.mbox`): parsed with MimeKit (`.msg` is rejected)
 - **Plain text** (`.txt`, `.md`)
 

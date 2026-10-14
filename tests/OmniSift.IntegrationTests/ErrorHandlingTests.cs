@@ -78,6 +78,21 @@ public sealed class ErrorHandlingTests : IClassFixture<CustomWebApplicationFacto
     }
 
     [Fact]
+    public async Task Upload_LegacyWordDoc_Returns400ProblemInsteadOfFailingInIngestion()
+    {
+        // OLE compound-file header: a binary .doc, which DocxTextExtractor cannot open.
+        var file = new ByteArrayContent([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]);
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/msword");
+        using var content = new MultipartFormDataContent { { file, "file", "letter.doc" } };
+
+        var response = await _client.PostAsync("/api/datasources/upload", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        problem!.Detail.Should().Contain("Unsupported file type");
+    }
+
+    [Fact]
     public async Task Upload_OctetStreamWithUnknownExtension_Returns400Problem()
     {
         var file = new ByteArrayContent("hello"u8.ToArray());

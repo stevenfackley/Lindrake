@@ -35,6 +35,9 @@ public sealed class TextExtractorRegistry : ITextExtractorRegistry
 {
     private const string OctetStream = "application/octet-stream";
 
+    // No application/msword (.doc): that is the binary Word format, which the
+    // OpenXml-based docx extractor cannot open. Unmapped = rejected with a 400 at
+    // upload instead of accepted and then failed in background ingestion.
     private static readonly FrozenDictionary<string, string> SourceTypeByMimeType =
         new Dictionary<string, string>
         {
@@ -43,7 +46,6 @@ public sealed class TextExtractorRegistry : ITextExtractorRegistry
             ["application/json"] = SourceTypes.Sms,
             ["text/html"] = SourceTypes.Web,
             ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] = SourceTypes.Docx,
-            ["application/msword"] = SourceTypes.Docx,
             ["message/rfc822"] = SourceTypes.Email,
             ["application/mbox"] = SourceTypes.Email,
             ["text/plain"] = SourceTypes.Text,
