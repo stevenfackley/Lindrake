@@ -19,6 +19,7 @@ using OmniSift.Api.Middleware;
 using OmniSift.Api.Options;
 using OmniSift.Api.Plugins;
 using OmniSift.Api.Services;
+using OmniSift.Api.Services.Agent;
 using OmniSift.Api.Services.Extraction;
 using OmniSift.Api.Services.Ingestion;
 using OmniSift.Shared;
@@ -224,8 +225,15 @@ public static class ServiceCollectionExtensions
     {
         services.AddValidatedOptions<AnthropicOptions>(AnthropicOptions.Section);
         services.AddValidatedOptions<TavilyOptions>(TavilyOptions.Section);
+        services.AddValidatedOptions<AgentOptions>(AgentOptions.Section);
 
         services.AddScoped<ICitationAccumulator, CitationAccumulator>();
+        services.AddScoped<IInvocationTracker, InvocationTracker>();
+        services.AddScoped<PluginInvocationTrackingFilter>();
+        services.AddSingleton<ChatHistoryFactory>();
+        services.AddScoped<IQueryHistoryRecorder, QueryHistoryRecorder>();
+        services.AddScoped<IResearchAgentService, ResearchAgentService>();
+        services.AddSingleton<AgentSseWriter>();
         services.AddScoped<IEntityExtractionService, EntityExtractionService>();
 
         // Named HttpClient for the Anthropic-compatible endpoint (avoids leaked HttpClient)
@@ -283,6 +291,9 @@ public static class ServiceCollectionExtensions
             kernel.ImportPluginFromObject(sp.GetRequiredService<VectorSearchPlugin>(), "VectorSearch");
             kernel.ImportPluginFromObject(sp.GetRequiredService<WebScraperPlugin>(), "WebScraper");
             kernel.ImportPluginFromObject(sp.GetRequiredService<WaybackMachinePlugin>(), "WaybackMachine");
+
+            // Feeds IInvocationTracker → AgentRunResult.PluginsUsed.
+            kernel.AutoFunctionInvocationFilters.Add(sp.GetRequiredService<PluginInvocationTrackingFilter>());
 
             return kernel;
         });
