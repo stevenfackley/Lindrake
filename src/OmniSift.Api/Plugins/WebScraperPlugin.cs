@@ -50,7 +50,8 @@ public sealed partial class WebScraperPlugin(
 
         maxResults = Math.Clamp(maxResults, 1, 10);
 
-        logger.LogDebug("WebSearch: query='{Query}', maxResults={MaxResults}", query, maxResults);
+        // Query text is derived from user content (often PII) — log its size only.
+        logger.LogDebug("WebSearch: queryLength={QueryLength}, maxResults={MaxResults}", query.Length, maxResults);
 
         try
         {
