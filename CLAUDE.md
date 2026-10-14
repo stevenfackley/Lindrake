@@ -54,14 +54,15 @@ dotnet test --filter "FullyQualifiedName~SomeTestClass.SomeTest"
 # Format check (CI runs it but does not fail on it)
 dotnet format --verify-no-changes --no-restore
 
-# Full local stack (the --env-file is required; compose interpolates DB and JWT values from it)
-docker compose --env-file .env.dev up --build
+# Full local stack. Compose defaults every interpolated value to .env.dev's;
+# add --env-file .env.dev to apply edits to it (e.g. your API keys)
+docker compose up --build
 
 # Database only
 docker compose up -d db
 ```
 
-Running the API from the host against the compose `db`: `appsettings.json` points at `omnisift/omnisift`, which matches neither `.env.dev`'s password (`omnisift_dev`) nor the RLS-bound role. Set `ConnectionStrings__DefaultConnection=Host=localhost;Database=omnisift;Username=omnisift_app;Password=omnisift_dev`.
+Running the API from the host against the compose `db`: run it with `ASPNETCORE_ENVIRONMENT=Development`; `appsettings.Development.json` connects to `localhost:5432` as `omnisift_app` with the dev password `omnisift_dev` (`POSTGRES_APP_PASSWORD` in `.env.dev`, which `init.sql` gives the role). `appsettings.json` has no connection string.
 
 ## CI/CD mental model
 

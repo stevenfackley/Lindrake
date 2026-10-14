@@ -1,6 +1,6 @@
 # Schema Provisioning Analysis
 
-**Status:** implemented (2026-06-18); updated 2026-10-14 (later migrations, the `pg_trgm` gap, role password)
+**Status:** implemented (2026-06-18); updated 2026-10-14 (later migrations, `pg_trgm` moved into `init.sql`, role password)
 
 ## The conflict
 
@@ -8,8 +8,8 @@ Two mechanisms both provision the OmniSift schema on a fresh database:
 
 | Mechanism | Runs as | When | Owns |
 |-----------|---------|------|------|
-| `infra/db/init.sql` | The image's bootstrap superuser (`POSTGRES_USER`, `omnisift` in the compose files) | `docker-entrypoint-initdb.d` at container first-boot (empty data volume only) | Extensions (`uuid-ossp`, `vector`), role creation, GRANTs. |
-| EF migrations (`InitialCreate` and later) | `omnisift_app` (non-superuser) | `InitializeOmniSift` (`Extensions/WebApplicationExtensions.cs`) → `Database.Migrate()` at API startup | Tables, indexes (HNSW, `pg_trgm` GIN), RLS policies, seed tenant; also the `pg_trgm` extension, which fails as `omnisift_app` (see [Known gap](#known-gap-pg_trgm-2026-10-14)). (`InitialCreate` also emits `CREATE EXTENSION IF NOT EXISTS` for `uuid-ossp`/`vector` — those no-op since the extensions already exist.) |
+| `infra/db/init.sql` | The image's bootstrap superuser (`POSTGRES_USER`, `omnisift` in the compose files) | `docker-entrypoint-initdb.d` at container first-boot (empty data volume only) | Every extension (`uuid-ossp`, `vector`, `pg_trgm`), role creation, GRANTs. |
+| EF migrations (`InitialCreate` and later) | `omnisift_app` (non-superuser) | `InitializeOmniSift` (`Extensions/WebApplicationExtensions.cs`) → `Database.Migrate()` at API startup | Tables, indexes (HNSW, `pg_trgm` GIN), RLS policies, seed tenant. (`InitialCreate` and `AddPgTrgmExtensionAndIndex` also emit `CREATE EXTENSION IF NOT EXISTS` for the three extensions — those no-op because `init.sql` created them first.) |
 
 Migrations after `InitialCreate`: `AddPgTrgmExtensionAndIndex` (extension + GIN trigram index on `document_chunks.content`), `AddAuditLogAndUsers` (`audit_log`, `users`), `AddDataSourcePiiFlags` (`has_pii`, `pii_flags`), `AddAuditLogRowLevelSecurity` (append-only RLS on `audit_log`).
 
@@ -27,13 +27,13 @@ EF wins because:
 `omnisift_app` is a non-superuser login role. In PostgreSQL 16, `CREATE EXTENSION` for an untrusted extension requires superuser, and a trusted one (such as `pg_trgm`) requires the `CREATE` privilege on the database, which `omnisift_app` does not have: either way `omnisift_app` cannot create the extensions it uses. The superuser is only available during `docker-entrypoint-initdb.d`. So the split is:
 
 1. `init.sql` (superuser, runs first):
-   - `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"` and `CREATE EXTENSION IF NOT EXISTS vector` — **must be here** because `omnisift_app` is not a superuser.
-   - Creates `omnisift_app` role (idempotent `DO $$` block).
+   - `CREATE EXTENSION IF NOT EXISTS` for `uuid-ossp`, `vector` and `pg_trgm` — **must be here** because `omnisift_app` can create none of them. A migration that needs a new extension needs a matching line in `init.sql` (and a one-off superuser `CREATE EXTENSION` on databases that already exist).
+   - Creates the `omnisift_app` role (idempotent), with the password in the db container's `POSTGRES_APP_PASSWORD` environment variable, read with psql's `\getenv` (the image runs init files through psql). Dev: `omnisift_dev` from `.env.dev`. Unset (production): the role has no password and cannot log in until the superuser sets one. The API must connect as this role: the superuser bypasses RLS.
    - `GRANT USAGE, CREATE ON SCHEMA public TO omnisift_app` — in PG15+, the public schema no longer grants CREATE to PUBLIC by default. `omnisift_app` needs CREATE to run EF's `CREATE TABLE` statements (including `__EFMigrationsHistory`).
    - GRANTs current + future table/sequence privileges via `ALTER DEFAULT PRIVILEGES FOR ROLE omnisift_app`.
 
-2. EF `InitialCreate` (omnisift_app, runs second):
-   - Also contains `AlterDatabase().Annotation(...)` calls that emit `CREATE EXTENSION IF NOT EXISTS` — those are safe because Postgres short-circuits the `IF NOT EXISTS` check before the privilege check when the extension already exists, so the non-superuser migration succeeds without error.
+2. EF `InitialCreate` and later migrations (omnisift_app, run second):
+   - `InitialCreate`'s `AlterDatabase().Annotation(...)` calls and `AddPgTrgmExtensionAndIndex`'s raw SQL emit `CREATE EXTENSION IF NOT EXISTS` — those are safe because Postgres short-circuits the `IF NOT EXISTS` check before the privilege check when the extension already exists, so the non-superuser migration succeeds without error.
    - All tables, indexes (including HNSW), RLS policies.
    - Seed tenant row.
 
@@ -55,22 +55,16 @@ The following were correctly removed and remain owned by EF:
 
 The `tenants` table in the old `init.sql` was missing the `api_key_hash VARCHAR(64)` column that EF added. This means any environment relying on init.sql alone was missing that column — RLS-guarded operations that needed the hash would fail silently. EF is now the authoritative definition.
 
-## Known gap: pg_trgm (2026-10-14)
+## pg_trgm moved into init.sql (2026-10-14)
 
-`init.sql` creates `uuid-ossp` and `vector` but not `pg_trgm`. The `AddPgTrgmExtensionAndIndex` migration runs `CREATE EXTENSION IF NOT EXISTS pg_trgm` as `omnisift_app`, and on a fresh database that fails:
+Until 2026-10-14 `init.sql` created `uuid-ossp` and `vector` but not `pg_trgm`, so on a fresh database the `AddPgTrgmExtensionAndIndex` migration (`CREATE EXTENSION IF NOT EXISTS pg_trgm` as `omnisift_app`) failed and the API did not start:
 
 ```
 ERROR:  permission denied to create extension "pg_trgm"
 HINT:  Must have CREATE privilege on current database to create this extension.
 ```
 
-(Reproduced on `pgvector/pgvector:pg16` with this repo's `init.sql` and the `.env.dev` credentials.) `Database.Migrate()` throws and the API does not start. Until `init.sql` creates `pg_trgm` as well, create it as the superuser after `db` is up and before the API's first start:
-
-```bash
-docker compose --env-file .env.dev exec db psql -U omnisift -d omnisift -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
-```
-
-The migration's `IF NOT EXISTS` then no-ops. The fix belongs in `init.sql`, next to the other two extensions.
+`init.sql` now creates it next to the other two. A database initialized before that fix already has `pg_trgm` if its API ever started; if it never did, create the extension once as the superuser (`CREATE EXTENSION IF NOT EXISTS pg_trgm;`) or recreate the volume.
 
 ## Verification path
 
@@ -78,7 +72,6 @@ The migration's `IF NOT EXISTS` then no-ops. The fix belongs in `init.sql`, next
 ```bash
 docker compose --env-file .env.dev down -v      # wipe volume
 docker compose --env-file .env.dev up -d db     # init.sql runs
-# wait for healthy, then work around the pg_trgm gap (above)
 docker compose --env-file .env.dev up -d api    # Migrate() runs every migration
 docker compose logs api | grep "Applied migration"
 ```
@@ -102,6 +95,5 @@ This proves EF can stand alone without init.sql. The tradeoff: in production you
 
 ## TODO: production hardening
 
-- `omnisift_dev` is hard-coded as the `omnisift_app` password in init.sql, independent of `POSTGRES_PASSWORD` (which only sets the bootstrap superuser's password). Production deployments must run `ALTER ROLE omnisift_app WITH PASSWORD '...'` as the superuser and put that password in the `ConnectionStrings__DefaultConnection` secret (see `docs/DEPLOY.md`, First-time database setup).
-- Create `pg_trgm` in init.sql (see Known gap above).
+- Production does not set `POSTGRES_APP_PASSWORD`, so `omnisift_app` starts without a password; the operator runs `ALTER ROLE omnisift_app WITH PASSWORD '...'` as the superuser and puts that password in the `ConnectionStrings__DefaultConnection` secret (see `docs/DEPLOY.md`, First-time database setup). Reading it from a Docker secret in `init.sql` would remove that manual step.
 - Consider extracting the role-creation block into a separate `infra/db/create-role.sql` script that can be run by a DBA without re-running the full init sequence.

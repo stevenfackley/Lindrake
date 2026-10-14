@@ -5,8 +5,11 @@
 --
 -- SCOPE — what this file owns:
 --   Only what EF Core's migrations cannot do as a non-superuser:
---     1. Extensions (CREATE EXTENSION requires superuser in PG16).
---     2. The `omnisift_app` application role + its GRANTs.
+--     1. Every extension the migrations use (uuid-ossp, vector, pg_trgm).
+--        omnisift_app can create none of them: untrusted extensions need
+--        superuser, trusted ones (pg_trgm) need CREATE on the database.
+--     2. The `omnisift_app` application role (password from the
+--        POSTGRES_APP_PASSWORD environment variable) + its GRANTs.
 --     3. Default privilege rules so future tables auto-grant.
 --
 -- WHAT RUNS FIRST (on a fresh container):
@@ -17,10 +20,10 @@
 -- WHAT RUNS SECOND:
 --   Program.cs calls Database.Migrate() at startup, which runs
 --   EF's InitialCreate migration as the omnisift_app user.
---   InitialCreate also contains `AlterDatabase().Annotation(...)` calls
---   that emit `CREATE EXTENSION IF NOT EXISTS` — those are safe because
---   Postgres short-circuits the IF NOT EXISTS check BEFORE the privilege
---   check, so the non-superuser migration succeeds without error.
+--   InitialCreate (uuid-ossp, vector) and AddPgTrgmExtensionAndIndex
+--   (pg_trgm) also emit `CREATE EXTENSION IF NOT EXISTS` — those are safe
+--   only because this file created the extensions first: Postgres
+--   short-circuits the IF NOT EXISTS check BEFORE the privilege check.
 --   InitialCreate owns: all tables, all indexes (including the HNSW
 --   index), RLS policies, and the seed tenant.
 --
@@ -30,28 +33,45 @@
 
 -- ============================================================
 -- Extensions
--- Must run as superuser (postgres). EF's InitialCreate also emits
--- CREATE EXTENSION IF NOT EXISTS for both extensions, but when they
--- already exist Postgres short-circuits before the privilege check,
--- so the non-superuser migration succeeds without error.
+-- Must run as superuser. The migrations emit CREATE EXTENSION IF NOT
+-- EXISTS for each of these (OmniSiftDbContext.HasPostgresExtension), but
+-- as omnisift_app that only succeeds when the extension already exists:
+-- Postgres short-circuits before the privilege check. Add any extension a
+-- new migration needs here as well.
 -- ============================================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;   -- keyword arm of hybrid search (GIN trigram index)
 
 -- ============================================================
 -- Application Role
 -- Create a non-superuser role for the application connection.
--- The superuser (postgres) bypasses RLS, so the app MUST
--- connect as this role for RLS to be enforced.
--- This block is idempotent (IF NOT EXISTS guard).
+-- The superuser bypasses RLS, so the app MUST connect as this
+-- role for RLS to be enforced.
+--
+-- Password: the db container's POSTGRES_APP_PASSWORD (dev value
+-- omnisift_dev, set by docker-compose.yml / .env.dev). The image's
+-- init runner executes this file with psql, which reads it with
+-- \getenv. Unset or empty, as in production (docker-compose.prod.yml):
+-- the role is created WITHOUT a password and cannot log in until the
+-- superuser runs ALTER ROLE omnisift_app WITH PASSWORD '...'
+-- (docs/DEPLOY.md, First-time database setup).
+-- Idempotent: nothing happens when the role already exists.
 -- ============================================================
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'omnisift_app') THEN
-        CREATE ROLE omnisift_app WITH LOGIN PASSWORD 'omnisift_dev';
-    END IF;
-END
-$$;
+\set app_password ''
+\getenv app_password POSTGRES_APP_PASSWORD
+
+-- format(%L) quotes the value; NULLIF turns '' into PASSWORD NULL.
+SELECT format('CREATE ROLE omnisift_app WITH LOGIN PASSWORD %L', NULLIF(:'app_password', ''))
+WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'omnisift_app')
+\gexec
+
+SELECT :'app_password' = '' AS app_password_unset \gset
+\if :app_password_unset
+\warn 'init.sql: POSTGRES_APP_PASSWORD is not set. omnisift_app has no password and cannot log in until the superuser sets one (docs/DEPLOY.md).'
+\endif
+\unset app_password
+\unset app_password_unset
 
 -- USAGE   : required to reference schema-qualified names.
 -- CREATE  : required for EF Migrate() to CREATE TABLE (including __EFMigrationsHistory).

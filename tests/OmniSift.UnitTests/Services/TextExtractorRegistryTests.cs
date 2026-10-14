@@ -110,6 +110,8 @@ public sealed class TextExtractorRegistryTests
     [InlineData("application/octet-stream", null)]
     [InlineData("image/png", "photo.pdf")] // a specific, unsupported MIME type is not overridden by the extension
     [InlineData("application/vnd.ms-outlook", "mail.msg")]
+    [InlineData("application/msword", "letter.doc")] // binary Word: the docx extractor reads OpenXml only
+    [InlineData("application/octet-stream", "letter.doc")]
     public void TryResolveSourceType_Unsupported_ReturnsFalse(string contentType, string? fileName)
     {
         Registry.TryResolveSourceType(contentType, fileName, out var sourceType).Should().BeFalse();

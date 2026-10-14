@@ -21,8 +21,11 @@ namespace OmniSift.Api.Data.Migrations
     /// email is unused across ALL tenants (the email index is globally unique) before
     /// any tenant exists: under FORCE RLS that check would see no rows and a
     /// duplicate email would surface as a unique-violation 500 instead of a 409.
-    /// <c>users</c> only backs the development-only in-house IdP, slated for removal
-    /// (DECISIONS.md, 2026-06-30); production identities live in Supabase.
+    /// <c>users</c> only backs the in-house HS256 IdP. That is not development-only: it
+    /// is the default in Development/Testing and runs in any other environment with
+    /// <c>Jwt:AllowLocalIdentityProvider=true</c> (DECISIONS.md, 2026-10-14), so a
+    /// production deployment may hold users here. With <c>Supabase:Url</c> set the
+    /// table stays empty and identities live in Supabase.
     /// </para>
     /// </summary>
     public partial class AddAuditLogRowLevelSecurity : Migration

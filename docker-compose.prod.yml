@@ -1,26 +1,31 @@
 # Production overlay — apply with:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
+# Needs Docker Compose 2.24.4 or later: the !override and !reset tags below
+# replace or remove what the base (dev) file sets. Without them Compose merges
+# (env_file lists are appended, port lists are merged, build is kept).
+#
 # What this overlay does on top of the base (docker-compose.yml):
-#   - Uses pre-built GHCR images (deploy.yml pulls them before `up`)
-#   - Adds .env.prod to env_file. Compose APPENDS env_file lists, so .env.dev is
-#     still loaded first and .env.prod only overrides the keys it sets: set every
-#     key whose dev value must not reach production (see docs/DEPLOY.md)
+#   - Replaces every env_file with .env.prod alone: nothing from .env.dev
+#     reaches production
+#   - Replaces the db and api environment, so the base file's dev values
+#     (database password, connection string, JWT secret, API keys) are gone
+#   - Removes build: runs the pre-built GHCR images (deploy.yml pulls them
+#     before `up`)
+#   - Publishes no db port, and api and web on 127.0.0.1 only, for a reverse
+#     proxy on the same host (see docs/DEPLOY.md, Ports)
 #   - Injects secrets via Docker file-based secrets (see secrets/ directory)
 #   - Adds healthchecks on api and web
 #   - Enforces restart: always on every service
-# What it does NOT do: remove host ports. Compose merges port lists, so the
-# base file's db 5432, api 5000 and web 5080 stay published; firewall them and
-# expose only the reverse proxy.
 #
 # Required files on the host before first deploy:
-#   .env.prod               — non-secret overrides. MUST set either Supabase__Url,
-#                             or JWT__ALLOWLOCALIDENTITYPROVIDER=true (in-house HS256
-#                             provider, needs a unique 32+ byte Jwt__Secret): with
-#                             neither, the API refuses to start in Production.
-#                             MUST set POSTGRES_PASSWORD= (empty): .env.dev's value
-#                             plus POSTGRES_PASSWORD_FILE below makes the postgres
-#                             image exit ("both ... are set (but are exclusive)").
+#   .env.prod               — non-secret settings (docs/DEPLOY.md, .env.prod).
+#                             MUST set POSTGRES_USER and POSTGRES_DB (read on the
+#                             first start of an empty volume), and either
+#                             Supabase__Url, or JWT__ALLOWLOCALIDENTITYPROVIDER=true
+#                             (in-house HS256 provider, needs a unique 32+ byte
+#                             Jwt__Secret): with neither, the API refuses to start
+#                             in Production.
 #   secrets/*.txt           — one file per secret, raw value, no trailing newline
 #     postgres_password.txt
 #     Anthropic__ApiKey.txt
@@ -38,14 +43,18 @@ services:
   db:
     image: pgvector/pgvector:pg16
     restart: always
-    env_file: .env.prod
+    env_file: !override
+      - .env.prod
     secrets:
       - postgres_password
-    environment:
-      # POSTGRES_PASSWORD_FILE is natively supported by the postgres image.
-      # It overrides POSTGRES_PASSWORD, keeping the plaintext out of env vars.
+    environment: !override
+      # POSTGRES_PASSWORD_FILE is natively supported by the postgres image and
+      # keeps the plaintext out of env vars. POSTGRES_PASSWORD is blanked so a
+      # value left in .env.prod cannot collide with it: the image exits when
+      # both are set.
+      POSTGRES_PASSWORD: ""
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    ports: []         # merged with the base list, so 5432 is STILL published (see header)
+    ports: !reset []
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omnisift} -d ${POSTGRES_DB:-omnisift}"]
       interval: 10s
@@ -56,24 +65,23 @@ services:
   api:
     # Pre-built image from GHCR; override with IMAGE_API / IMAGE_TAG env vars
     image: ${IMAGE_API:-ghcr.io/stevenfackley/omnisift-api}:${IMAGE_TAG:-latest}
-    build: null         # does not remove the base build section (Compose merge); pull first
+    build: !reset null
     restart: always
-    env_file: .env.prod
+    env_file: !override
+      - .env.prod
+    ports: !override
+      - "127.0.0.1:5000:8080"
     secrets:
       - Anthropic__ApiKey
       - OpenAI__ApiKey
       - Tavily__ApiKey
       - Jwt__Secret
       - ConnectionStrings__DefaultConnection
-    environment:
+    environment: !override
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      # Clear dev env-var secrets — the API reads /run/secrets/ via AddKeyPerFile
-      Anthropic__ApiKey: ""
-      OpenAI__ApiKey: ""
-      Tavily__ApiKey: ""
-      Jwt__Secret: ""
-      ConnectionStrings__DefaultConnection: ""
+      # Secrets are not env vars here: the API reads /run/secrets/ via
+      # AddKeyPerFile (file name Section__Key -> config key Section:Key).
     healthcheck:
       # The aspnet:10.0 runtime image (Ubuntu 24.04) ships neither curl nor wget,
       # so probe GET /health over bash's /dev/tcp. Healthy = HTTP 200; /health
@@ -89,14 +97,16 @@ services:
       start_period: 60s
 
   web:
-    # Pre-built image from GHCR. API_BASE_URL is rendered into
-    # app/appsettings.json at container start. Set API_BASE_URL= (empty) in
-    # .env.prod to have the client call api/... on its own origin (reverse
-    # proxy in front): leaving it out inherits .env.dev's http://localhost:5000.
+    # Pre-built image from GHCR. API_BASE_URL (from .env.prod) is rendered into
+    # app/appsettings.json at container start. Unset or empty: the client calls
+    # api/... on its own origin (reverse proxy in front).
     image: ${IMAGE_WEB:-ghcr.io/stevenfackley/omnisift-web}:${IMAGE_TAG:-latest}
-    build: null         # does not remove the base build section (Compose merge); pull first
+    build: !reset null
     restart: always
-    env_file: .env.prod
+    env_file: !override
+      - .env.prod
+    ports: !override
+      - "127.0.0.1:5080:80"
     healthcheck:
       # 127.0.0.1, not localhost: busybox wget tries ::1 first and nginx.conf
       # only listens on IPv4 (listen 80), so "localhost" is refused.

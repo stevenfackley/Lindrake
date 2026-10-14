@@ -15,7 +15,7 @@ git clone https://github.com/stevenfackley/OmniSift.git
 cd OmniSift
 ```
 
-`.env.dev` is committed with safe defaults. Fill in your personal API keys:
+`.env.dev` is committed with safe defaults. Optionally fill in your personal API keys:
 
 ```bash
 # Open .env.dev and set:
@@ -43,10 +43,10 @@ Integration tests use EF Core InMemory and a fake chat-completion service — no
 ### Running the Full Stack
 
 ```bash
-docker compose --env-file .env.dev up --build
+docker compose up --build
 ```
 
-`--env-file .env.dev` is required: the compose file interpolates the database name, password and JWT secret from the Compose environment, and without it the API cannot start.
+The compose file defaults every value it interpolates to its `.env.dev` value, so this needs no `--env-file`. Compose does not read your edits to `.env.dev` (API keys, passwords) unless you pass `--env-file .env.dev` to the compose command.
 
 | Service | URL |
 |---|---|
@@ -58,10 +58,12 @@ docker compose --env-file .env.dev up --build
 
 ### Running with Production Config (local)
 
-See `secrets/README.md` for how to populate the required secret files, then:
+See `secrets/README.md` for how to populate the required secret files and write a `.env.prod` (see `docs/DEPLOY.md`). The overlay removes `build` and runs the GHCR images; to run locally built ones instead, build with the base file and point the overlay at them:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+docker compose build api web    # tags omnisift-api:latest and omnisift-web:latest
+IMAGE_API=omnisift-api IMAGE_WEB=omnisift-web \
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 ## Branch & PR Workflow
