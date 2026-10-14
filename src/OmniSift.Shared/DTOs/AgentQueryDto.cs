@@ -21,9 +21,15 @@ public sealed record AgentQueryRequest
     public string Query { get; init; } = string.Empty;
 
     /// <summary>
-    /// Optional conversation history for multi-turn context.
+    /// Optional conversation history for multi-turn context. Bounded so a client
+    /// cannot inflate the LLM prompt (and its cost) without limit; the server
+    /// additionally keeps only the most recent turns (Agent:MaxHistoryMessages).
     /// </summary>
+    [MaxLength(MaxConversationTurns, ErrorMessage = "Conversation history must not exceed 50 messages.")]
     public List<ConversationMessage>? ConversationHistory { get; init; }
+
+    /// <summary>Upper bound on <see cref="ConversationHistory"/> entries.</summary>
+    public const int MaxConversationTurns = 50;
 }
 
 /// <summary>
@@ -31,10 +37,15 @@ public sealed record AgentQueryRequest
 /// </summary>
 public sealed record ConversationMessage
 {
-    [Required]
-    public string Role { get; init; } = string.Empty; // "user" or "assistant"
+    /// <summary>Upper bound on <see cref="Content"/> length, in characters.</summary>
+    public const int MaxContentLength = 32_000;
 
     [Required]
+    [AllowedValues("user", "assistant", ErrorMessage = "Role must be 'user' or 'assistant'.")]
+    public string Role { get; init; } = string.Empty;
+
+    [Required]
+    [MaxLength(MaxContentLength, ErrorMessage = "Message content must not exceed 32000 characters.")]
     public string Content { get; init; } = string.Empty;
 }
 
@@ -82,6 +93,16 @@ public sealed record AgentStreamFinalEvent
     public List<string> PluginsUsed { get; init; } = [];
     public int DurationMs { get; init; }
     public List<SourceCitation> Sources { get; init; } = [];
+}
+
+/// <summary>
+/// SSE terminal event emitted when the stream fails after it has started. Carries a
+/// generic, client-safe message; the underlying exception is only logged server-side.
+/// </summary>
+public sealed record AgentStreamErrorEvent
+{
+    public string Type { get; init; } = "error";
+    public string Message { get; init; } = string.Empty;
 }
 
 /// <summary>
