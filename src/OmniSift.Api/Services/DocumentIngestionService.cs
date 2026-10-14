@@ -77,10 +77,10 @@ public sealed class DocumentIngestionService(
         // Resolve the correct extractor for this source type via keyed DI
         var extractor = sourceType switch
         {
-            "pdf"   => pdfExtractor,
-            "sms"   => smsExtractor,
-            "web"   => webExtractor,
-            "docx"  => docxExtractor,
+            "pdf" => pdfExtractor,
+            "sms" => smsExtractor,
+            "web" => webExtractor,
+            "docx" => docxExtractor,
             "email" => emailExtractor,
             _ => throw new InvalidOperationException($"No text extractor registered for source type: {sourceType}")
         };

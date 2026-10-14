@@ -54,10 +54,10 @@ public sealed class BackgroundIngestionService(
     {
         var extractor = sourceType switch
         {
-            "pdf"   => pdfExtractor,
-            "sms"   => smsExtractor,
-            "web"   => webExtractor,
-            "docx"  => docxExtractor,
+            "pdf" => pdfExtractor,
+            "sms" => smsExtractor,
+            "web" => webExtractor,
+            "docx" => docxExtractor,
             "email" => emailExtractor,
             _ => throw new ArgumentException($"No extractor for source type '{sourceType}'.", nameof(sourceType))
         };
