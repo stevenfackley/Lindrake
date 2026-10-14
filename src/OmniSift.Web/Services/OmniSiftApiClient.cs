@@ -95,38 +95,70 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
     // ── Agent ───────────────────────────────────────────────
 
     /// <summary>
-    /// Streams SSE tokens from /api/agent/query/stream.
-    /// Yields SseEvent.Delta for each token and SseEvent.Final when done.
+    /// Streams the agent's answer from /api/agent/query/stream: <see cref="SseEvent.Delta"/>
+    /// per chunk, then <see cref="SseEvent.Final"/> — or a single <see cref="SseEvent.Error"/>
+    /// when the server sends its error frame, the request fails (ProblemDetails message),
+    /// or the connection drops. The response is read as it arrives and disposed when the
+    /// enumeration ends; cancelling <paramref name="cancellationToken"/> aborts it and throws
+    /// <see cref="OperationCanceledException"/>.
     /// </summary>
     public async IAsyncEnumerable<SseEvent> QueryAgentStreamAsync(
         AgentQueryRequest queryRequest,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var request = PostJson("api/agent/query/stream", queryRequest, Json.AgentQueryRequest);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
 
-        // Blazor WASM requires this to enable streaming response bodies
+        // Blazor WASM buffers the whole body unless streaming is enabled per request.
         request.SetBrowserResponseStreamingEnabled(true);
 
-        using var response = await httpClient
-            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+        var (response, sendError) = await TrySendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
-
-        response.EnsureSuccessStatusCode();
-
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-
-        while (!cancellationToken.IsCancellationRequested)
+        if (response is null)
         {
-            var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-            if (line is null)
-                break;
+            yield return new SseEvent.Error(sendError!.Message);
+            yield break;
+        }
 
-            var evt = SseParser.ParseLine(line);
-            if (evt is not null)
-                yield return evt;
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await ReadErrorAsync(response, cancellationToken).ConfigureAwait(false);
+                yield return new SseEvent.Error(error.Message);
+                yield break;
+            }
+
+            var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            var events = SseParser.ReadEventsAsync(reader, cancellationToken).GetAsyncEnumerator(cancellationToken);
+            await using (events.ConfigureAwait(false))
+            {
+                while (true)
+                {
+                    SseEvent next;
+                    try
+                    {
+                        if (!await events.MoveNextAsync().ConfigureAwait(false))
+                            yield break;
+                        next = events.Current;
+                    }
+                    catch (Exception ex) when (ex is IOException or HttpRequestException)
+                    {
+                        next = new SseEvent.Error(StreamInterruptedMessage);
+                    }
+
+                    yield return next;
+
+                    if (next is SseEvent.Error)
+                        yield break;
+                }
+            }
         }
     }
+
+    /// <summary>Shown when the event stream breaks off mid-answer.</summary>
+    public const string StreamInterruptedMessage = "The connection to the research agent was lost. Please try again.";
 
     // ── Report ──────────────────────────────────────────────
 

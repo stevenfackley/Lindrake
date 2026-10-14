@@ -117,12 +117,6 @@ public sealed class AgentChatViewModel(OmniSiftApiClient api) : IDisposable
                     break;
             }
         }
-        catch (HttpRequestException ex)
-        {
-            error = ex.StatusCode is { } status
-                ? $"The research agent request failed (HTTP {(int)status})."
-                : "Could not reach the OmniSift API. Check your connection and try again.";
-        }
         catch (OperationCanceledException) when (turn.IsCancellationRequested)
         {
             // Stop, or the page closing: handled below.
