@@ -7,6 +7,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using OmniSift.Api.Data;
+using OmniSift.Api.Models;
 using OmniSift.Shared.DTOs;
 
 namespace OmniSift.IntegrationTests;
@@ -46,6 +49,36 @@ public sealed class DataSourcesEndpointTests : IClassFixture<CustomWebApplicatio
         var sources = await response.Content.ReadFromJsonAsync<List<DataSourceDto>>();
 
         sources.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ListAndExport_ReportChunkCountsNewestFirst()
+    {
+        var tenantId = Guid.NewGuid();
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        using (var scope = _factory.CreateTenantScope(tenantId))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+            for (var i = 0; i < 3; i++)
+            {
+                var source = new DataSource { TenantId = tenantId, SourceType = "pdf", FileName = $"{i}.pdf", CreatedAt = start.AddDays(i) };
+                db.DataSources.Add(source);
+                db.DocumentChunks.AddRange(Enumerable.Range(0, i).Select(n =>
+                    new DocumentChunk { TenantId = tenantId, DataSourceId = source.Id, Content = $"chunk {n}", ChunkIndex = n }));
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateTenantClient(tenantId);
+        var list = await client.GetFromJsonAsync<List<DataSourceDto>>("/api/datasources");
+        list!.Select(s => (s.FileName, s.ChunkCount)).Should()
+            .Equal(("2.pdf", 2), ("1.pdf", 1), ("0.pdf", 0));
+
+        // The export used to hard-code ChunkCount = 0.
+        var export = await client.GetFromJsonAsync<TenantExportDto>("/api/account/export");
+        export!.DataSources.Select(s => (s.FileName, s.ChunkCount)).Should()
+            .Equal(("2.pdf", 2), ("1.pdf", 1), ("0.pdf", 0));
     }
 
     [Fact]

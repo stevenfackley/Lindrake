@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Data.Projections;
 using OmniSift.Api.Middleware;
 using OmniSift.Shared.DTOs;
 
@@ -20,19 +21,8 @@ public sealed class AccountController(
         var tenantId = tenantContext.TenantId;
 
         var dataSources = await dbContext.DataSources
-            .Select(ds => new DataSourceDto
-            {
-                Id = ds.Id,
-                SourceType = ds.SourceType,
-                FileName = ds.FileName,
-                OriginalUrl = ds.OriginalUrl,
-                Status = ds.Status.ToString().ToLowerInvariant(),
-                ErrorMessage = ds.ErrorMessage,
-                Metadata = ds.Metadata,
-                CreatedAt = ds.CreatedAt,
-                UpdatedAt = ds.UpdatedAt,
-                ChunkCount = 0
-            })
+            .OrderByDescending(ds => ds.CreatedAt)
+            .Select(DataSourceProjections.ToDto)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var queryHistory = await dbContext.QueryHistories

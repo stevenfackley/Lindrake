@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Data.Projections;
 using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
@@ -202,24 +203,10 @@ public sealed class DataSourcesController(
     [HttpGet]
     public async Task<ActionResult<List<DataSourceDto>>> List(CancellationToken cancellationToken)
     {
-        var entities = await dbContext.DataSources
+        var sources = await dbContext.DataSources
             .OrderByDescending(ds => ds.CreatedAt)
-            .Include(ds => ds.Chunks)
+            .Select(DataSourceProjections.ToDto)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        var sources = entities.Select(ds => new DataSourceDto
-        {
-            Id = ds.Id,
-            SourceType = ds.SourceType,
-            FileName = ds.FileName,
-            OriginalUrl = ds.OriginalUrl,
-            Status = ds.Status.ToString().ToLowerInvariant(),
-            ErrorMessage = ds.ErrorMessage,
-            Metadata = ds.Metadata,
-            CreatedAt = ds.CreatedAt,
-            UpdatedAt = ds.UpdatedAt,
-            ChunkCount = ds.Chunks.Count
-        }).ToList();
 
         return Ok(sources);
     }
@@ -230,28 +217,13 @@ public sealed class DataSourcesController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<DataSourceDto>> Get(Guid id, CancellationToken cancellationToken)
     {
-        var ds = await dbContext.DataSources
-            .Include(ds => ds.Chunks)
-            .FirstOrDefaultAsync(
-                ds => ds.Id == id,
-                cancellationToken).ConfigureAwait(false);
+        var source = await dbContext.DataSources
+            .Where(ds => ds.Id == id)
+            .Select(DataSourceProjections.ToDto)
+            .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
-        if (ds is null)
+        if (source is null)
             return Problem(detail: $"Data source '{id}' not found.", statusCode: StatusCodes.Status404NotFound);
-
-        var source = new DataSourceDto
-        {
-            Id = ds.Id,
-            SourceType = ds.SourceType,
-            FileName = ds.FileName,
-            OriginalUrl = ds.OriginalUrl,
-            Status = ds.Status.ToString().ToLowerInvariant(),
-            ErrorMessage = ds.ErrorMessage,
-            Metadata = ds.Metadata,
-            CreatedAt = ds.CreatedAt,
-            UpdatedAt = ds.UpdatedAt,
-            ChunkCount = ds.Chunks.Count
-        };
 
         return Ok(source);
     }
