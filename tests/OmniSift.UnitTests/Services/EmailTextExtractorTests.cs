@@ -94,6 +94,41 @@ public sealed class EmailTextExtractorTests
         result.Should().Contain("Html content");
     }
 
+    [Fact]
+    public async Task ExtractText_HtmlOnlyBody_DropsScriptAndStyleContent()
+    {
+        var message = new MimeMessage { Subject = "Tracked" };
+        message.From.Add(new MailboxAddress("Sender", "sender@example.com"));
+        message.Body = new BodyBuilder
+        {
+            HtmlBody = "<html><head><style>p { color: red; }</style><title>t</title></head>"
+                + "<body><script>track('user');</script><p>Visible &amp; kept</p></body></html>"
+        }.ToMessageBody();
+
+        using var ms = new MemoryStream();
+        await message.WriteToAsync(ms);
+        ms.Position = 0;
+
+        var result = await _sut.ExtractTextAsync(ms, "tracked.eml");
+
+        result.Should().Contain("Visible & kept");
+        result.Should().NotContain("track(").And.NotContain("color: red");
+    }
+
+    [Fact]
+    public async Task ExtractText_SeekableStreamNotAtStart_ReadsFromCurrentPosition()
+    {
+        using var eml = BuildEml("Offset", "a@example.com", "b@example.com", "Offset body.");
+        using var padded = new MemoryStream();
+        padded.Write("JUNK"u8);
+        eml.CopyTo(padded);
+        padded.Position = 4;
+
+        var result = await _sut.ExtractTextAsync(padded, "offset.eml");
+
+        result.Should().Contain("Offset body.");
+    }
+
     // ── Helpers ──────────────────────────────────────────────
 
     /// <summary>

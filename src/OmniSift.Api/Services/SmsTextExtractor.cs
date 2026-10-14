@@ -12,9 +12,15 @@ namespace OmniSift.Api.Services;
 /// Extracts text from SMS exports in CSV or JSON format.
 /// CSV format: sender,timestamp,message (with header row)
 /// JSON format: Array of { sender, timestamp, message } objects
+/// Both produce "[SMS Conversation]" followed by one "sender (timestamp) message"
+/// line per message.
 /// </summary>
 public sealed class SmsTextExtractor(ILogger<SmsTextExtractor> logger) : ITextExtractor
 {
+    private static readonly string[] SenderColumns = ["sender", "from", "name", "phone"];
+    private static readonly string[] TimestampColumns = ["timestamp", "date", "time", "datetime"];
+    private static readonly string[] MessageColumns = ["message", "body", "text", "content"];
+
     /// <inheritdoc />
     public string SourceType => SourceTypes.Sms;
 
@@ -63,27 +69,20 @@ public sealed class SmsTextExtractor(ILogger<SmsTextExtractor> logger) : ITextEx
 
             foreach (var element in doc.RootElement.EnumerateArray())
             {
-                var sender = GetJsonString(element, "sender", "from", "name", "phone");
-                var timestamp = GetJsonString(element, "timestamp", "date", "time", "datetime");
-                var message = GetJsonString(element, "message", "body", "text", "content");
+                var line = FormatMessage(
+                    GetJsonString(element, SenderColumns),
+                    GetJsonString(element, TimestampColumns),
+                    GetJsonString(element, MessageColumns));
 
-                if (!string.IsNullOrWhiteSpace(message))
-                {
-                    var parts = new List<string>();
-                    if (!string.IsNullOrWhiteSpace(sender)) parts.Add(sender);
-                    if (!string.IsNullOrWhiteSpace(timestamp)) parts.Add($"({timestamp})");
-                    parts.Add(message);
-                    messages.Add(string.Join(" ", parts));
-                }
+                if (line is not null)
+                    messages.Add(line);
             }
 
             logger.LogInformation(
                 "Parsed {Count} SMS messages from JSON: {FileName}",
                 messages.Count, fileName ?? "unknown");
 
-            return messages.Count > 0
-                ? "[SMS Conversation]\n" + string.Join("\n", messages)
-                : string.Empty;
+            return FormatConversation(messages);
         }
         catch (JsonException ex)
         {
@@ -94,19 +93,19 @@ public sealed class SmsTextExtractor(ILogger<SmsTextExtractor> logger) : ITextEx
 
     private string ParseCsv(string content, string? fileName)
     {
-        var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var records = ReadCsvRecords(content).ToList();
 
-        if (lines.Length <= 1)
+        if (records.Count <= 1)
         {
             logger.LogWarning("CSV has no data rows: {FileName}", fileName ?? "unknown");
             return string.Empty;
         }
 
         // Parse header to find column indices
-        var header = ParseCsvLine(lines[0]);
-        var senderIdx = FindColumnIndex(header, "sender", "from", "name", "phone");
-        var timestampIdx = FindColumnIndex(header, "timestamp", "date", "time", "datetime");
-        var messageIdx = FindColumnIndex(header, "message", "body", "text", "content");
+        var header = records[0];
+        var senderIdx = FindColumnIndex(header, SenderColumns);
+        var timestampIdx = FindColumnIndex(header, TimestampColumns);
+        var messageIdx = FindColumnIndex(header, MessageColumns);
 
         if (messageIdx < 0)
         {
@@ -118,75 +117,119 @@ public sealed class SmsTextExtractor(ILogger<SmsTextExtractor> logger) : ITextEx
 
         var messages = new List<string>();
 
-        for (var i = 1; i < lines.Length; i++)
+        foreach (var fields in records.Skip(1))
         {
-            var fields = ParseCsvLine(lines[i]);
-            if (fields.Length == 0) continue;
+            var line = FormatMessage(
+                Field(fields, senderIdx),
+                Field(fields, timestampIdx),
+                Field(fields, messageIdx));
 
-            var sender = senderIdx >= 0 && senderIdx < fields.Length ? fields[senderIdx].Trim() : null;
-            var timestamp = timestampIdx >= 0 && timestampIdx < fields.Length ? fields[timestampIdx].Trim() : null;
-            var message = messageIdx >= 0 && messageIdx < fields.Length ? fields[messageIdx].Trim() : null;
-
-            if (!string.IsNullOrWhiteSpace(message))
-            {
-                var parts = new List<string>();
-                if (!string.IsNullOrWhiteSpace(sender)) parts.Add(sender);
-                if (!string.IsNullOrWhiteSpace(timestamp)) parts.Add($"({timestamp})");
-                parts.Add(message);
-                messages.Add(string.Join(" ", parts));
-            }
+            if (line is not null)
+                messages.Add(line);
         }
 
         logger.LogInformation(
             "Parsed {Count} SMS messages from CSV: {FileName}",
             messages.Count, fileName ?? "unknown");
 
-        return messages.Count > 0
-            ? "[SMS Conversation]\n" + string.Join("\n", messages)
-            : string.Empty;
+        return FormatConversation(messages);
     }
 
+    private static string? Field(string[] fields, int index) =>
+        index >= 0 && index < fields.Length ? fields[index].Trim() : null;
+
     /// <summary>
-    /// Simple CSV line parser that handles quoted fields.
+    /// "sender (timestamp) message", omitting whichever of sender/timestamp is
+    /// missing. Null when there is no message text.
     /// </summary>
-    private static string[] ParseCsvLine(string line)
+    private static string? FormatMessage(string? sender, string? timestamp, string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return null;
+
+        var parts = new List<string>(3);
+        if (!string.IsNullOrWhiteSpace(sender)) parts.Add(sender);
+        if (!string.IsNullOrWhiteSpace(timestamp)) parts.Add($"({timestamp})");
+        parts.Add(message);
+        return string.Join(' ', parts);
+    }
+
+    private static string FormatConversation(List<string> messages) =>
+        messages.Count > 0
+            ? "[SMS Conversation]\n" + string.Join('\n', messages)
+            : string.Empty;
+
+    /// <summary>
+    /// RFC 4180-style record reader: commas separate fields; CRLF, LF or CR end a
+    /// record; a double-quoted field may contain commas, line breaks and escaped
+    /// quotes (""). Blank lines are skipped.
+    /// </summary>
+    private static IEnumerable<string[]> ReadCsvRecords(string content)
     {
         var fields = new List<string>();
-        var current = new StringBuilder();
+        var field = new StringBuilder();
         var inQuotes = false;
+        var recordStarted = false;
 
-        for (var i = 0; i < line.Length; i++)
+        for (var i = 0; i < content.Length; i++)
         {
-            var c = line[i];
+            var c = content[i];
 
-            if (c == '"')
+            if (inQuotes)
             {
-                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
-                {
-                    current.Append('"');
-                    i++; // Skip escaped quote
-                }
+                if (c != '"')
+                    field.Append(c);
+                else if (i + 1 < content.Length && content[i + 1] == '"')
+                    field.Append(content[++i]); // escaped quote
                 else
-                {
-                    inQuotes = !inQuotes;
-                }
+                    inQuotes = false;
+
+                continue;
             }
-            else if (c == ',' && !inQuotes)
+
+            switch (c)
             {
-                fields.Add(current.ToString());
-                current.Clear();
-            }
-            else
-            {
-                current.Append(c);
+                case '"':
+                    inQuotes = true;
+                    recordStarted = true;
+                    break;
+
+                case ',':
+                    fields.Add(field.ToString());
+                    field.Clear();
+                    recordStarted = true;
+                    break;
+
+                case '\r' or '\n':
+                    if (c == '\r' && i + 1 < content.Length && content[i + 1] == '\n')
+                        i++;
+
+                    if (recordStarted)
+                    {
+                        fields.Add(field.ToString());
+                        yield return [.. fields];
+                    }
+
+                    fields.Clear();
+                    field.Clear();
+                    recordStarted = false;
+                    break;
+
+                default:
+                    field.Append(c);
+                    recordStarted = true;
+                    break;
             }
         }
 
-        fields.Add(current.ToString());
-        return fields.ToArray();
+        if (recordStarted)
+        {
+            fields.Add(field.ToString());
+            yield return [.. fields];
+        }
     }
 
-    private static int FindColumnIndex(string[] header, params string[] candidates)
+    private static int FindColumnIndex(string[] header, string[] candidates)
     {
         for (var i = 0; i < header.Length; i++)
         {
@@ -200,7 +243,7 @@ public sealed class SmsTextExtractor(ILogger<SmsTextExtractor> logger) : ITextEx
         return -1;
     }
 
-    private static string? GetJsonString(JsonElement element, params string[] propertyNames)
+    private static string? GetJsonString(JsonElement element, string[] propertyNames)
     {
         foreach (var name in propertyNames)
         {

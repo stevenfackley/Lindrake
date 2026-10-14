@@ -8,6 +8,7 @@
 // ============================================================
 
 using System.Text;
+using HtmlAgilityPack;
 using MimeKit;
 
 namespace OmniSift.Api.Services;
@@ -19,6 +20,8 @@ namespace OmniSift.Api.Services;
 /// </summary>
 public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITextExtractor
 {
+    private static readonly string[] NonContentTags = ["head", "script", "style", "noscript", "template"];
+
     /// <inheritdoc />
     public string SourceType => SourceTypes.Email;
 
@@ -110,12 +113,12 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
 
             sb.AppendLine();
 
-            // Prefer plain text body; fall back to HTML stripped of tags.
+            // Prefer plain text body; fall back to the HTML body's readable text.
             var body = message.TextBody;
 
             if (string.IsNullOrWhiteSpace(body) && !string.IsNullOrWhiteSpace(message.HtmlBody))
             {
-                body = StripHtml(message.HtmlBody);
+                body = HtmlToText(message.HtmlBody);
             }
 
             if (!string.IsNullOrWhiteSpace(body))
@@ -153,20 +156,15 @@ public sealed class EmailTextExtractor(ILogger<EmailTextExtractor> logger) : ITe
     }
 
     /// <summary>
-    /// Lightweight HTML tag stripper used when only an HTML body exists.
+    /// Readable text of an HTML-only body. Script, style and head content is
+    /// dropped (a character-level tag stripper kept it, so tracking scripts and
+    /// CSS ended up in the index) and entities are decoded.
     /// </summary>
-    private static string StripHtml(string html)
+    private static string HtmlToText(string html)
     {
-        var sb = new StringBuilder(html.Length);
-        var inTag = false;
-
-        foreach (var c in html)
-        {
-            if (c == '<') { inTag = true; continue; }
-            if (c == '>') { inTag = false; continue; }
-            if (!inTag) sb.Append(c);
-        }
-
-        return sb.ToString();
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        HtmlText.RemoveNodes(doc, NonContentTags);
+        return HtmlText.CleanText(doc.DocumentNode);
     }
 }

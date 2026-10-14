@@ -106,6 +106,30 @@ public sealed class SmsTextExtractorTests
     }
 
     [Fact]
+    public async Task ExtractText_CsvQuotedNewline_StaysInOneMessage()
+    {
+        var csv = "sender,timestamp,message\r\n"
+            + "Alice,2024-01-01,\"first line\nsecond line\"\r\n"
+            + "Bob,2024-01-02,reply\r\n";
+
+        var result = await ExtractFromString(csv);
+
+        result.Should().Be(
+            "[SMS Conversation]\n"
+            + "Alice (2024-01-01) first line\nsecond line\n"
+            + "Bob (2024-01-02) reply");
+    }
+
+    [Fact]
+    public async Task ExtractText_CsvAndJson_FormatMessagesIdentically()
+    {
+        var csv = await ExtractFromString("sender,timestamp,message\nAlice,2024-01-01,Hi\n");
+        var json = await ExtractFromString("""[{ "sender": "Alice", "timestamp": "2024-01-01", "message": "Hi" }]""");
+
+        csv.Should().Be(json).And.Be("[SMS Conversation]\nAlice (2024-01-01) Hi");
+    }
+
+    [Fact]
     public async Task ExtractText_EmptyStream_ReturnsEmpty()
     {
         var result = await ExtractFromString(string.Empty);
