@@ -382,7 +382,11 @@ public static class ServiceCollectionExtensions
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddHealthChecks();
 
-        services.AddControllers();
+        // Source-generated metadata for the shared DTOs; types outside the context
+        // (ProblemDetails, anonymous objects) fall through to the reflection resolver.
+        services.AddControllers()
+            .AddJsonOptions(opts =>
+                opts.JsonSerializerOptions.TypeInfoResolverChain.Insert(0, OmniSiftJsonContext.Default));
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(c =>
         {
@@ -394,7 +398,8 @@ public static class ServiceCollectionExtensions
             });
         });
 
-        // Registers compile-time serialization for all shared DTOs.
+        // Same for Results/WriteAsJsonAsync/ProblemDetails writer (HTTP JSON options;
+        // MVC ignores these, hence AddJsonOptions above).
         services.ConfigureHttpJsonOptions(opts =>
             opts.SerializerOptions.TypeInfoResolverChain.Insert(0, OmniSiftJsonContext.Default));
 
