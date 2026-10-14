@@ -41,7 +41,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public static readonly Guid TestTenantId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
 
     // HS256 signing parameters injected into the Testing host's configuration and
-    // used to mint matching tokens. Must agree with the validator in Program.cs.
+    // used to mint matching tokens. Must agree with the validator in AddOmniSiftAuth.
     public const string TestJwtSecret = "omnisift-integration-tests-hs256-signing-secret-key";
     public const string TestJwtIssuer = "OmniSift";
     public const string TestJwtAudience = "OmniSift";

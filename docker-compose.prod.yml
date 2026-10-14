@@ -11,6 +11,8 @@
 #
 # Required files on the host before first deploy:
 #   .env.prod               — non-secret overrides (ASPNETCORE_ENVIRONMENT, etc.)
+#                             MUST set Supabase__Url: in Production the API refuses
+#                             to start without it (HS256 login is dev-only)
 #   secrets/*.txt           — one file per secret, raw value, no trailing newline
 #     postgres_password.txt
 #     Anthropic__ApiKey.txt

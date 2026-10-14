@@ -5,6 +5,7 @@
 
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -258,12 +259,19 @@ public static class ServiceCollectionExtensions
     /// The Supabase project must emit a custom <c>tenant_id</c> claim (app_metadata /
     /// access-token hook); tenant identity is read from that claim, never a header.
     /// Development fallback: when Supabase:Url is empty, the legacy in-house HS256
-    /// tokens issued by AuthController (Jwt:Secret) are validated instead.
+    /// tokens issued by AuthController (Jwt:Secret) are validated instead. That
+    /// fallback refuses to start outside Development/Testing (JwtOptionsValidator),
+    /// and AuthController only exists while it is active.
     /// </summary>
     public static IServiceCollection AddOmniSiftAuth(this IServiceCollection services)
     {
         services.AddValidatedOptions<JwtOptions>(JwtOptions.Section);
         services.AddValidatedOptions<SupabaseOptions>(SupabaseOptions.Section);
+        services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
+
+        services.AddOptions<MvcOptions>()
+            .Configure<IOptions<SupabaseOptions>>((mvc, supabase) =>
+                mvc.Conventions.Add(new LocalIdentityProviderConvention(enabled: !supabase.Value.IsConfigured)));
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
@@ -288,7 +296,7 @@ public static class ServiceCollectionExtensions
         // remapping them to legacy SOAP URIs — downstream reads them directly.
         options.MapInboundClaims = false;
 
-        if (!string.IsNullOrWhiteSpace(supabase.Url))
+        if (supabase.IsConfigured)
         {
             var supabaseAuthBase = supabase.Url.TrimEnd('/') + "/auth/v1";
 
