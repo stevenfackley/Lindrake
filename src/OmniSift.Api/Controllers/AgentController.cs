@@ -9,8 +9,8 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Options;
-using OmniSift.Api.Services;
 using OmniSift.Api.Services.Agent;
+using OmniSift.Api.Services.Reports;
 using OmniSift.Shared.DTOs;
 
 namespace OmniSift.Api.Controllers;
@@ -22,7 +22,8 @@ namespace OmniSift.Api.Controllers;
 public sealed class AgentController(
     IResearchAgentService agent,
     AgentSseWriter sseWriter,
-    IOptions<ResearchProfileOptions> profileOptions) : ControllerBase
+    IOptions<ResearchProfileOptions> profileOptions,
+    TimeProvider timeProvider) : ControllerBase
 {
     /// <summary>
     /// Submit a research query to the AI agent.
@@ -57,31 +58,16 @@ public sealed class AgentController(
     /// </summary>
     [HttpPost("report")]
     public ActionResult<GenerateReportResponse> GenerateReport(
-        [FromBody] GenerateReportRequest request)
+        [FromBody] GenerateReportRequest request,
+        [FromServices] IReportRenderer<string> markdownRenderer)
     {
-        var now = DateTime.UtcNow;
-        var timestamp = now.ToString("yyyy-MM-ddTHH:mm:ssZ");
-        var title = string.IsNullOrWhiteSpace(request.Title) ? profileOptions.Value.FormatReportTitle(now) : request.Title;
-
-        var reportRequest = new ReportRequest
-        {
-            Title = title,
-            Timestamp = timestamp,
-            Messages = [.. request.Messages.Select(m => new ReportMessage
-            {
-                Role = m.Role,
-                Content = m.Content,
-                Citations = [.. m.Citations]
-            })]
-        };
-
-        var markdown = ResearchReportBuilder.Build(reportRequest, now);
+        var document = ReportRequestFactory.From(request, timeProvider, profileOptions.Value);
 
         return Ok(new GenerateReportResponse
         {
-            Markdown = markdown,
-            Title = title,
-            GeneratedAt = timestamp
+            Markdown = markdownRenderer.Render(document),
+            Title = document.Title,
+            GeneratedAt = document.Timestamp
         });
     }
 
@@ -89,26 +75,11 @@ public sealed class AgentController(
     /// Generate a PDF research report from a conversation with its associated citations.
     /// </summary>
     [HttpPost("report/pdf")]
-    public ActionResult GenerateReportPdf([FromBody] GenerateReportRequest request)
+    public ActionResult GenerateReportPdf(
+        [FromBody] GenerateReportRequest request,
+        [FromServices] IReportRenderer<byte[]> pdfRenderer)
     {
-        var now = DateTime.UtcNow;
-        var timestamp = now.ToString("yyyy-MM-ddTHH:mm:ssZ");
-        var title = string.IsNullOrWhiteSpace(request.Title) ? profileOptions.Value.FormatReportTitle(now) : request.Title;
-
-        var reportRequest = new ReportRequest
-        {
-            Title = title,
-            Timestamp = timestamp,
-            Messages = [.. request.Messages.Select(m => new ReportMessage
-            {
-                Role = m.Role,
-                Content = m.Content,
-                Citations = [.. m.Citations]
-            })]
-        };
-
-        var pdfBytes = PdfReportBuilder.Build(reportRequest, now);
-        var fileName = $"report-{now:yyyyMMddHHmmss}.pdf";
-        return File(pdfBytes, "application/pdf", fileName);
+        var document = ReportRequestFactory.From(request, timeProvider, profileOptions.Value);
+        return File(pdfRenderer.Render(document), PdfReportRenderer.ContentType, document.FileName("pdf"));
     }
 }

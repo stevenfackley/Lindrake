@@ -1,16 +1,19 @@
 // ============================================================
-// Unit Tests — ResearchReportBuilder
+// Unit Tests — MarkdownReportRenderer
 // Verifies sections, citations rendered, and edge cases.
 // ============================================================
 
+using System.Globalization;
 using FluentAssertions;
-using OmniSift.Api.Services;
+using OmniSift.Api.Services.Reports;
 using OmniSift.Shared.DTOs;
 
-namespace OmniSift.UnitTests.Services;
+namespace OmniSift.UnitTests.Services.Reports;
 
-public sealed class ResearchReportBuilderTests
+public sealed class MarkdownReportRendererTests
 {
+    private static readonly MarkdownReportRenderer Renderer = new();
+
     private static readonly DateTime FixedNow =
         new(2026, 6, 21, 12, 0, 0, DateTimeKind.Utc);
 
@@ -19,8 +22,8 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_DefaultTitle_IncludesResearchReportHeading()
     {
-        var req = new ReportRequest { Messages = [] };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var req = new ReportDocument { GeneratedAt = FixedNow, Messages = [] };
+        var md = Renderer.Render(req);
 
         md.Should().Contain("# Research Report");
     }
@@ -28,8 +31,8 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_CustomTitle_IncludesCustomHeading()
     {
-        var req = new ReportRequest { Title = "My Study", Messages = [] };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var req = new ReportDocument { GeneratedAt = FixedNow, Title = "My Study", Messages = [] };
+        var md = Renderer.Render(req);
 
         md.Should().Contain("# My Study");
     }
@@ -37,24 +40,48 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_AlwaysIncludesTimestamp()
     {
-        var req = new ReportRequest { Messages = [] };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var req = new ReportDocument { GeneratedAt = FixedNow, Messages = [] };
+        var md = Renderer.Render(req);
 
         md.Should().Contain("2026-06-21T12:00:00Z");
     }
 
     [Fact]
-    public void Build_ExplicitTimestampOverridesUtcNow()
+    public void Build_UnderACultureWithOtherSeparators_StaysInvariant()
     {
-        var req = new ReportRequest
+        // Timestamps and scores used the current culture: a "." time separator or a
+        // "," decimal separator leaked into the report.
+        var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+        culture.DateTimeFormat.TimeSeparator = ".";
+        culture.NumberFormat.NumberDecimalSeparator = ",";
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = culture;
+        try
         {
-            Timestamp = "2025-01-01T00:00:00Z",
-            Messages = []
-        };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+            var req = new ReportDocument
+            {
+                GeneratedAt = FixedNow,
+                Messages =
+                [
+                    new ReportMessage { Role = "user", Content = "Q" },
+                    new ReportMessage
+                    {
+                        Role = "assistant",
+                        Content = "A",
+                        Citations = [new SourceCitation { Type = "web", Title = "T", RelevanceScore = 0.5 }]
+                    }
+                ]
+            };
 
-        md.Should().Contain("2025-01-01T00:00:00Z");
-        md.Should().NotContain("2026-06-21");
+            var md = Renderer.Render(req);
+
+            md.Should().Contain("*Generated: 2026-06-21T12:00:00Z*");
+            md.Should().Contain("score: 0.500").And.Contain("**Relevance:** 0.5000");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     // ── Sections ─────────────────────────────────────────────
@@ -62,15 +89,16 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_UserAndAssistantTurn_RendersQuerySection()
     {
-        var req = new ReportRequest
+        var req = new ReportDocument
         {
+            GeneratedAt = FixedNow,
             Messages =
             [
                 new ReportMessage { Role = "user", Content = "What is the capital of France?" },
                 new ReportMessage { Role = "assistant", Content = "Paris." }
             ]
         };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var md = Renderer.Render(req);
 
         md.Should().Contain("## Query 1");
         md.Should().Contain("What is the capital of France?");
@@ -79,14 +107,15 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_AssistantTurn_RendersAnswerSection()
     {
-        var req = new ReportRequest
+        var req = new ReportDocument
         {
+            GeneratedAt = FixedNow,
             Messages =
             [
                 new ReportMessage { Role = "assistant", Content = "Paris is the capital." }
             ]
         };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var md = Renderer.Render(req);
 
         md.Should().Contain("### Answer");
         md.Should().Contain("Paris is the capital.");
@@ -95,8 +124,9 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_MultiTurnConversation_NumbersQueriesSequentially()
     {
-        var req = new ReportRequest
+        var req = new ReportDocument
         {
+            GeneratedAt = FixedNow,
             Messages =
             [
                 new ReportMessage { Role = "user", Content = "First question" },
@@ -105,7 +135,7 @@ public sealed class ResearchReportBuilderTests
                 new ReportMessage { Role = "assistant", Content = "Second answer" }
             ]
         };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var md = Renderer.Render(req);
 
         md.Should().Contain("## Query 1");
         md.Should().Contain("## Query 2");
@@ -116,8 +146,9 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_AssistantTurnWithWebCitation_RendersInlineCitation()
     {
-        var req = new ReportRequest
+        var req = new ReportDocument
         {
+            GeneratedAt = FixedNow,
             Messages =
             [
                 new ReportMessage
@@ -137,7 +168,7 @@ public sealed class ResearchReportBuilderTests
                 }
             ]
         };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var md = Renderer.Render(req);
 
         md.Should().Contain("[1]");
         md.Should().Contain("France Wikipedia");
@@ -148,8 +179,9 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_MultipleTurnsWithCitations_GlobalBibliographyIncludesAll()
     {
-        var req = new ReportRequest
+        var req = new ReportDocument
         {
+            GeneratedAt = FixedNow,
             Messages =
             [
                 new ReportMessage
@@ -172,7 +204,7 @@ public sealed class ResearchReportBuilderTests
                 }
             ]
         };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var md = Renderer.Render(req);
 
         md.Should().Contain("## Sources Bibliography");
         md.Should().Contain("Source A");
@@ -189,8 +221,9 @@ public sealed class ResearchReportBuilderTests
             Url = "https://shared.com"
         };
 
-        var req = new ReportRequest
+        var req = new ReportDocument
         {
+            GeneratedAt = FixedNow,
             Messages =
             [
                 new ReportMessage
@@ -207,7 +240,7 @@ public sealed class ResearchReportBuilderTests
                 }
             ]
         };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var md = Renderer.Render(req);
 
         // Should only have one "[1]" entry in bibliography, not two
         var bibliographySection = md[(md.IndexOf("## Sources Bibliography", StringComparison.Ordinal))..];
@@ -218,8 +251,9 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_DocumentCitationWithSnippet_SnippetInBibliography()
     {
-        var req = new ReportRequest
+        var req = new ReportDocument
         {
+            GeneratedAt = FixedNow,
             Messages =
             [
                 new ReportMessage
@@ -241,7 +275,7 @@ public sealed class ResearchReportBuilderTests
                 }
             ]
         };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var md = Renderer.Render(req);
 
         md.Should().Contain("This is an excerpt.");
     }
@@ -251,8 +285,8 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_NoMessages_ReturnsPlaceholderText()
     {
-        var req = new ReportRequest { Messages = [] };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var req = new ReportDocument { GeneratedAt = FixedNow, Messages = [] };
+        var md = Renderer.Render(req);
 
         md.Should().Contain("No assistant responses to report.");
     }
@@ -262,8 +296,8 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_Report_ContainsHorizontalRuleSeparator()
     {
-        var req = new ReportRequest { Messages = [] };
-        var md = ResearchReportBuilder.Build(req, FixedNow);
+        var req = new ReportDocument { GeneratedAt = FixedNow, Messages = [] };
+        var md = Renderer.Render(req);
 
         md.Should().Contain("---");
     }
@@ -273,7 +307,7 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_NullRequest_Throws()
     {
-        var act = () => ResearchReportBuilder.Build(null!, FixedNow);
+        var act = () => Renderer.Render(null!);
         act.Should().Throw<ArgumentNullException>();
     }
 
@@ -282,10 +316,10 @@ public sealed class ResearchReportBuilderTests
     [Fact]
     public void Build_CalledTwiceWithSameInput_ProducesSameOutput()
     {
-        var req = new ReportRequest
+        var req = new ReportDocument
         {
+            GeneratedAt = FixedNow,
             Title = "Test",
-            Timestamp = "2026-01-01T00:00:00Z",
             Messages =
             [
                 new ReportMessage { Role = "user", Content = "Question?" },
@@ -298,8 +332,8 @@ public sealed class ResearchReportBuilderTests
             ]
         };
 
-        ResearchReportBuilder.Build(req, FixedNow)
-            .Should().Be(ResearchReportBuilder.Build(req, FixedNow));
+        Renderer.Render(req)
+            .Should().Be(Renderer.Render(req));
     }
 
     // ── helpers ──────────────────────────────────────────────

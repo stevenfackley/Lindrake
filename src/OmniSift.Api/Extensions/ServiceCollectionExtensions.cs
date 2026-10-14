@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -22,11 +23,13 @@ using OmniSift.Api.Services;
 using OmniSift.Api.Services.Agent;
 using OmniSift.Api.Services.Extraction;
 using OmniSift.Api.Services.Ingestion;
+using OmniSift.Api.Services.Reports;
 using OmniSift.Api.Services.Search;
 using OmniSift.Shared;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using QuestPDF.Infrastructure;
 using Serilog;
 using Serilog.Events;
 using CorsPolicyOptions = Microsoft.AspNetCore.Cors.Infrastructure.CorsOptions;
@@ -301,6 +304,19 @@ public static class ServiceCollectionExtensions
 
             return kernel;
         });
+
+        return services;
+    }
+
+    /// <summary>Research report rendering (Markdown, PDF) and the clock it stamps reports with.</summary>
+    public static IServiceCollection AddOmniSiftReports(this IServiceCollection services)
+    {
+        // QuestPDF refuses to render until a license is chosen. Process-wide; set once, here.
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<IReportRenderer<string>, MarkdownReportRenderer>();
+        services.AddSingleton<IReportRenderer<byte[]>, PdfReportRenderer>();
 
         return services;
     }
