@@ -12,13 +12,14 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5000";
+// Empty ApiBaseUrl = same origin (the container renders it from API_BASE_URL).
+var apiBaseAddress = ApiBaseAddress.Resolve(builder.Configuration["ApiBaseUrl"], builder.HostEnvironment.BaseAddress);
 
 // Singleton: AuthHandler is created in the HTTP client factory's own scope and
 // must share the components' auth state.
 builder.Services.AddSingleton<AuthStateService>();
 builder.Services.AddTransient<AuthHandler>();
-builder.Services.AddHttpClient<OmniSiftApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl))
+builder.Services.AddHttpClient<OmniSiftApiClient>(client => client.BaseAddress = apiBaseAddress)
     .AddHttpMessageHandler<AuthHandler>();
 builder.Services.AddSingleton<MarkdownService>();
 
