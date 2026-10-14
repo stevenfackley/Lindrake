@@ -18,6 +18,7 @@ using OmniSift.Api.Middleware;
 using OmniSift.Api.Options;
 using OmniSift.Api.Plugins;
 using OmniSift.Api.Services;
+using OmniSift.Api.Services.Ingestion;
 using OmniSift.Shared;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -166,22 +167,21 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITextChunker, TextChunker>();
 
         // Keyed DI: each extractor registered by its source-type key.
-        // DocumentIngestionService resolves via [FromKeyedServices] — no runtime scan.
+        // IngestionPipeline resolves via [FromKeyedServices] — no runtime scan.
         services.AddKeyedScoped<ITextExtractor, PdfTextExtractor>("pdf");
         services.AddKeyedScoped<ITextExtractor, SmsTextExtractor>("sms");
         services.AddKeyedScoped<ITextExtractor, WebTextExtractor>("web");
         services.AddKeyedScoped<ITextExtractor, DocxTextExtractor>("docx");
         services.AddKeyedScoped<ITextExtractor, EmailTextExtractor>("email");
 
-        services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
+        // One pipeline for both paths: the synchronous web endpoint and the
+        // background worker (which binds ITenantContext from the work item).
+        services.AddScoped<IIngestionPipeline, IngestionPipeline>();
 
-        // Async ingestion pipeline via System.Threading.Channels.
-        // IngestionChannel is the shared queue (singleton).
-        // IngestionBackgroundService drains it in a hosted background loop.
-        // BackgroundIngestionService runs the actual extract→chunk→embed work
-        // in a fresh DI scope per item (with RLS re-established from the work item tenantId).
+        // Async upload ingestion via System.Threading.Channels.
+        // IngestionChannel is the shared queue (singleton); IngestionBackgroundService
+        // drains it, running the pipeline in a fresh DI scope per item.
         services.AddSingleton<IngestionChannel>();
-        services.AddScoped<IBackgroundIngestionService, BackgroundIngestionService>();
         services.AddHostedService<IngestionBackgroundService>();
 
         return services;

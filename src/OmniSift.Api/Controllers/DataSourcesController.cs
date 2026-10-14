@@ -14,6 +14,7 @@ using OmniSift.Api.Infrastructure;
 using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 using OmniSift.Api.Services;
+using OmniSift.Api.Services.Ingestion;
 using OmniSift.Shared.DTOs;
 
 namespace OmniSift.Api.Controllers;
@@ -25,7 +26,7 @@ namespace OmniSift.Api.Controllers;
 public sealed class DataSourcesController(
     OmniSiftDbContext dbContext,
     ITenantContext tenantContext,
-    IDocumentIngestionService ingestionService,
+    IIngestionPipeline ingestionPipeline,
     IngestionChannel ingestionChannel,
     IAuditLogger auditLogger,
     ILogger<DataSourcesController> logger) : ControllerBase
@@ -180,9 +181,20 @@ public sealed class DataSourcesController(
         var response = await httpClient.GetAsync(request.Url, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
+        // Committed before the pipeline runs so a pipeline failure is recorded on
+        // this row (status "failed") instead of rolling it back.
+        var dataSource = new DataSource
+        {
+            TenantId = tenantContext.TenantId,
+            SourceType = "web",
+            OriginalUrl = request.Url,
+            Status = IngestionStatus.Processing
+        };
+        dbContext.DataSources.Add(dataSource);
+        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var dataSource = await ingestionService.IngestAsync(
-            stream, "web", null, request.Url, cancellationToken).ConfigureAwait(false);
+        dataSource = await ingestionPipeline.RunAsync(dataSource, stream, cancellationToken).ConfigureAwait(false);
 
         return Ok(new IngestionResponse
         {
