@@ -64,12 +64,9 @@ else
                         Uploading samples…
                     </p>
                 }
-                @if (!string.IsNullOrEmpty(_sampleMessage))
-                {
-                    <div class="alert @(_sampleOk ? "alert-success" : "alert-error")" style="font-size: 0.82rem; margin-bottom: 0.75rem;">
-                        @_sampleMessage
-                    </div>
-                }
+                <Alert Kind="@(_sampleOk ? AlertKind.Success : AlertKind.Error)"
+                       Message="@_sampleMessage"
+                       Style="font-size: 0.82rem; margin-bottom: 0.75rem;" />
 
                 <a href="datasources" class="btn btn-outline">Manage data sources</a>
             </div>
@@ -107,11 +104,11 @@ else
             }
             else if (_healthy)
             {
-                <div class="alert alert-success">API is healthy and connected.</div>
+                <Alert Kind="AlertKind.Success" Message="API is healthy and connected." />
             }
             else
             {
-                <div class="alert alert-error">API is unreachable. Ensure the backend is running on port 5000.</div>
+                <Alert Message="API is unreachable. Ensure the backend is running and ApiBaseUrl points at it." />
             }
         </div>
     </div>
@@ -154,17 +151,17 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var savedRole = await JS.InvokeAsync<string?>("localStorage.getItem", "omnisift_role").ConfigureAwait(false);
+        var savedRole = await JS.InvokeAsync<string?>("localStorage.getItem", "omnisift_role");
         if (!string.IsNullOrEmpty(savedRole))
         {
             _pendingRole = savedRole;
             _roleChosen = true;
         }
 
-        var sampleDone = await JS.InvokeAsync<string?>("localStorage.getItem", "omnisift_sample_loaded").ConfigureAwait(false);
+        var sampleDone = await JS.InvokeAsync<string?>("localStorage.getItem", "omnisift_sample_loaded");
         _sampleLoaded = sampleDone == "1";
 
-        _healthy = await Api.CheckHealthAsync().ConfigureAwait(false);
+        _healthy = await Api.CheckHealthAsync();
         _checking = false;
     }
 
@@ -173,13 +170,13 @@ else
         if (string.IsNullOrEmpty(_pendingRole))
             return;
 
-        await JS.InvokeVoidAsync("localStorage.setItem", "omnisift_role", _pendingRole).ConfigureAwait(false);
+        await JS.InvokeVoidAsync("localStorage.setItem", "omnisift_role", _pendingRole);
         _roleChosen = true;
     }
 
     private async Task ResetRole()
     {
-        await JS.InvokeVoidAsync("localStorage.removeItem", "omnisift_role").ConfigureAwait(false);
+        await JS.InvokeVoidAsync("localStorage.removeItem", "omnisift_role");
         _roleChosen = false;
         _pendingRole = string.Empty;
     }

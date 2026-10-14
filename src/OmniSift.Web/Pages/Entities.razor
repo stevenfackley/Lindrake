@@ -30,11 +30,9 @@
             }
         </button>
 
-        @if (_state == PageState.Error && !string.IsNullOrWhiteSpace(_errorMessage))
+        @if (_state == PageState.Error)
         {
-            <div class="alert alert-error" style="margin-top: 1rem;">
-                @_errorMessage
-            </div>
+            <Alert Message="@_errorMessage" Style="margin-top: 1rem;" />
         }
     </div>
 
@@ -117,7 +115,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
-            _graphModule = await JS.InvokeAsync<IJSObjectReference>("import", "/js/entityGraph.js").ConfigureAwait(false);
+            _graphModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/entityGraph.js");
     }
 
     private async Task BuildGraph()

@@ -51,10 +51,7 @@
             </div>
         </div>
 
-        @if (_vm.SubmitStatus is { } status)
-        {
-            <div class="alert @AlertClass(status.Kind)" style="margin-top: 1rem;">@status.Text</div>
-        }
+        <Alert Status="_vm.SubmitStatus" Style="margin-top: 1rem;" />
     </div>
 
     @* ── Data Source List ─────────────────────────────────── *@
@@ -66,20 +63,11 @@
             </button>
         </div>
 
-        @if (_vm.LoadError is not null)
-        {
-            <div class="alert alert-error">@_vm.LoadError</div>
-        }
-        else if (_vm.IsLoading && _vm.Items.Count == 0)
-        {
-            <p style="color: var(--text-muted);">Loading data sources...</p>
-        }
-        else if (_vm.Items.Count == 0)
-        {
-            <p style="color: var(--text-muted);">No data sources yet. Upload a file or ingest a web page to get started.</p>
-        }
-        else
-        {
+        <AsyncStatus IsLoading="@(_vm.IsLoading && _vm.Items.Count == 0)"
+                     Error="@_vm.LoadError"
+                     IsEmpty="@(_vm.Items.Count == 0)"
+                     LoadingText="Loading data sources…"
+                     EmptyText="No data sources yet. Upload a file or ingest a web page to get started.">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -156,13 +144,10 @@
                     Load more
                 </button>
             }
-        }
+        </AsyncStatus>
     </div>
 
-    @if (_vm.DeleteError is not null)
-    {
-        <div class="alert alert-error">@_vm.DeleteError</div>
-    }
+    <Alert Message="@_vm.DeleteError" />
 </div>
 
 @code {
@@ -202,13 +187,6 @@
         if (await _vm.IngestWebAsync(_webUrl))
             _webUrl = string.Empty;
     }
-
-    private static string AlertClass(AlertKind kind) => kind switch
-    {
-        AlertKind.Success => "alert-success",
-        AlertKind.Error => "alert-error",
-        _ => "alert-info"
-    };
 
     private static string TruncateUrl(string url) =>
         url.Length > 60 ? url[..57] + "..." : url;

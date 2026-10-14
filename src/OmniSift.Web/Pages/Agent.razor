@@ -160,10 +160,7 @@
     </div>
 }
 
-@if (!string.IsNullOrWhiteSpace(_vm.Error))
-{
-    <div class="alert alert-error" style="margin-top: 1rem;">@_vm.Error</div>
-}
+<Alert Message="@_vm.Error" Style="margin-top: 1rem;" />
 
 @code {
     private AgentChatViewModel _vm = default!;

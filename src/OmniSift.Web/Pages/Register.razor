@@ -14,10 +14,10 @@
 
         @if (_tenantId is { } tenantId)
         {
-            <div class="alert alert-success" style="margin-bottom: 1rem;">
+            <Alert Kind="AlertKind.Success" Style="margin-bottom: 1rem;">
                 Account created. Your tenant ID is <code>@tenantId</code> — you need it to sign in.
                 <a href="@($"login?tenant={tenantId}")">Sign in →</a>
-            </div>
+            </Alert>
         }
         else
         {
@@ -46,10 +46,7 @@
                            disabled="@_busy" />
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(_error))
-                {
-                    <div class="alert alert-error">@_error</div>
-                }
+                <Alert Message="@_error" />
 
                 <button class="btn btn-primary" style="width: 100%;"
                         @onclick="DoRegister"

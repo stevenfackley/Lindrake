@@ -1,0 +1,42 @@
+@* Loading / error / empty states around content that is fetched asynchronously.
+   Shows the first that applies: loading text, the error, the empty text, else the content. *@
+
+@if (IsLoading)
+{
+    <p style="color: var(--text-muted);">
+        <span class="spinner" style="width: 12px; height: 12px; border-width: 2px; display: inline-block; vertical-align: middle; margin-right: 0.4rem;"></span>
+        @LoadingText
+    </p>
+}
+else if (!string.IsNullOrWhiteSpace(Error))
+{
+    <Alert Kind="AlertKind.Error" Message="@Error" />
+}
+else if (IsEmpty)
+{
+    <p style="color: var(--text-muted);">@EmptyText</p>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    [Parameter]
+    public string? Error { get; set; }
+
+    [Parameter]
+    public bool IsEmpty { get; set; }
+
+    [Parameter]
+    public string LoadingText { get; set; } = "Loading…";
+
+    [Parameter]
+    public string EmptyText { get; set; } = "Nothing here yet.";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

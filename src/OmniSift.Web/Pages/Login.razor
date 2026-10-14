@@ -42,10 +42,7 @@
                        @onkeydown="HandleKeyDown" />
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(_error))
-            {
-                <div class="alert alert-error">@_error</div>
-            }
+            <Alert Message="@_error" />
 
             <button class="btn btn-primary" style="width: 100%;"
                     @onclick="DoLogin"
