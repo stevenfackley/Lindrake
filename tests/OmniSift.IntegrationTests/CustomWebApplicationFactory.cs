@@ -162,7 +162,20 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     /// Mints an HS256 bearer token carrying the <c>tenant_id</c> + <c>sub</c> claims
     /// the API derives identity from. Signed with <see cref="TestJwtSecret"/>.
     /// </summary>
-    public string CreateToken(Guid? tenantId = null, Guid? userId = null)
+    public string CreateToken(Guid? tenantId = null, Guid? userId = null) => CreateSignedToken(
+        [
+            new Claim("sub", (userId ?? Guid.NewGuid()).ToString()),
+            new Claim("tenant_id", (tenantId ?? TestTenantId).ToString()),
+            new Claim("role", "authenticated"),
+        ],
+        expires: DateTime.UtcNow.AddHours(1));
+
+    /// <summary>
+    /// Mints an HS256 token carrying exactly <paramref name="claims"/>, valid for the
+    /// hour before <paramref name="expires"/> (which may lie in the past, for an
+    /// expired token). Signed with <see cref="TestJwtSecret"/>.
+    /// </summary>
+    public static string CreateSignedToken(IEnumerable<Claim> claims, DateTime expires)
     {
         var creds = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtSecret)),
@@ -171,13 +184,9 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         var token = new JwtSecurityToken(
             issuer: TestJwtIssuer,
             audience: TestJwtAudience,
-            claims:
-            [
-                new Claim("sub", (userId ?? Guid.NewGuid()).ToString()),
-                new Claim("tenant_id", (tenantId ?? TestTenantId).ToString()),
-                new Claim("role", "authenticated"),
-            ],
-            expires: DateTime.UtcNow.AddHours(1),
+            claims: claims,
+            notBefore: expires.AddHours(-1),
+            expires: expires,
             signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
