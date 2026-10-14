@@ -46,8 +46,9 @@ public sealed class VectorSearchPlugin(
 
         topK = Math.Clamp(topK, 1, 20);
 
-        logger.LogDebug("VectorSearch: query='{Query}', topK={TopK}, tenant={TenantId}",
-            query, topK, tenantContext.TenantId);
+        // Query text is user content (often PII) — log its size, never the text.
+        logger.LogDebug("VectorSearch: queryLength={QueryLength}, topK={TopK}, tenant={TenantId}",
+            query.Length, topK, tenantContext.TenantId);
 
         try
         {
