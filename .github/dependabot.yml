@@ -1,23 +1,40 @@
+# Fleet rule: monthly, grouped, at most 3 open PRs per ecosystem, so routine
+# bumps stay cheap on Actions minutes and reviewable. Security updates are not
+# subject to the schedule and open as soon as an advisory lands.
 version: 2
 updates:
   - package-ecosystem: nuget
     directory: /
-    schedule: { interval: weekly, day: monday }
-    open-pull-requests-limit: 10
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
     groups:
       dotnet-runtime:
         patterns: ["Microsoft.Extensions.*", "Microsoft.AspNetCore.*"]
+      ef-core:
+        patterns: ["Microsoft.EntityFrameworkCore*", "Npgsql.EntityFrameworkCore.*"]
       testing:
         patterns: ["xunit*", "coverlet.*", "Microsoft.NET.Test.*"]
 
   - package-ecosystem: docker
     directory: /src/OmniSift.Api
-    schedule: { interval: weekly, day: monday }
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+    groups:
+      api-images:
+        patterns: ["*"]
 
   - package-ecosystem: docker
     directory: /src/OmniSift.Web
-    schedule: { interval: weekly, day: monday }
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+    groups:
+      web-images:
+        patterns: ["*"]
 
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly, day: monday }
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]
