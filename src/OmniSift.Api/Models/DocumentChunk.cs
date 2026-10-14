@@ -11,7 +11,7 @@ namespace OmniSift.Api.Models;
 /// An individual text chunk extracted from a data source,
 /// with a vector embedding for semantic similarity search.
 /// </summary>
-public sealed class DocumentChunk
+public sealed class DocumentChunk : ITenantOwned
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 

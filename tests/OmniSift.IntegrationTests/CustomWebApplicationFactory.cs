@@ -18,6 +18,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
 using Moq;
 using OmniSift.Api.Data;
+using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 using OmniSift.Api.Services;
 using Pgvector;
@@ -116,7 +117,8 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // that ignores the Pgvector Vector column (InMemory doesn't support it).
             services.AddScoped<OmniSiftDbContext>(sp =>
                 new InMemoryOmniSiftDbContext(
-                    sp.GetRequiredService<DbContextOptions<OmniSiftDbContext>>()));
+                    sp.GetRequiredService<DbContextOptions<OmniSiftDbContext>>(),
+                    sp.GetRequiredService<ITenantContext>()));
 
             // Replace embedding service with a mock that returns dummy vectors
             services.RemoveAll<IEmbeddingService>();
@@ -215,13 +217,24 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
+    /// A DI scope bound to <paramref name="tenantId"/> (defaults to the seeded test
+    /// tenant), so its DbContext's tenant query filter shows that tenant's rows.
+    /// </summary>
+    public IServiceScope CreateTenantScope(Guid? tenantId = null)
+    {
+        var scope = Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().Set(tenantId ?? TestTenantId);
+        return scope;
+    }
+
+    /// <summary>
     /// DbContext subclass that ignores the Pgvector Vector property
     /// since InMemory provider cannot map that type.
     /// </summary>
     private sealed class InMemoryOmniSiftDbContext : OmniSiftDbContext
     {
-        public InMemoryOmniSiftDbContext(DbContextOptions<OmniSiftDbContext> options)
-            : base(options) { }
+        public InMemoryOmniSiftDbContext(DbContextOptions<OmniSiftDbContext> options, ITenantContext tenantContext)
+            : base(options, tenantContext) { }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -74,7 +74,7 @@ public sealed class IngestionBackgroundService(
 
         var dataSource = await dbContext.DataSources
             .FirstOrDefaultAsync(
-                ds => ds.Id == item.DataSourceId && ds.TenantId == item.TenantId,
+                ds => ds.Id == item.DataSourceId,
                 stoppingToken)
             .ConfigureAwait(false);
 

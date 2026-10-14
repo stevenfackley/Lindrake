@@ -1,6 +1,6 @@
 namespace OmniSift.Api.Models;
 
-public sealed class AppUser
+public sealed class AppUser : ITenantOwned
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }

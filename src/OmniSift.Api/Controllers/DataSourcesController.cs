@@ -203,7 +203,6 @@ public sealed class DataSourcesController(
     public async Task<ActionResult<List<DataSourceDto>>> List(CancellationToken cancellationToken)
     {
         var entities = await dbContext.DataSources
-            .Where(ds => ds.TenantId == tenantContext.TenantId)
             .OrderByDescending(ds => ds.CreatedAt)
             .Include(ds => ds.Chunks)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
@@ -234,7 +233,7 @@ public sealed class DataSourcesController(
         var ds = await dbContext.DataSources
             .Include(ds => ds.Chunks)
             .FirstOrDefaultAsync(
-                ds => ds.TenantId == tenantContext.TenantId && ds.Id == id,
+                ds => ds.Id == id,
                 cancellationToken).ConfigureAwait(false);
 
         if (ds is null)
@@ -264,7 +263,7 @@ public sealed class DataSourcesController(
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var source = await dbContext.DataSources
-            .FirstOrDefaultAsync(ds => ds.TenantId == tenantContext.TenantId && ds.Id == id, cancellationToken).ConfigureAwait(false);
+            .FirstOrDefaultAsync(ds => ds.Id == id, cancellationToken).ConfigureAwait(false);
 
         if (source is null)
             return Problem(detail: $"Data source '{id}' not found.", statusCode: StatusCodes.Status404NotFound);

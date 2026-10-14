@@ -21,6 +21,13 @@ public interface ITenantContext
     Guid TenantId { get; }
 
     /// <summary>
+    /// The scope's tenant, or <see langword="null"/> when none is bound. Never
+    /// throws: the EF tenant filter and the RLS connection interceptor read this
+    /// so an unbound scope fails closed (sees no rows) instead of erroring.
+    /// </summary>
+    Guid? CurrentTenantId { get; }
+
+    /// <summary>
     /// Binds the scope to <paramref name="tenantId"/>. A scope belongs to one
     /// tenant: re-binding it to a different tenant throws.
     /// </summary>
@@ -34,6 +41,9 @@ public sealed class TenantContext : ITenantContext
 
     /// <inheritdoc />
     public Guid TenantId => _tenantId ?? throw new TenantContextMissingException();
+
+    /// <inheritdoc />
+    public Guid? CurrentTenantId => _tenantId;
 
     /// <inheritdoc />
     public void Set(Guid tenantId)

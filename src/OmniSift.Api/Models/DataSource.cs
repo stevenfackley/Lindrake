@@ -9,7 +9,7 @@ namespace OmniSift.Api.Models;
 /// Tracks every uploaded or ingested data source for a tenant.
 /// Supports PDF, SMS exports, and web page captures.
 /// </summary>
-public sealed class DataSource
+public sealed class DataSource : ITenantOwned
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 

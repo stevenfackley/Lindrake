@@ -20,7 +20,6 @@ public sealed class AccountController(
         var tenantId = tenantContext.TenantId;
 
         var dataSources = await dbContext.DataSources
-            .Where(ds => ds.TenantId == tenantId)
             .Select(ds => new DataSourceDto
             {
                 Id = ds.Id,
@@ -37,7 +36,6 @@ public sealed class AccountController(
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var queryHistory = await dbContext.QueryHistories
-            .Where(q => q.TenantId == tenantId)
             .Select(q => new QueryHistoryDto
             {
                 Id = q.Id,
@@ -50,7 +48,6 @@ public sealed class AccountController(
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var auditLog = await dbContext.AuditLogs
-            .Where(a => a.TenantId == tenantId)
             .Select(a => new AuditLogDto
             {
                 Id = a.Id,
@@ -83,6 +80,7 @@ public sealed class AccountController(
                 detail: "Confirm field must equal 'DELETE' (case-sensitive).",
                 statusCode: StatusCodes.Status400BadRequest);
 
+        // Destructive: keep an explicit tenant predicate on top of the query filter.
         var tenantId = tenantContext.TenantId;
 
         var dataSources = await dbContext.DataSources

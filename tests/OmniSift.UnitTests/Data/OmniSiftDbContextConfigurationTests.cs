@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
+using OmniSift.Api.Middleware;
 using OmniSift.Api.Models;
 
 namespace OmniSift.UnitTests.Data;
@@ -44,7 +45,7 @@ public sealed class OmniSiftDbContextConfigurationTests
             })
             .Options;
 
-        using var context = new OmniSiftDbContext(options);
+        using var context = new OmniSiftDbContext(options, new TenantContext());
         var model = context.Model;
         var createScript = context.Database.GenerateCreateScript();
 

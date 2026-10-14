@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using OmniSift.Api.Middleware;
 
 namespace OmniSift.Api.Data;
 
@@ -29,6 +30,7 @@ public sealed class OmniSiftDesignTimeDbContextFactory : IDesignTimeDbContextFac
             })
             .Options;
 
-        return new OmniSiftDbContext(options);
+        // No tenant is bound: migrations and tooling never query tenant-owned rows.
+        return new OmniSiftDbContext(options, new TenantContext());
     }
 }

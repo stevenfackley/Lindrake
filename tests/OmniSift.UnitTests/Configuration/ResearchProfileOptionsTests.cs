@@ -108,7 +108,7 @@ public sealed class ResearchProfileOptionsTests
         var services = new ServiceCollection()
             .AddLogging()
             .AddSingleton<IConfiguration>(config)
-            .AddScoped<OmniSiftDbContext>(_ => InMemoryDb.Create(databaseName))
+            .AddScoped<OmniSiftDbContext>(sp => InMemoryDb.Create(databaseName, sp.GetRequiredService<ITenantContext>()))
             .AddScoped<ITenantContext, TenantContext>()
             .AddSingleton(Mock.Of<IEmbeddingService>());
         services.AddOmniSiftAgent();

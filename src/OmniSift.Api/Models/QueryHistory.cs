@@ -9,7 +9,7 @@ namespace OmniSift.Api.Models;
 /// Records every agent query and response for audit trails
 /// and potential conversation context retrieval.
 /// </summary>
-public sealed class QueryHistory
+public sealed class QueryHistory : ITenantOwned
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 

@@ -50,7 +50,7 @@ public sealed class IngestionPipelineTests
 
         result.Status.Should().Be(IngestionStatus.Completed);
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, TenantId);
         var saved = await verify.DataSources.SingleAsync();
         saved.Status.Should().Be(IngestionStatus.Completed);
         saved.ErrorMessage.Should().BeNull();
@@ -69,7 +69,7 @@ public sealed class IngestionPipelineTests
 
         result.Status.Should().Be(IngestionStatus.Failed);
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, TenantId);
         var saved = await verify.DataSources.SingleAsync();
         saved.Status.Should().Be(IngestionStatus.Failed);
         saved.ErrorMessage.Should().Be(IngestionFailures.ExtractionFailed);
@@ -84,7 +84,7 @@ public sealed class IngestionPipelineTests
         var (db, dataSource) = await SeedAsync();
         await CreatePipeline(db).RunAsync(dataSource, Stream.Null);
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, TenantId);
         var saved = await verify.DataSources.SingleAsync();
         saved.Status.Should().Be(IngestionStatus.Failed);
         saved.ErrorMessage.Should().Be(IngestionFailures.NoExtractableText);
@@ -101,7 +101,7 @@ public sealed class IngestionPipelineTests
         var (db, dataSource) = await SeedAsync();
         await CreatePipeline(db).RunAsync(dataSource, Stream.Null);
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, TenantId);
         var saved = await verify.DataSources.SingleAsync();
         saved.Status.Should().Be(IngestionStatus.Failed);
         saved.ErrorMessage.Should().Be(IngestionFailures.EmbeddingFailed);
@@ -117,7 +117,7 @@ public sealed class IngestionPipelineTests
 
         result.Status.Should().Be(IngestionStatus.Failed);
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, TenantId);
         var saved = await verify.DataSources.SingleAsync();
         saved.Status.Should().Be(IngestionStatus.Failed);
         saved.ErrorMessage.Should().Be(IngestionFailures.PersistenceFailed);
@@ -140,7 +140,7 @@ public sealed class IngestionPipelineTests
 
         await act.Should().ThrowAsync<OperationCanceledException>();
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, TenantId);
         var saved = await verify.DataSources.SingleAsync();
         saved.Status.Should().Be(IngestionStatus.Failed);
         saved.ErrorMessage.Should().Be(IngestionFailures.Cancelled);
@@ -154,7 +154,7 @@ public sealed class IngestionPipelineTests
 
         await CreatePipeline(db).RunAsync(dataSource, Stream.Null);
 
-        await using var verify = InMemoryDb.Create(_databaseName);
+        await using var verify = InMemoryDb.ForTenant(_databaseName, TenantId);
         var saved = await verify.DataSources.SingleAsync();
         saved.Status.Should().Be(IngestionStatus.Failed);
         saved.ErrorMessage.Should().Be(IngestionFailures.UnsupportedSourceType);
@@ -177,7 +177,7 @@ public sealed class IngestionPipelineTests
 
     private async Task<(OmniSiftDbContext Db, DataSource DataSource)> SeedAsync(params IInterceptor[] interceptors)
     {
-        var db = InMemoryDb.Create(_databaseName, interceptors);
+        var db = InMemoryDb.ForTenant(_databaseName, TenantId, interceptors);
         var dataSource = new DataSource
         {
             TenantId = TenantId,
