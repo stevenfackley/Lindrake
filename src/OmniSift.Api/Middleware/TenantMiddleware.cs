@@ -25,7 +25,7 @@ public sealed class TenantMiddleware(RequestDelegate next, ILogger<TenantMiddlew
     {
         // Skip tenant resolution for anonymous endpoints (health, Swagger, auth).
         var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
-        if (path.StartsWith("/health") || path.StartsWith("/api/health") || path.StartsWith("/swagger") || path.StartsWith("/api/auth"))
+        if (path.StartsWith("/health") || path.StartsWith("/swagger") || path.StartsWith("/api/auth"))
         {
             await next(context).ConfigureAwait(false);
             return;

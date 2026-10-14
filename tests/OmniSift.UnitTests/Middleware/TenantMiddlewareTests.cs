@@ -19,7 +19,7 @@ public sealed class TenantMiddlewareTests
     {
         var nextCalled = false;
         var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
-        var context = CreateContext("/api/health");
+        var context = CreateContext("/health");
 
         // Health path skips before the DbContext is used.
         await middleware.InvokeAsync(context, null!);

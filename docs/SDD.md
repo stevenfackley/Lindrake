@@ -218,7 +218,7 @@ Function: GetArchivedPage(url: string)
 | `GET` | `/api/datasources/{id}` | Get data source details |
 | `DELETE` | `/api/datasources/{id}` | Delete a data source and its chunks |
 | `POST` | `/api/agent/query` | Submit a research query to the agent |
-| `GET` | `/api/health` | Health check endpoint |
+| `GET` | `/health` | Health check endpoint (200 Healthy / 503 Unhealthy, includes database reachability) |
 
 ### 6.2 Request/Response Contracts
 

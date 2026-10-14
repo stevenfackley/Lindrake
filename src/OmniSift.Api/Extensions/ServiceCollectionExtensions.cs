@@ -380,7 +380,9 @@ public static class ServiceCollectionExtensions
 
         services.AddProblemDetails();
         services.AddExceptionHandler<GlobalExceptionHandler>();
-        services.AddHealthChecks();
+        // GET /health — 200 "Healthy" / 503 "Unhealthy" incl. database reachability.
+        services.AddHealthChecks()
+            .AddDbContextCheck<OmniSiftDbContext>();
 
         // Source-generated metadata for the shared DTOs; types outside the context
         // (ProblemDetails, anonymous objects) fall through to the reflection resolver.
