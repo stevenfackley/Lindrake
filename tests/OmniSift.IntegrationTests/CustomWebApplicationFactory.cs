@@ -46,6 +46,13 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public const string TestJwtIssuer = "OmniSift";
     public const string TestJwtAudience = "OmniSift";
 
+    /// <summary>
+    /// Extra configuration layered over the defaults below (e.g. small rate limits).
+    /// Tests that need it create their own factory instead of the class fixture.
+    /// </summary>
+    public IReadOnlyDictionary<string, string?> ExtraSettings { get; init; } =
+        new Dictionary<string, string?>();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -59,6 +66,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:Audience"] = TestJwtAudience,
                 // Supabase:Url intentionally unset → in-house HS256 validation path.
             });
+            config.AddInMemoryCollection(ExtraSettings);
         });
 
         builder.ConfigureServices(services =>

@@ -75,10 +75,14 @@ public static class WebApplicationExtensions
         }
 
         app.UseCors();
-        app.UseRateLimiter();
 
         app.UseAuthentication();
         app.UseAuthorization();
+
+        // After authentication: the per-tenant policy partitions on the tenant_id
+        // claim, so ctx.User must already be populated (before auth every caller
+        // shared one "anonymous" bucket).
+        app.UseRateLimiter();
 
         // Tenant resolution middleware — derives the tenant from the validated JWT
         // (tenant_id claim) and sets the RLS session variable. Runs after auth so the

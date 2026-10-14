@@ -5,6 +5,7 @@
 
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -323,23 +324,30 @@ public static class ServiceCollectionExtensions
     /// <summary>Per-tenant token-bucket rate limiting.</summary>
     public static IServiceCollection AddOmniSiftRateLimiting(this IServiceCollection services)
     {
-        services.AddRateLimiter(options =>
-        {
-            options.AddPolicy(RateLimitPolicies.PerTenant, ctx =>
-                RateLimitPartition.GetTokenBucketLimiter(
-                    // Partition by the authenticated tenant claim, never a client header.
-                    partitionKey: ctx.User.TryGetTenantId()?.ToString() ?? "anonymous",
-                    factory: _ => new TokenBucketRateLimiterOptions
-                    {
-                        TokenLimit = 20,
-                        ReplenishmentPeriod = TimeSpan.FromMinutes(1),
-                        TokensPerPeriod = 10,
-                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                        QueueLimit = 0
-                    }));
+        services.AddValidatedOptions<RateLimitingOptions>(RateLimitingOptions.Section);
 
-            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        });
+        services.AddRateLimiter(_ => { });
+        services.AddOptions<RateLimiterOptions>()
+            .Configure<IOptions<RateLimitingOptions>>((options, limits) =>
+            {
+                var bucket = limits.Value;
+
+                // Partition by the authenticated tenant claim, never a client header.
+                // Requires UseRateLimiter() to run after UseAuthentication().
+                options.AddPolicy(RateLimitPolicies.PerTenant, ctx =>
+                    RateLimitPartition.GetTokenBucketLimiter(
+                        partitionKey: ctx.User.TryGetTenantId()?.ToString() ?? "anonymous",
+                        factory: _ => new TokenBucketRateLimiterOptions
+                        {
+                            TokenLimit = bucket.TokenLimit,
+                            ReplenishmentPeriod = bucket.ReplenishmentPeriod,
+                            TokensPerPeriod = bucket.TokensPerPeriod,
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            });
 
         return services;
     }
