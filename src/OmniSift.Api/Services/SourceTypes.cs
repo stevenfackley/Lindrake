@@ -16,4 +16,5 @@ public static class SourceTypes
     public const string Web = "web";
     public const string Docx = "docx";
     public const string Email = "email";
+    public const string Text = "text";
 }

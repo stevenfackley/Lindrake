@@ -38,7 +38,8 @@ public sealed class TenantMiddleware(RequestDelegate next, ILogger<TenantMiddlew
         }
 
         // Tenant identity comes exclusively from the validated token. Authorization
-        // requires the claim to exist; this also rejects one that is not a GUID.
+        // requires the claim to exist; this also rejects one that is not a GUID or
+        // is the empty GUID (a validly signed token can still carry either).
         var tenantId = context.User.TryGetTenantId();
         if (tenantId is null)
         {

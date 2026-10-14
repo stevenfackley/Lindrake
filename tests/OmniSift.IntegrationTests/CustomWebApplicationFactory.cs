@@ -10,6 +10,7 @@ using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -81,45 +82,22 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            // Replace PostgreSQL with InMemory for integration tests.
-            // EF Core 10+ does not allow multiple database providers, so we must
-            // remove ALL EF/DbContext/Npgsql related services and re-register cleanly.
-            // This includes internal IDbContextOptionsConfiguration<T> registrations.
-            var descriptorsToRemove = services.Where(d =>
-            {
-                var stName = d.ServiceType.FullName ?? string.Empty;
-                var stAssembly = d.ServiceType.Assembly.GetName().Name ?? string.Empty;
-                var itName = d.ImplementationType?.FullName ?? string.Empty;
-                var itAssembly = d.ImplementationType?.Assembly.GetName().Name ?? string.Empty;
+            // Replace PostgreSQL with InMemory. EF Core allows one provider per
+            // context, and AddDbContext's UseNpgsql lives on in the context's
+            // IDbContextOptionsConfiguration, so remove exactly what AddDbContext
+            // registered (by type, not by name) and register the context again.
+            services.RemoveAll<OmniSiftDbContext>();
+            services.RemoveAll<DbContextOptions<OmniSiftDbContext>>();
+            services.RemoveAll<DbContextOptions>();
+            services.RemoveAll<IDbContextOptionsConfiguration<OmniSiftDbContext>>();
 
-                return stName.Contains("OmniSiftDbContext")
-                    || stName.Contains("DbContextOptions")
-                    || stName.Contains("IDbContextOptionsConfiguration")
-                    || stAssembly.Contains("Npgsql")
-                    || itAssembly.Contains("Npgsql")
-                    || stAssembly.Contains("EntityFrameworkCore.Relational")
-                    || itAssembly.Contains("EntityFrameworkCore.Relational");
-            }).ToList();
-
-            foreach (var descriptor in descriptorsToRemove)
-                services.Remove(descriptor);
-
-            // Re-register with InMemory only.
-            // Use a factory registration so we can customize model creation
-            // to ignore the Vector property (unsupported by InMemory).
+            // One database per factory (per class fixture, or per test for tests
+            // that build their own factory); tests isolate further by tenant.
             var dbName = "OmniSift_IntegrationTests_" + Guid.NewGuid();
-            services.AddDbContext<OmniSiftDbContext>(
-                (sp, options) => options.UseInMemoryDatabase(dbName)
-                    .AddInterceptors(sp.GetRequiredService<TimestampInterceptor>()),
-                contextLifetime: ServiceLifetime.Scoped,
-                optionsLifetime: ServiceLifetime.Singleton);
-
-            // Replace the DbContext registration with our test subclass
-            // that ignores the Pgvector Vector column (InMemory doesn't support it).
-            services.AddScoped<OmniSiftDbContext>(sp =>
-                new InMemoryOmniSiftDbContext(
-                    sp.GetRequiredService<DbContextOptions<OmniSiftDbContext>>(),
-                    sp.GetRequiredService<ITenantContext>()));
+            services.AddDbContext<OmniSiftDbContext>((sp, options) => options
+                .UseInMemoryDatabase(dbName)
+                .ReplaceService<IModelCustomizer, InMemoryModelCustomizer>()
+                .AddInterceptors(sp.GetRequiredService<TimestampInterceptor>()));
 
             // Replace embedding service with a mock that returns dummy vectors
             services.RemoveAll<IEmbeddingService>();
@@ -184,7 +162,20 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     /// Mints an HS256 bearer token carrying the <c>tenant_id</c> + <c>sub</c> claims
     /// the API derives identity from. Signed with <see cref="TestJwtSecret"/>.
     /// </summary>
-    public string CreateToken(Guid? tenantId = null, Guid? userId = null)
+    public string CreateToken(Guid? tenantId = null, Guid? userId = null) => CreateSignedToken(
+        [
+            new Claim("sub", (userId ?? Guid.NewGuid()).ToString()),
+            new Claim("tenant_id", (tenantId ?? TestTenantId).ToString()),
+            new Claim("role", "authenticated"),
+        ],
+        expires: DateTime.UtcNow.AddHours(1));
+
+    /// <summary>
+    /// Mints an HS256 token carrying exactly <paramref name="claims"/>, valid for the
+    /// hour before <paramref name="expires"/> (which may lie in the past, for an
+    /// expired token). Signed with <see cref="TestJwtSecret"/>.
+    /// </summary>
+    public static string CreateSignedToken(IEnumerable<Claim> claims, DateTime expires)
     {
         var creds = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtSecret)),
@@ -193,13 +184,9 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         var token = new JwtSecurityToken(
             issuer: TestJwtIssuer,
             audience: TestJwtAudience,
-            claims:
-            [
-                new Claim("sub", (userId ?? Guid.NewGuid()).ToString()),
-                new Claim("tenant_id", (tenantId ?? TestTenantId).ToString()),
-                new Claim("role", "authenticated"),
-            ],
-            expires: DateTime.UtcNow.AddHours(1),
+            claims: claims,
+            notBefore: expires.AddHours(-1),
+            expires: expires,
             signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
@@ -229,17 +216,15 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// DbContext subclass that ignores the Pgvector Vector property
-    /// since InMemory provider cannot map that type.
+    /// Builds the production model (OnModelCreating), then drops the Pgvector
+    /// embedding column, whose type the InMemory provider cannot map.
     /// </summary>
-    private sealed class InMemoryOmniSiftDbContext : OmniSiftDbContext
+    internal sealed class InMemoryModelCustomizer(ModelCustomizerDependencies dependencies)
+        : ModelCustomizer(dependencies)
     {
-        public InMemoryOmniSiftDbContext(DbContextOptions<OmniSiftDbContext> options, ITenantContext tenantContext)
-            : base(options, tenantContext) { }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        public override void Customize(ModelBuilder modelBuilder, DbContext context)
         {
-            base.OnModelCreating(modelBuilder);
+            base.Customize(modelBuilder, context);
             modelBuilder.Entity<DocumentChunk>().Ignore(e => e.Embedding);
         }
     }

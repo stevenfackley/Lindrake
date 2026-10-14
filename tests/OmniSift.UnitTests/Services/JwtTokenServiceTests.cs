@@ -9,6 +9,8 @@ namespace OmniSift.UnitTests.Services;
 
 public sealed class JwtTokenServiceTests
 {
+    private static readonly DateTimeOffset Now = new(2026, 10, 14, 9, 30, 0, TimeSpan.Zero);
+
     private static JwtTokenService BuildService(string secret = "test-secret-key-must-be-at-least-32-ch!")
     {
         var opts = Options.Create(new JwtOptions
@@ -18,7 +20,7 @@ public sealed class JwtTokenServiceTests
             Audience = "TestAudience",
             ExpiryMinutes = 30
         });
-        return new JwtTokenService(opts);
+        return new JwtTokenService(opts, new FixedTimeProvider(Now));
     }
 
     [Fact]
@@ -39,7 +41,6 @@ public sealed class JwtTokenServiceTests
         var (tokenString, expiresAt) = svc.CreateToken(user);
 
         tokenString.Should().NotBeNullOrWhiteSpace();
-        expiresAt.Should().BeAfter(DateTime.UtcNow);
 
         var handler = new JwtSecurityTokenHandler();
         handler.CanReadToken(tokenString).Should().BeTrue();
@@ -51,5 +52,22 @@ public sealed class JwtTokenServiceTests
         jwt.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Email && c.Value == "test@example.com");
         jwt.Claims.Should().Contain(c => c.Type == "role" && c.Value == "owner");
         jwt.Issuer.Should().Be("TestIssuer");
+    }
+
+    [Fact]
+    public void CreateToken_ExpiresExpiryMinutesAfterTheClock()
+    {
+        var (tokenString, expiresAt) = BuildService().CreateToken(
+            new AppUser { Id = Guid.NewGuid(), TenantId = Guid.NewGuid(), Email = "a@example.com", Role = "owner" });
+
+        var expected = Now.UtcDateTime.AddMinutes(30);
+        expiresAt.Should().Be(expected);
+        expiresAt.Kind.Should().Be(DateTimeKind.Utc);
+        new JwtSecurityTokenHandler().ReadJwtToken(tokenString).ValidTo.Should().Be(expected);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 }

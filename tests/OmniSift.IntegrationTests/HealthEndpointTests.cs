@@ -4,10 +4,12 @@
 // ============================================================
 
 using System.Net;
+using System.Net.Http.Headers;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using static OmniSift.IntegrationTests.ProblemAssertions;
 
 namespace OmniSift.IntegrationTests;
 
@@ -35,13 +37,27 @@ public sealed class HealthEndpointTests : IClassFixture<CustomWebApplicationFact
     {
         var response = await _client.GetAsync("/api/health");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        // Unmatched routes get the same ProblemDetails body as every other error.
+        await ShouldBeProblemAsync(response, HttpStatusCode.NotFound);
     }
 
     [Fact]
     public async Task Health_WithoutTenantHeader_Returns200()
     {
         var response = await _client.GetAsync("/health");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).Should().Be("Healthy");
+    }
+
+    [Fact]
+    public async Task Health_WithInvalidBearerToken_Returns200()
+    {
+        // A probe configured with a stale or garbage token must not read as down.
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "not.a.jwt");
+
+        var response = await client.GetAsync("/health");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }

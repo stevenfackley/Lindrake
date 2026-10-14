@@ -19,12 +19,13 @@ public sealed class TextExtractorRegistryTests
         new WebTextExtractor(NullLogger<WebTextExtractor>.Instance),
         new DocxTextExtractor(NullLogger<DocxTextExtractor>.Instance),
         new EmailTextExtractor(NullLogger<EmailTextExtractor>.Instance),
+        new PlainTextExtractor(NullLogger<PlainTextExtractor>.Instance),
     ]);
 
     [Fact]
     public void SupportedSourceTypes_ListsEveryExtractorSorted()
     {
-        Registry.SupportedSourceTypes.Should().Equal("docx", "email", "pdf", "sms", "web");
+        Registry.SupportedSourceTypes.Should().Equal("docx", "email", "pdf", "sms", "text", "web");
     }
 
     [Theory]
@@ -66,6 +67,8 @@ public sealed class TextExtractorRegistryTests
     [InlineData("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "a.docx", "docx")]
     [InlineData("message/rfc822", "mail.eml", "email")]
     [InlineData("APPLICATION/MBOX", "inbox.mbox", "email")]
+    [InlineData("text/plain; charset=utf-8", "notes.txt", "text")]
+    [InlineData("text/markdown", "README.md", "text")]
     public void TryResolveSourceType_ByMimeType(string contentType, string? fileName, string expected)
     {
         Registry.TryResolveSourceType(contentType, fileName, out var sourceType).Should().BeTrue();
@@ -83,6 +86,8 @@ public sealed class TextExtractorRegistryTests
     [InlineData("texts.json", "sms")]
     [InlineData("page.html", "web")]
     [InlineData("page.htm", "web")]
+    [InlineData("notes.txt", "text")]
+    [InlineData("README.MD", "text")]
     public void TryResolveSourceType_OctetStream_FallsBackToExtension(string fileName, string expected)
     {
         Registry.TryResolveSourceType("application/octet-stream", fileName, out var sourceType).Should().BeTrue();
@@ -99,7 +104,8 @@ public sealed class TextExtractorRegistryTests
     }
 
     [Theory]
-    [InlineData("application/octet-stream", "notes.txt")]
+    [InlineData("application/octet-stream", "archive.zip")]
+    [InlineData("application/octet-stream", "notes.rtf")]
     [InlineData("application/octet-stream", "no-extension")]
     [InlineData("application/octet-stream", null)]
     [InlineData("image/png", "photo.pdf")] // a specific, unsupported MIME type is not overridden by the extension

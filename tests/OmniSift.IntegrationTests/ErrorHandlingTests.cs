@@ -82,7 +82,7 @@ public sealed class ErrorHandlingTests : IClassFixture<CustomWebApplicationFacto
     {
         var file = new ByteArrayContent("hello"u8.ToArray());
         file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        using var content = new MultipartFormDataContent { { file, "file", "notes.txt" } };
+        using var content = new MultipartFormDataContent { { file, "file", "archive.zip" } };
 
         var response = await _client.PostAsync("/api/datasources/upload", content);
 

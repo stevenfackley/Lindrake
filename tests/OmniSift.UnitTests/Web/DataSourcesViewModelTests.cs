@@ -204,14 +204,14 @@ public sealed class DataSourcesViewModelTests
     public async Task Upload_Rejected_ShowsTheProblemDetails()
     {
         using var harness = new WebClientHarness(new FakeHttpMessageHandler(_ =>
-            Problem(HttpStatusCode.UnsupportedMediaType, "Unsupported file type 'text/plain'.")));
+            Problem(HttpStatusCode.UnsupportedMediaType, "Unsupported file type 'image/png'.")));
         using var vm = new DataSourcesViewModel(harness.Api, FastPolling);
 
-        (await vm.UploadAsync(new UploadFile("notes.txt", 10, "text/plain", () => new MemoryStream([1])))).Should().BeFalse();
+        (await vm.UploadAsync(new UploadFile("photo.png", 10, "image/png", () => new MemoryStream([1])))).Should().BeFalse();
 
-        vm.SubmitStatus.Should().Be(StatusMessage.Error("Upload failed: Unsupported file type 'text/plain'."));
+        vm.SubmitStatus.Should().Be(StatusMessage.Error("Upload failed: Unsupported file type 'image/png'."));
         vm.IsSubmitting.Should().BeFalse();
-        harness.Handler.Requests.Single().Body.Should().Contain("Content-Type: text/plain");
+        harness.Handler.Requests.Single().Body.Should().Contain("Content-Type: image/png");
     }
 
     [Fact]

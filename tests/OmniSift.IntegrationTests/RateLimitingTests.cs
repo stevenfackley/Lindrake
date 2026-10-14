@@ -6,6 +6,7 @@
 
 using System.Net;
 using FluentAssertions;
+using static OmniSift.IntegrationTests.ProblemAssertions;
 
 namespace OmniSift.IntegrationTests;
 
@@ -30,7 +31,7 @@ public sealed class RateLimitingTests : IDisposable
 
         (await tenantA.GetAsync("/api/datasources")).StatusCode.Should().Be(HttpStatusCode.OK);
         (await tenantA.GetAsync("/api/datasources")).StatusCode.Should().Be(HttpStatusCode.OK);
-        (await tenantA.GetAsync("/api/datasources")).StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        await ShouldBeProblemAsync(await tenantA.GetAsync("/api/datasources"), HttpStatusCode.TooManyRequests);
 
         (await tenantB.GetAsync("/api/datasources")).StatusCode.Should().Be(HttpStatusCode.OK);
     }

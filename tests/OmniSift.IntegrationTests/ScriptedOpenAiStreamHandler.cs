@@ -50,8 +50,14 @@ internal sealed class ScriptedOpenAiStreamHandler(params string[] responses) : H
             apiKey: "test-key",
             httpClient: new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri("https://llm.test/v1/") });
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    /// <summary>The JSON body of every request, in order (what the model was sent).</summary>
+    public List<string> RequestBodies { get; } = [];
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        if (request.Content is not null)
+            RequestBodies.Add(await request.Content.ReadAsStringAsync(cancellationToken));
+
         if (_responses.Count == 0)
             throw new InvalidOperationException("No scripted LLM response left.");
 
@@ -60,7 +66,7 @@ internal sealed class ScriptedOpenAiStreamHandler(params string[] responses) : H
         var content = new StreamContent(new ForwardOnlyStream(Encoding.UTF8.GetBytes(_responses.Dequeue())));
         content.Headers.ContentType = new MediaTypeHeaderValue("text/event-stream");
 
-        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
     }
 
     private sealed class ForwardOnlyStream(byte[] bytes) : Stream

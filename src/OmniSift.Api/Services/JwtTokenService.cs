@@ -8,13 +8,14 @@ using OmniSift.Api.Options;
 
 namespace OmniSift.Api.Services;
 
-public sealed class JwtTokenService(IOptions<JwtOptions> options)
+/// <summary>Issues the in-house HS256 access tokens; expiry is read from <see cref="TimeProvider"/>.</summary>
+public sealed class JwtTokenService(IOptions<JwtOptions> options, TimeProvider timeProvider)
 {
     private readonly JwtOptions _opts = options.Value;
 
     public (string Token, DateTime ExpiresAt) CreateToken(AppUser user)
     {
-        var expiresAt = DateTime.UtcNow.AddMinutes(_opts.ExpiryMinutes);
+        var expiresAt = timeProvider.GetUtcNow().UtcDateTime.AddMinutes(_opts.ExpiryMinutes);
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_opts.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
