@@ -11,9 +11,12 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Moq;
 using OmniSift.Api.Data;
 using OmniSift.Api.Services.Agent;
+using OmniSift.Api.Services.Search;
 using OmniSift.Shared.DTOs;
 
 namespace OmniSift.IntegrationTests;
@@ -53,6 +56,51 @@ public sealed class AgentEndpointTests
         history.TenantId.Should().Be(CustomWebApplicationFactory.TestTenantId);
         (await db.AuditLogs.CountAsync(a => a.ResourceId == history.Id && a.Action == "agent_query_stream"))
             .Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Stream_ModelSearchesDocuments_FinalFrameCarriesPluginAndSources()
+    {
+        // Real OpenAI connector + real kernel plugins; only the HTTP endpoint and
+        // the database-backed search are faked.
+        var hit = new SearchHit(
+            Guid.NewGuid(), Guid.NewGuid(), "census-1901.pdf", "pdf", 3,
+            "Michael Byrne, born Cork, 1871", VectorSimilarity: 0.8123, KeywordSimilarity: 0.7, FusedScore: 0.03);
+        var search = new Mock<IHybridSearchService>();
+        search.Setup(s => s.SearchAsync("Michael Byrne", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([hit]);
+        var llm = new ScriptedOpenAiStreamHandler(
+            ScriptedOpenAiStreamHandler.ToolCall("VectorSearch-SearchDocuments", new { query = "Michael Byrne" }),
+            ScriptedOpenAiStreamHandler.Text("He was born ", "in Cork."));
+        using var factory = new CustomWebApplicationFactory
+        {
+            ConfigureKernel = builder => ScriptedOpenAiStreamHandler.AddTo(builder, llm),
+            ConfigureTestServices = services =>
+            {
+                services.RemoveAll<IHybridSearchService>();
+                services.AddScoped(_ => search.Object);
+            }
+        };
+        var query = "Where was Michael Byrne born? " + Guid.NewGuid();
+
+        var response = await factory.CreateTenantClient()
+            .PostAsJsonAsync("/api/agent/query/stream", new AgentQueryRequest { Query = query });
+
+        var frames = ParseFrames(await response.Content.ReadAsStringAsync());
+        frames.Select(f => f.GetProperty("type").GetString()).Should().Equal("delta", "delta", "final");
+        var final = frames[^1].Deserialize<AgentStreamFinalEvent>(WebJson)!;
+        final.PluginsUsed.Should().Equal("VectorSearch");
+        var source = final.Sources.Should().ContainSingle().Subject;
+        source.Type.Should().Be("document");
+        source.ChunkId.Should().Be(hit.ChunkId);
+        source.Title.Should().Be("census-1901.pdf");
+        source.RelevanceScore.Should().Be(0.8123);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var history = await db.QueryHistories.SingleAsync(h => h.QueryText == query);
+        history.ResponseText.Should().Be("He was born in Cork.");
+        history.PluginsUsed.Should().Equal("VectorSearch");
     }
 
     [Fact]

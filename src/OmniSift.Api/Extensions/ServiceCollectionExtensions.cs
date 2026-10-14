@@ -22,6 +22,7 @@ using OmniSift.Api.Services;
 using OmniSift.Api.Services.Agent;
 using OmniSift.Api.Services.Extraction;
 using OmniSift.Api.Services.Ingestion;
+using OmniSift.Api.Services.Search;
 using OmniSift.Shared;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -283,6 +284,7 @@ public static class ServiceCollectionExtensions
             client.BaseAddress = WaybackMachinePlugin.BaseAddress)
         .AddStandardResilienceHandler();
 
+        services.AddScoped<IHybridSearchService, HybridSearchService>();
         services.AddScoped<VectorSearchPlugin>();
 
         // Register a scoped Kernel with the research profile's plugins for each request.

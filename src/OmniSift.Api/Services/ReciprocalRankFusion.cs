@@ -9,16 +9,10 @@
 
 namespace OmniSift.Api.Services;
 
-/// <summary>
-/// A single item in a ranked list, identified by an opaque string key.
-/// </summary>
-/// <param name="Key">Stable identifier used to correlate across ranked lists.</param>
-/// <param name="Score">Original score from the ranking arm (higher = better).</param>
-public readonly record struct RankedItem(string Key, double Score);
+/// <summary>A key with its fused RRF score.</summary>
+public readonly record struct FusedRank<TKey>(TKey Key, double Score);
 
-/// <summary>
-/// Stateless helper — instantiate or call static methods as needed.
-/// </summary>
+/// <summary>Reciprocal Rank Fusion of two rankings.</summary>
 public static class ReciprocalRankFusion
 {
     /// <summary>
@@ -28,66 +22,43 @@ public static class ReciprocalRankFusion
     public const int DefaultK = 60;
 
     /// <summary>
-    /// Fuse two ranked lists into a single list ordered by RRF score descending.
-    /// Items that appear in only one list still receive that list's RRF contribution.
-    /// Ties are broken by key (stable sort).
+    /// Fuses two rankings (best first) into one, ordered by RRF score descending.
+    /// Only rank positions matter, never the arms' own scores. A key found in only
+    /// one ranking still receives that ranking's contribution; a key repeated
+    /// within a ranking counts at its first position. Ties are broken by
+    /// <see cref="Comparer{T}.Default"/> on the key, so the result is deterministic.
     /// </summary>
-    /// <param name="vectorRanking">Items ordered by vector similarity (best first).</param>
-    /// <param name="keywordRanking">Items ordered by keyword similarity (best first).</param>
-    /// <param name="k">RRF k constant (default 60).</param>
-    /// <returns>Keys ordered by fused RRF score descending.</returns>
-    public static IReadOnlyList<string> Fuse(
-        IReadOnlyList<RankedItem> vectorRanking,
-        IReadOnlyList<RankedItem> keywordRanking,
+    public static IReadOnlyList<FusedRank<TKey>> Fuse<TKey>(
+        IReadOnlyList<TKey> first,
+        IReadOnlyList<TKey> second,
         int k = DefaultK)
+        where TKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(vectorRanking);
-        ArgumentNullException.ThrowIfNull(keywordRanking);
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+        ArgumentOutOfRangeException.ThrowIfNegative(k);
 
-        var scores = new Dictionary<string, double>(StringComparer.Ordinal);
+        var scores = new Dictionary<TKey, double>();
 
-        Accumulate(vectorRanking, k, scores);
-        Accumulate(keywordRanking, k, scores);
+        Accumulate(first, k, scores);
+        Accumulate(second, k, scores);
 
         return [.. scores
             .OrderByDescending(kv => kv.Value)
-            .ThenBy(kv => kv.Key) // stable tie-break
-            .Select(kv => kv.Key)];
+            .ThenBy(kv => kv.Key, Comparer<TKey>.Default)
+            .Select(kv => new FusedRank<TKey>(kv.Key, kv.Value))];
     }
 
-    /// <summary>
-    /// Like <see cref="Fuse"/> but also returns the fused RRF scores.
-    /// Useful for applying a relevance threshold.
-    /// </summary>
-    public static IReadOnlyList<(string Key, double RrfScore)> FuseWithScores(
-        IReadOnlyList<RankedItem> vectorRanking,
-        IReadOnlyList<RankedItem> keywordRanking,
-        int k = DefaultK)
+    private static void Accumulate<TKey>(IReadOnlyList<TKey> ranking, int k, Dictionary<TKey, double> scores)
+        where TKey : notnull
     {
-        ArgumentNullException.ThrowIfNull(vectorRanking);
-        ArgumentNullException.ThrowIfNull(keywordRanking);
-
-        var scores = new Dictionary<string, double>(StringComparer.Ordinal);
-
-        Accumulate(vectorRanking, k, scores);
-        Accumulate(keywordRanking, k, scores);
-
-        return [.. scores
-            .OrderByDescending(kv => kv.Value)
-            .ThenBy(kv => kv.Key)
-            .Select(kv => (kv.Key, kv.Value))];
-    }
-
-    // ── private helpers ───────────────────────────────────────
-
-    private static void Accumulate(
-        IReadOnlyList<RankedItem> ranking,
-        int k,
-        Dictionary<string, double> scores)
-    {
+        var seen = new HashSet<TKey>();
         for (var i = 0; i < ranking.Count; i++)
         {
-            var key = ranking[i].Key;
+            var key = ranking[i];
+            if (!seen.Add(key))
+                continue;
+
             var contribution = 1.0 / (k + i + 1); // 1-based rank
             scores[key] = scores.GetValueOrDefault(key) + contribution;
         }

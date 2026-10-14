@@ -59,6 +59,9 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     /// </summary>
     public Action<IKernelBuilder>? ConfigureKernel { get; init; }
 
+    /// <summary>Last-word service overrides for a test (runs after the defaults below).</summary>
+    public Action<IServiceCollection>? ConfigureTestServices { get; init; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -142,6 +145,8 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ConfigureKernel?.Invoke(kernelBuilder);
                 return kernelBuilder.Build();
             });
+
+            ConfigureTestServices?.Invoke(services);
 
         });
     }
