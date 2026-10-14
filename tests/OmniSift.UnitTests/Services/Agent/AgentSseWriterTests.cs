@@ -45,12 +45,12 @@ public sealed class AgentSseWriterTests
     }
 
     [Fact]
-    public void ErrorFrame_HasTypeAndMessage_AndIsIgnoredByTheCurrentParser()
+    public void ErrorFrame_IsParsedBySseParser()
     {
-        var frame = AgentSseWriter.ErrorFrame("boom");
+        var frame = AgentSseWriter.ErrorFrame(AgentSseWriter.StreamFailedMessage);
 
-        frame.Should().Be("""data: {"type":"error","message":"boom"}""" + "\n\n");
-        SseParser.ParseLine(frame.TrimEnd('\n')).Should().BeNull();
+        frame.Should().Be($$"""data: {"type":"error","message":"{{AgentSseWriter.StreamFailedMessage}}"}""" + "\n\n");
+        SseParser.ParseLine(frame.TrimEnd('\n')).Should().Be(new SseEvent.Error(AgentSseWriter.StreamFailedMessage));
     }
 
     [Fact]

@@ -94,11 +94,6 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
 
     // ── Agent ───────────────────────────────────────────────
 
-    public Task<ApiResult<AgentQueryResponse>> QueryAgentAsync(
-        AgentQueryRequest queryRequest,
-        CancellationToken cancellationToken = default) =>
-        SendAsync(PostJson("api/agent/query", queryRequest, Json.AgentQueryRequest), Json.AgentQueryResponse, cancellationToken);
-
     /// <summary>
     /// Streams SSE tokens from /api/agent/query/stream.
     /// Yields SseEvent.Delta for each token and SseEvent.Final when done.
