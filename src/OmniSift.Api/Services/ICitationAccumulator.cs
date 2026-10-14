@@ -1,7 +1,7 @@
 // ============================================================
 // OmniSift.Api — Citation Accumulator
 // Scoped per-request collector that plugins write citations to.
-// AgentController reads it after the agent finishes to populate
+// ResearchAgentService reads it after the agent finishes to populate
 // Sources on the response.
 // ============================================================
 
