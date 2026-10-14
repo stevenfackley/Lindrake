@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — PDF Text Extractor
+// Lindrake.Api — PDF Text Extractor
 // Extracts text from PDF files using PdfPig
 // ============================================================
 
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Extracts text from PDF documents page-by-page using PdfPig.

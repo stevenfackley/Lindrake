@@ -1,7 +1,7 @@
 using FluentAssertions;
-using OmniSift.Web.Services;
+using Lindrake.Web.Services;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class ApiProblemReaderTests
 {

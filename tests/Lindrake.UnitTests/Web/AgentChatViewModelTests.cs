@@ -1,11 +1,11 @@
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
-using OmniSift.UnitTests.TestSupport;
-using OmniSift.Web.ViewModels;
-using static OmniSift.UnitTests.TestSupport.FakeHttpMessageHandler;
+using Lindrake.UnitTests.TestSupport;
+using Lindrake.Web.ViewModels;
+using static Lindrake.UnitTests.TestSupport.FakeHttpMessageHandler;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class AgentChatViewModelTests
 {
@@ -70,7 +70,7 @@ public sealed class AgentChatViewModelTests
 
         using var body = JsonDocument.Parse(harness.Handler.Requests.Last().Body!);
         var history = body.RootElement.GetProperty("conversationHistory").EnumerateArray().ToList();
-        history.Should().HaveCount(OmniSift.Shared.DTOs.AgentQueryRequest.MaxConversationTurns);
+        history.Should().HaveCount(Lindrake.Shared.DTOs.AgentQueryRequest.MaxConversationTurns);
         history[0].GetProperty("role").GetString().Should().Be("user");
         history[^1].GetProperty("content").GetString().Should().Be("answer");
     }
@@ -189,7 +189,7 @@ public sealed class AgentChatViewModelTests
         vm.IsGeneratingReport.Should().BeFalse();
         var request = harness.Handler.Requests.Last();
         request.PathAndQuery.Should().Be("/api/agent/report/pdf");
-        request.Body.Should().Contain("\"title\":\"OmniSift Research Report\"").And.Contain("\"role\":\"assistant\"");
+        request.Body.Should().Contain("\"title\":\"Lindrake Research Report\"").And.Contain("\"role\":\"assistant\"");
     }
 
     [Fact]

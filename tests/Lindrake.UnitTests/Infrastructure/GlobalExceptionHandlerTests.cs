@@ -6,13 +6,13 @@
 
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Api.Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
-using OmniSift.Api.Infrastructure;
 
-namespace OmniSift.UnitTests.Infrastructure;
+namespace Lindrake.UnitTests.Infrastructure;
 
 public sealed class GlobalExceptionHandlerTests
 {

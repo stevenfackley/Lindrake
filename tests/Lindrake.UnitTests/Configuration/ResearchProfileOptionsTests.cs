@@ -3,21 +3,21 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Extensions;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Options;
+using Lindrake.Api.Plugins;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Agent;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Moq;
-using OmniSift.Api.Data;
-using OmniSift.Api.Extensions;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Options;
-using OmniSift.Api.Plugins;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Agent;
-using OmniSift.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Configuration;
+namespace Lindrake.UnitTests.Configuration;
 
 public sealed class ResearchProfileOptionsTests
 {
@@ -108,10 +108,10 @@ public sealed class ResearchProfileOptionsTests
         var services = new ServiceCollection()
             .AddLogging()
             .AddSingleton<IConfiguration>(config)
-            .AddScoped<OmniSiftDbContext>(sp => InMemoryDb.Create(databaseName, sp.GetRequiredService<ITenantContext>()))
+            .AddScoped<LindrakeDbContext>(sp => InMemoryDb.Create(databaseName, sp.GetRequiredService<ITenantContext>()))
             .AddScoped<ITenantContext, TenantContext>()
             .AddSingleton(Mock.Of<IEmbeddingService>());
-        services.AddOmniSiftAgent();
+        services.AddLindrakeAgent();
 
         return services.BuildServiceProvider();
     }

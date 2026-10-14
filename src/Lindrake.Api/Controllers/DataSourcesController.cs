@@ -1,32 +1,32 @@
 // ============================================================
-// OmniSift.Api — Data Sources Controller
+// Lindrake.Api — Data Sources Controller
 // Manages file uploads, web ingestion, and data source CRUD
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Channels;
+using Lindrake.Api.Data;
+using Lindrake.Api.Data.Projections;
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Extraction;
+using Lindrake.Api.Services.Ingestion;
+using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Data.Projections;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Extraction;
-using OmniSift.Api.Services.Ingestion;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Controllers;
+namespace Lindrake.Api.Controllers;
 
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
 [EnableRateLimiting(RateLimitPolicies.PerTenant)]
 public sealed class DataSourcesController(
-    OmniSiftDbContext dbContext,
+    LindrakeDbContext dbContext,
     ITenantContext tenantContext,
     IIngestionPipeline ingestionPipeline,
     ITextExtractorRegistry extractorRegistry,

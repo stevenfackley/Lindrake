@@ -20,7 +20,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using FluentAssertions;
 
-namespace OmniSift.UnitTests.Deployment;
+namespace Lindrake.UnitTests.Deployment;
 
 public sealed class DockerModelPackagingTests
 {

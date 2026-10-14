@@ -1,9 +1,9 @@
-using OmniSift.Api.Data;
-using OmniSift.Api.Extensions;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
+using Lindrake.Api.Data;
+using Lindrake.Api.Extensions;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Writes an <see cref="AuditLog"/> row for the current tenant, attributed to the
@@ -11,7 +11,7 @@ namespace OmniSift.Api.Services;
 /// Saves immediately: callers persist their own change first, then audit it.
 /// </summary>
 public sealed class AuditLogger(
-    OmniSiftDbContext dbContext,
+    LindrakeDbContext dbContext,
     ITenantContext tenantContext,
     IHttpContextAccessor httpContextAccessor) : IAuditLogger
 {

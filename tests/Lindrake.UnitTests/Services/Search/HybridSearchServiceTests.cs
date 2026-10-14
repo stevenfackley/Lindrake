@@ -9,16 +9,16 @@
 
 using System.Text.RegularExpressions;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Search;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Search;
 using Pgvector;
 
-namespace OmniSift.UnitTests.Services.Search;
+namespace Lindrake.UnitTests.Services.Search;
 
 public sealed partial class HybridSearchServiceTests : IDisposable
 {
@@ -26,10 +26,10 @@ public sealed partial class HybridSearchServiceTests : IDisposable
     private static readonly Vector Embedding = new(new float[384]);
 
     private readonly TenantContext _tenant = BoundTenant();
-    private readonly OmniSiftDbContext _db;
+    private readonly LindrakeDbContext _db;
 
-    public HybridSearchServiceTests() => _db = new(new DbContextOptionsBuilder<OmniSiftDbContext>()
-        .UseNpgsql("Host=unused.invalid;Database=omnisift", npgsql => npgsql.UseVector())
+    public HybridSearchServiceTests() => _db = new(new DbContextOptionsBuilder<LindrakeDbContext>()
+        .UseNpgsql("Host=unused.invalid;Database=lindrake", npgsql => npgsql.UseVector())
         .Options, _tenant);
 
     [Fact]

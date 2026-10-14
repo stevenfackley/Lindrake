@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Auth mode startup validation
+// Lindrake.Api — Auth mode startup validation
 // ============================================================
 
 using System.Text;
+using Lindrake.Api.Infrastructure;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Infrastructure;
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Guards the in-house HS256 identity provider, which is selected implicitly

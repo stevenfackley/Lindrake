@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Web/HTML Text Extractor
+// Lindrake.Api — Web/HTML Text Extractor
 // Extracts readable text from HTML using HtmlAgilityPack
 // ============================================================
 
 using System.Text;
 using HtmlAgilityPack;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Extracts readable text from HTML pages using HtmlAgilityPack.

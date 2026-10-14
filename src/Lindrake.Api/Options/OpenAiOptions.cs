@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — OpenAI Configuration Options
+// Lindrake.Api — OpenAI Configuration Options
 // ============================================================
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Strongly-typed options for the OpenAI API.

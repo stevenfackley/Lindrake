@@ -1,13 +1,13 @@
 // ============================================================
-// OmniSift.Api — Chat history construction for the research agent
+// Lindrake.Api — Chat history construction for the research agent
 // ============================================================
 
+using Lindrake.Api.Options;
+using Lindrake.Shared.DTOs;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel.ChatCompletion;
-using OmniSift.Api.Options;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Services.Agent;
+namespace Lindrake.Api.Services.Agent;
 
 /// <summary>
 /// Builds the LLM <see cref="ChatHistory"/>: the research profile's system prompt,

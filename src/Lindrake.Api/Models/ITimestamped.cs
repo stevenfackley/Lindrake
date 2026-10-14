@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — Timestamped entity markers
+// Lindrake.Api — Timestamped entity markers
 // ============================================================
 
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 /// <summary>
 /// An entity whose <see cref="CreatedAt"/> (UTC) is stamped on insert by

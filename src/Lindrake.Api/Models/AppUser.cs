@@ -1,4 +1,4 @@
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 public sealed class AppUser : ITenantOwned, ICreationTimestamped
 {

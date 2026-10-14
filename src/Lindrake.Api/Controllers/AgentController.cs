@@ -1,19 +1,19 @@
 // ============================================================
-// OmniSift.Api — Agent Controller
+// Lindrake.Api — Agent Controller
 // Thin HTTP adapter over IResearchAgentService
 // ============================================================
 
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services.Agent;
+using Lindrake.Api.Services.Reports;
+using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services.Agent;
-using OmniSift.Api.Services.Reports;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Controllers;
+namespace Lindrake.Api.Controllers;
 
 [ApiController]
 [Authorize]

@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Email Text Extractor
+// Lindrake.Api — Email Text Extractor
 // Extracts text from .eml and .mbox files using MimeKit.
 //
 // NOTE: .msg (Outlook compound-document format) is NOT supported —
@@ -11,7 +11,7 @@ using System.Text;
 using HtmlAgilityPack;
 using MimeKit;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Extracts readable text from email files in EML or MBOX format.

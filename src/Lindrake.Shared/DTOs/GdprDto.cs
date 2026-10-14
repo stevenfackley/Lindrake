@@ -1,4 +1,4 @@
-namespace OmniSift.Shared.DTOs;
+namespace Lindrake.Shared.DTOs;
 
 public sealed record TenantExportDto
 {

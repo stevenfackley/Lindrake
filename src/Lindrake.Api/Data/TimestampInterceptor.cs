@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — CreatedAt / UpdatedAt stamping on save
+// Lindrake.Api — CreatedAt / UpdatedAt stamping on save
 // ============================================================
 
+using Lindrake.Api.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using OmniSift.Api.Models;
 
-namespace OmniSift.Api.Data;
+namespace Lindrake.Api.Data;
 
 /// <summary>
 /// Stamps <see cref="ICreationTimestamped.CreatedAt"/> and

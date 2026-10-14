@@ -1,17 +1,17 @@
 // ============================================================
-// OmniSift.Api — Web Scraper Plugin for Semantic Kernel
+// Lindrake.Api — Web Scraper Plugin for Semantic Kernel
 // Searches the web via Tavily API for real-time information
 // ============================================================
 
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services;
 
-namespace OmniSift.Api.Plugins;
+namespace Lindrake.Api.Plugins;
 
 /// <summary>
 /// Semantic Kernel plugin that searches the web using Tavily API.
@@ -19,7 +19,7 @@ namespace OmniSift.Api.Plugins;
 /// in the tenant's uploaded documents.
 /// Also records results in <see cref="ICitationAccumulator"/>.
 /// The typed HttpClient carries <see cref="TavilyBaseAddress"/> and the bearer
-/// key (configured in AddOmniSiftAgent); requests use relative URIs.
+/// key (configured in AddLindrakeAgent); requests use relative URIs.
 /// </summary>
 public sealed partial class WebScraperPlugin(
     HttpClient httpClient,

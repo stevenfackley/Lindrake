@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace OmniSift.Api.Extensions;
+namespace Lindrake.Api.Extensions;
 
 /// <summary>
 /// Reads the authenticated identity from the validated JWT. Tokens are validated

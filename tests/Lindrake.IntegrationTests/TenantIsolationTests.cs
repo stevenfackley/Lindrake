@@ -11,15 +11,15 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Models;
+using Lindrake.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel.ChatCompletion;
-using OmniSift.Api.Data;
-using OmniSift.Api.Models;
-using OmniSift.Shared.DTOs;
-using static OmniSift.IntegrationTests.ProblemAssertions;
+using static Lindrake.IntegrationTests.ProblemAssertions;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class TenantIsolationTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -48,7 +48,7 @@ public sealed class TenantIsolationTests : IClassFixture<CustomWebApplicationFac
 
         await ShouldBeProblemAsync(response, HttpStatusCode.NotFound);
         using var scope = _factory.CreateTenantScope(owner.TenantId);
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         (await db.DataSources.AnyAsync(ds => ds.Id == owner.DataSourceId)).Should().BeTrue();
         (await db.DocumentChunks.CountAsync()).Should().Be(1);
     }
@@ -171,7 +171,7 @@ public sealed class TenantIsolationTests : IClassFixture<CustomWebApplicationFac
     {
         var tenantId = Guid.NewGuid();
         using var scope = factory.CreateTenantScope(tenantId);
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         var source = new DataSource
         {
             TenantId = tenantId,

@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Web — Server-Sent Events parser
+// Lindrake.Web — Server-Sent Events parser
 // Event-stream interpretation per the WHATWG HTML spec (§9.2.6),
 // for the agent stream written by the API's AgentSseWriter.
 // ============================================================
@@ -7,10 +7,10 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
-using OmniSift.Shared;
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// Assembles SSE lines into events: <c>data:</c> fields (with or without the
@@ -115,7 +115,7 @@ public sealed class SseParser
                     return new SseEvent.Delta(ReadString(root, "content") ?? string.Empty);
 
                 case "final":
-                    return root.Deserialize(OmniSiftJsonContext.Default.AgentStreamFinalEvent) is { } final
+                    return root.Deserialize(LindrakeJsonContext.Default.AgentStreamFinalEvent) is { } final
                         ? new SseEvent.Final(final)
                         : null;
 

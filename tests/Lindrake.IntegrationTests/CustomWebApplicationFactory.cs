@@ -7,6 +7,10 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.Api.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +22,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
 using Moq;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.Api.Services;
 using Pgvector;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 /// <summary>
 /// Custom WebApplicationFactory that replaces PostgreSQL with an in-memory
@@ -43,10 +43,10 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public static readonly Guid TestTenantId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
 
     // HS256 signing parameters injected into the Testing host's configuration and
-    // used to mint matching tokens. Must agree with the validator in AddOmniSiftAuth.
-    public const string TestJwtSecret = "omnisift-integration-tests-hs256-signing-secret-key";
-    public const string TestJwtIssuer = "OmniSift";
-    public const string TestJwtAudience = "OmniSift";
+    // used to mint matching tokens. Must agree with the validator in AddLindrakeAuth.
+    public const string TestJwtSecret = "lindrake-integration-tests-hs256-signing-secret-key";
+    public const string TestJwtIssuer = "Lindrake";
+    public const string TestJwtAudience = "Lindrake";
 
     /// <summary>
     /// Extra configuration layered over the defaults below (e.g. small rate limits).
@@ -86,15 +86,15 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // context, and AddDbContext's UseNpgsql lives on in the context's
             // IDbContextOptionsConfiguration, so remove exactly what AddDbContext
             // registered (by type, not by name) and register the context again.
-            services.RemoveAll<OmniSiftDbContext>();
-            services.RemoveAll<DbContextOptions<OmniSiftDbContext>>();
+            services.RemoveAll<LindrakeDbContext>();
+            services.RemoveAll<DbContextOptions<LindrakeDbContext>>();
             services.RemoveAll<DbContextOptions>();
-            services.RemoveAll<IDbContextOptionsConfiguration<OmniSiftDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<LindrakeDbContext>>();
 
             // One database per factory (per class fixture, or per test for tests
             // that build their own factory); tests isolate further by tenant.
-            var dbName = "OmniSift_IntegrationTests_" + Guid.NewGuid();
-            services.AddDbContext<OmniSiftDbContext>((sp, options) => options
+            var dbName = "Lindrake_IntegrationTests_" + Guid.NewGuid();
+            services.AddDbContext<LindrakeDbContext>((sp, options) => options
                 .UseInMemoryDatabase(dbName)
                 .ReplaceService<IModelCustomizer, InMemoryModelCustomizer>()
                 .AddInterceptors(sp.GetRequiredService<TimestampInterceptor>()));
@@ -139,7 +139,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         // Seed the test database after the host is fully built so Serilog's
         // ReloadableLogger is not frozen prematurely by a premature BuildServiceProvider call.
         using var scope = host.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         db.Database.EnsureCreated();
 
         if (!db.Tenants.Any(t => t.Id == TestTenantId))

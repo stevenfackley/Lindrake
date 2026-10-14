@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — Anthropic Configuration Options
+// Lindrake.Api — Anthropic Configuration Options
 // ============================================================
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Strongly-typed options for the Anthropic API.

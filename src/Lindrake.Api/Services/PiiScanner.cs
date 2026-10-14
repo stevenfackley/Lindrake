@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 public enum PiiType { Ssn, CreditCard, Dob }
 

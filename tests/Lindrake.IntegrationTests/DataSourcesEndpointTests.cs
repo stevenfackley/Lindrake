@@ -7,12 +7,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Models;
+using Lindrake.Shared.DTOs;
 using Microsoft.Extensions.DependencyInjection;
-using OmniSift.Api.Data;
-using OmniSift.Api.Models;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class DataSourcesEndpointTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -58,7 +58,7 @@ public sealed class DataSourcesEndpointTests : IClassFixture<CustomWebApplicatio
         var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         using (var scope = _factory.CreateTenantScope(tenantId))
         {
-            var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+            var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
             for (var i = 0; i < 3; i++)
             {
                 var source = new DataSource { TenantId = tenantId, SourceType = "pdf", FileName = $"{i}.pdf", CreatedAt = start.AddDays(i) };

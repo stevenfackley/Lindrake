@@ -4,7 +4,7 @@
 
 using Microsoft.Extensions.Logging;
 
-namespace OmniSift.UnitTests.TestSupport;
+namespace Lindrake.UnitTests.TestSupport;
 
 /// <summary>Captures formatted log entries for assertions.</summary>
 internal sealed class RecordingLogger<T> : ILogger<T>

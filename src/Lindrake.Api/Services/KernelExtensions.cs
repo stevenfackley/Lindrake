@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Semantic Kernel helpers
+// Lindrake.Api — Semantic Kernel helpers
 // ============================================================
 
+using Lindrake.Api.Infrastructure;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using OmniSift.Api.Infrastructure;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 public static class KernelExtensions
 {

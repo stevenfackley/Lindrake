@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Outbound address filter (SSRF guard)
+// Lindrake.Api — Outbound address filter (SSRF guard)
 // Pure classification of IP addresses a user-supplied URL may
 // make the server connect to.
 // ============================================================
@@ -7,7 +7,7 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace OmniSift.Api.Services.Ingestion;
+namespace Lindrake.Api.Services.Ingestion;
 
 /// <summary>
 /// Decides whether the server may open a connection to an address on behalf of

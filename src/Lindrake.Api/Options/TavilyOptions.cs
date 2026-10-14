@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — Tavily Web Search Configuration Options
+// Lindrake.Api — Tavily Web Search Configuration Options
 // ============================================================
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Strongly-typed options for the Tavily web search API.

@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Correlation ID Middleware
+// Lindrake.Api — Correlation ID Middleware
 // Reads X-Correlation-Id from request headers (or generates a
 // new GUID), pushes it into Serilog's LogContext so every log
 // line emitted during the request carries the correlation ID,
@@ -8,7 +8,7 @@
 
 using Serilog.Context;
 
-namespace OmniSift.Api.Middleware;
+namespace Lindrake.Api.Middleware;
 
 /// <summary>
 /// Ensures every request has a correlation ID available in both

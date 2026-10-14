@@ -6,13 +6,13 @@
 
 using System.Net;
 using FluentAssertions;
+using Lindrake.Api.Extensions;
+using Lindrake.Api.Plugins;
+using Lindrake.Api.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using OmniSift.Api.Extensions;
-using OmniSift.Api.Plugins;
-using OmniSift.Api.Services;
 
-namespace OmniSift.UnitTests.Extensions;
+namespace Lindrake.UnitTests.Extensions;
 
 public sealed class HttpClientRegistrationTests
 {
@@ -21,7 +21,7 @@ public sealed class HttpClientRegistrationTests
     [Fact]
     public async Task OpenAiEmbeddingClient_PostsToOpenAiOverHttpsWithBearerKey()
     {
-        using var sp = BuildServices(services => services.AddOmniSiftEmbeddings(), """
+        using var sp = BuildServices(services => services.AddLindrakeEmbeddings(), """
             { "data": [ { "index": 0, "embedding": [0.5, 0.25] } ] }
             """);
 
@@ -36,7 +36,7 @@ public sealed class HttpClientRegistrationTests
     [Fact]
     public async Task TavilyClient_PostsToTavilyWithBearerKeyNotBodyKey()
     {
-        using var sp = BuildServices(services => services.AddOmniSiftAgent(), """
+        using var sp = BuildServices(services => services.AddLindrakeAgent(), """
             { "answer": "42", "results": [ { "title": "T", "url": "https://x.test", "content": "c", "score": 0.9 } ] }
             """);
         using var scope = sp.CreateScope();
@@ -53,7 +53,7 @@ public sealed class HttpClientRegistrationTests
     [Fact]
     public async Task WaybackClient_UsesHttps()
     {
-        using var sp = BuildServices(services => services.AddOmniSiftAgent(), """{ "archived_snapshots": {} }""");
+        using var sp = BuildServices(services => services.AddLindrakeAgent(), """{ "archived_snapshots": {} }""");
         using var scope = sp.CreateScope();
 
         await scope.ServiceProvider.GetRequiredService<WaybackMachinePlugin>().GetArchivedPageAsync("http://example.com");

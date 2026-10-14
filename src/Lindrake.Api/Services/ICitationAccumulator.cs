@@ -1,13 +1,13 @@
 // ============================================================
-// OmniSift.Api — Citation Accumulator
+// Lindrake.Api — Citation Accumulator
 // Scoped per-request collector that plugins write citations to.
 // ResearchAgentService reads it after the agent finishes to populate
 // Sources on the response.
 // ============================================================
 
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Per-request, scoped accumulator that plugins write citations to.

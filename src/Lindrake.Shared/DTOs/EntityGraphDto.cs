@@ -1,9 +1,9 @@
 // ============================================================
-// OmniSift.Shared — Entity Graph DTOs
+// Lindrake.Shared — Entity Graph DTOs
 // Response types for the Entity Timelines + Relationship Graph feature
 // ============================================================
 
-namespace OmniSift.Shared.DTOs;
+namespace Lindrake.Shared.DTOs;
 
 public sealed record EntityNode
 {

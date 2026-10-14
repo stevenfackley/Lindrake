@@ -1,9 +1,9 @@
 // ============================================================
-// OmniSift.Api — Tenant Entity
+// Lindrake.Api — Tenant Entity
 // Root multi-tenancy entity
 // ============================================================
 
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 /// <summary>
 /// Represents an organizational tenant in the multi-tenant system.

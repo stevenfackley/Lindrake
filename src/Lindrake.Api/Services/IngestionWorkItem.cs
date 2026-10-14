@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Ingestion Work Item
+// Lindrake.Api — Ingestion Work Item
 // Carries everything a background worker needs to run the
 // extract→chunk→embed pipeline outside an HTTP request.
 // The tenant ID is captured here because HttpContext is gone
@@ -7,7 +7,7 @@
 // ITenantContext to it before touching the database.
 // ============================================================
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Snapshot of an upload queued for asynchronous ingestion.

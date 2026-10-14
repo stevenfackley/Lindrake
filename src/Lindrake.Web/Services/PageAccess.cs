@@ -1,10 +1,10 @@
 // ============================================================
-// OmniSift.Web — Which pages need a signed-in user
+// Lindrake.Web — Which pages need a signed-in user
 // ============================================================
 
 using Microsoft.AspNetCore.Authorization;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// Routing rules for <c>AuthRouteView</c>: a page carrying <see cref="AuthorizeAttribute"/>

@@ -1,16 +1,16 @@
 // ============================================================
-// OmniSift.Api — Vector Search Plugin for Semantic Kernel
+// Lindrake.Api — Vector Search Plugin for Semantic Kernel
 // Thin adapter: runs IHybridSearchService, records citations,
 // formats the hits for the LLM.
 // ============================================================
 
 using System.ComponentModel;
 using System.Text.Json;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Search;
 using Microsoft.SemanticKernel;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Search;
 
-namespace OmniSift.Api.Plugins;
+namespace Lindrake.Api.Plugins;
 
 /// <summary>
 /// Semantic Kernel plugin exposing hybrid (vector + keyword) search over the

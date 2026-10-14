@@ -1,8 +1,8 @@
 using System.Net;
 using FluentAssertions;
-using OmniSift.UnitTests.TestSupport;
+using Lindrake.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class AuthHandlerTests
 {

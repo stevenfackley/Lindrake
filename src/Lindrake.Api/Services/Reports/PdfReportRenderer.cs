@@ -1,6 +1,6 @@
 // ============================================================
-// OmniSift.Api — PDF report renderer (QuestPDF)
-// The QuestPDF license is set once, in AddOmniSiftReports().
+// Lindrake.Api — PDF report renderer (QuestPDF)
+// The QuestPDF license is set once, in AddLindrakeReports().
 // ============================================================
 
 using System.Globalization;
@@ -8,7 +8,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
-namespace OmniSift.Api.Services.Reports;
+namespace Lindrake.Api.Services.Reports;
 
 /// <summary>Renders a <see cref="ReportDocument"/> as a PDF.</summary>
 public sealed class PdfReportRenderer : IReportRenderer<byte[]>

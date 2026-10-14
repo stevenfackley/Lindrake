@@ -10,15 +10,15 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Models;
+using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using OmniSift.Api.Data;
-using OmniSift.Api.Models;
-using OmniSift.Shared.DTOs;
-using static OmniSift.IntegrationTests.ProblemAssertions;
+using static Lindrake.IntegrationTests.ProblemAssertions;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -39,7 +39,7 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
 
         // The background worker may already be processing it: check identity, not status.
         using var scope = _factory.CreateTenantScope(tenantId);
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         var row = await db.DataSources.SingleAsync(ds => ds.Id == body.DataSourceId);
         row.TenantId.Should().Be(tenantId);
         row.SourceType.Should().Be("pdf");
@@ -65,7 +65,7 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
         var body = (await response.Content.ReadFromJsonAsync<IngestionResponse>())!;
         using var scope = _factory.CreateTenantScope(tenantId);
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         (await db.DataSources.SingleAsync(ds => ds.Id == body.DataSourceId)).SourceType.Should().Be(sourceType);
     }
 
@@ -99,7 +99,7 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         row.Status.Should().Be(IngestionStatus.Completed, row.ErrorMessage);
 
         using var scope = _factory.CreateTenantScope(tenantId);
-        var chunks = await scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>().DocumentChunks
+        var chunks = await scope.ServiceProvider.GetRequiredService<LindrakeDbContext>().DocumentChunks
             .Where(c => c.DataSourceId == body.DataSourceId)
             .Select(c => c.Content)
             .ToListAsync();
@@ -143,7 +143,7 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         await ShouldBeProblemAsync(await client.GetAsync($"/api/datasources/{id}"), HttpStatusCode.NotFound);
         await ShouldBeProblemAsync(await client.DeleteAsync($"/api/datasources/{id}"), HttpStatusCode.NotFound);
         using var scope = _factory.CreateTenantScope(tenantId);
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         (await db.AuditLogs.SingleAsync(a => a.ResourceId == id)).Action.Should().Be("delete");
     }
 
@@ -228,7 +228,7 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         while (true)
         {
             using var scope = _factory.CreateTenantScope(tenantId);
-            var row = await scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>().DataSources
+            var row = await scope.ServiceProvider.GetRequiredService<LindrakeDbContext>().DataSources
                 .AsNoTracking()
                 .SingleAsync(ds => ds.Id == id);
             if (row.Status is IngestionStatus.Completed or IngestionStatus.Failed || DateTime.UtcNow > deadline)
@@ -241,13 +241,13 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
     private async Task<int> CountDataSourcesAsync(Guid tenantId)
     {
         using var scope = _factory.CreateTenantScope(tenantId);
-        return await scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>().DataSources.CountAsync();
+        return await scope.ServiceProvider.GetRequiredService<LindrakeDbContext>().DataSources.CountAsync();
     }
 
     private async Task<Guid> SeedDataSourceAsync(Guid tenantId, int chunks)
     {
         using var scope = _factory.CreateTenantScope(tenantId);
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         var source = new DataSource
         {
             TenantId = tenantId,
@@ -267,7 +267,7 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
     {
         var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         using var scope = _factory.CreateTenantScope(tenantId);
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         db.DataSources.AddRange(Enumerable.Range(0, count).Select(i => new DataSource
         {
             TenantId = tenantId,

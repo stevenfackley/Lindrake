@@ -4,10 +4,10 @@
 // ============================================================
 
 using FluentAssertions;
-using OmniSift.Api.Options;
+using Lindrake.Api.Options;
 using MsOptions = Microsoft.Extensions.Options.Options;
 
-namespace OmniSift.UnitTests.Configuration;
+namespace Lindrake.UnitTests.Configuration;
 
 public sealed class EmbeddingOptionsValidatorTests
 {

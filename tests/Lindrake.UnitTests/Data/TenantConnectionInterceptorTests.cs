@@ -8,17 +8,17 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Extensions;
+using Lindrake.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using OmniSift.Api.Data;
-using OmniSift.Api.Extensions;
-using OmniSift.Api.Middleware;
 
-namespace OmniSift.UnitTests.Data;
+namespace Lindrake.UnitTests.Data;
 
 public sealed class TenantConnectionInterceptorTests
 {
@@ -66,7 +66,7 @@ public sealed class TenantConnectionInterceptorTests
     }
 
     [Fact]
-    public async Task ConnectionOpened_NotAnOmniSiftContext_IssuesNothing()
+    public async Task ConnectionOpened_NotALindrakeContext_IssuesNothing()
     {
         using var connection = new RecordingConnection();
 
@@ -76,18 +76,18 @@ public sealed class TenantConnectionInterceptorTests
     }
 
     [Fact]
-    public void AddOmniSiftPersistence_RegistersTheInterceptorOnTheContext()
+    public void AddLindrakePersistence_RegistersTheInterceptorOnTheContext()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = "Host=unused.invalid;Database=omnisift"
+                ["ConnectionStrings:DefaultConnection"] = "Host=unused.invalid;Database=lindrake"
             })
             .Build();
-        using var services = new ServiceCollection().AddOmniSiftPersistence(configuration).BuildServiceProvider();
+        using var services = new ServiceCollection().AddLindrakePersistence(configuration).BuildServiceProvider();
         using var scope = services.CreateScope();
 
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
 
         db.GetService<IDbContextOptions>().FindExtension<CoreOptionsExtension>()!.Interceptors
             .Should().ContainSingle(i => i is TenantConnectionInterceptor);
@@ -100,9 +100,9 @@ public sealed class TenantConnectionInterceptorTests
         return tenant;
     }
 
-    private static OmniSiftDbContext Context(ITenantContext tenant) =>
-        new(new DbContextOptionsBuilder<OmniSiftDbContext>()
-            .UseNpgsql("Host=unused.invalid;Database=omnisift", npgsql => npgsql.UseVector())
+    private static LindrakeDbContext Context(ITenantContext tenant) =>
+        new(new DbContextOptionsBuilder<LindrakeDbContext>()
+            .UseNpgsql("Host=unused.invalid;Database=lindrake", npgsql => npgsql.UseVector())
             .Options, tenant);
 
     private static ConnectionEndEventData Opened(DbConnection connection, DbContext? context) =>
@@ -123,7 +123,7 @@ public sealed class TenantConnectionInterceptorTests
 
         [AllowNull]
         public override string ConnectionString { get; set; } = string.Empty;
-        public override string Database => "omnisift";
+        public override string Database => "lindrake";
         public override string DataSource => "recording";
         public override string ServerVersion => "16";
         public override ConnectionState State => ConnectionState.Open;

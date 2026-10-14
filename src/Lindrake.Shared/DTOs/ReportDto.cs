@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Shared — Report DTOs
+// Lindrake.Shared — Report DTOs
 // Request/Response contracts for the research report endpoint
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 
-namespace OmniSift.Shared.DTOs;
+namespace Lindrake.Shared.DTOs;
 
 /// <summary>
 /// A single turn in the conversation to export as a report.

@@ -6,11 +6,11 @@
 
 using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class TextChunkerTests
 {

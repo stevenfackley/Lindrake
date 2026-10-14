@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Shared — Agent Query DTOs
+// Lindrake.Shared — Agent Query DTOs
 // Request/Response contracts for the AI research agent
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 
-namespace OmniSift.Shared.DTOs;
+namespace Lindrake.Shared.DTOs;
 
 /// <summary>
 /// Request DTO for submitting a research query to the agent.

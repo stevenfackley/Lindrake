@@ -1,10 +1,10 @@
 // ============================================================
-// OmniSift.Api — Research agent contract
+// Lindrake.Api — Research agent contract
 // ============================================================
 
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Services.Agent;
+namespace Lindrake.Api.Services.Agent;
 
 /// <summary>
 /// Runs a research query through the Semantic Kernel agent, records it in the

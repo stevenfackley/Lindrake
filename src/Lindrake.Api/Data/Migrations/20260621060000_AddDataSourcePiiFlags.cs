@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace OmniSift.Api.Data.Migrations
+namespace Lindrake.Api.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddDataSourcePiiFlags : Migration

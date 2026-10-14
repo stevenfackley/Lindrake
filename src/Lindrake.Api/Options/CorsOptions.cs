@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — CORS Configuration Options
+// Lindrake.Api — CORS Configuration Options
 // ============================================================
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Strongly-typed options for CORS policy configuration.

@@ -6,21 +6,21 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Data.Projections;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Data.Projections;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Data;
+namespace Lindrake.UnitTests.Data;
 
 public sealed class DataSourceProjectionsTests : IDisposable
 {
     private static readonly Guid TenantId = Guid.NewGuid();
 
-    private readonly OmniSiftDbContext _npgsql = new(new DbContextOptionsBuilder<OmniSiftDbContext>()
-        .UseNpgsql("Host=unused.invalid;Database=omnisift", npgsql => npgsql.UseVector())
+    private readonly LindrakeDbContext _npgsql = new(new DbContextOptionsBuilder<LindrakeDbContext>()
+        .UseNpgsql("Host=unused.invalid;Database=lindrake", npgsql => npgsql.UseVector())
         .Options, Bound(TenantId));
 
     [Fact]

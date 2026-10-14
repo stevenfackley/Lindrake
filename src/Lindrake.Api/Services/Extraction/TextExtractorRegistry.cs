@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Text extractor registry
+// Lindrake.Api — Text extractor registry
 // The single source of truth for which source types can be
 // ingested and how an upload maps to one.
 // ============================================================
@@ -8,7 +8,7 @@ using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 
-namespace OmniSift.Api.Services.Extraction;
+namespace Lindrake.Api.Services.Extraction;
 
 /// <summary>Looks up the <see cref="ITextExtractor"/> for a source type.</summary>
 public interface ITextExtractorRegistry

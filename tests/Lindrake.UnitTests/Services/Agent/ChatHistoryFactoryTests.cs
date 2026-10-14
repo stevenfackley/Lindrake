@@ -3,12 +3,12 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services.Agent;
+using Lindrake.Shared.DTOs;
 using Microsoft.SemanticKernel.ChatCompletion;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services.Agent;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.UnitTests.Services.Agent;
+namespace Lindrake.UnitTests.Services.Agent;
 
 public sealed class ChatHistoryFactoryTests
 {

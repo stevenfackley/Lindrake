@@ -1,13 +1,13 @@
 @page "/"
 @inject IJSRuntime JS
 
-<PageTitle>OmniSift — Home</PageTitle>
+<PageTitle>Lindrake — Home</PageTitle>
 
 @if (!_roleChosen)
 {
     <div class="page-header">
         <span class="kicker">Welcome</span>
-        <h1>How will you use OmniSift?</h1>
+        <h1>How will you use Lindrake?</h1>
         <p class="page-sub">Pick your focus area to tailor the experience. You can change this anytime.</p>
     </div>
 
@@ -46,7 +46,7 @@ else
                 <span class="kicker">/01 — Ingest</span>
                 <div class="card-title">Upload your documents</div>
                 <p style="color: var(--text-muted); margin-bottom: 1.25rem;">
-                    Drop in PDFs, Word docs, SMS exports (CSV/JSON), email, or HTML. OmniSift extracts,
+                    Drop in PDFs, Word docs, SMS exports (CSV/JSON), email, or HTML. Lindrake extracts,
                     chunks, and embeds everything for search by meaning — not just keywords.
                 </p>
 
@@ -115,7 +115,7 @@ else
 }
 
 @code {
-    [Inject] private OmniSiftApiClient Api { get; set; } = default!;
+    [Inject] private LindrakeApiClient Api { get; set; } = default!;
 
     private bool _checking = true;
     private bool _healthy;
@@ -151,14 +151,14 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var savedRole = await JS.InvokeAsync<string?>("localStorage.getItem", "omnisift_role");
+        var savedRole = await JS.InvokeAsync<string?>("localStorage.getItem", "lindrake_role");
         if (!string.IsNullOrEmpty(savedRole))
         {
             _pendingRole = savedRole;
             _roleChosen = true;
         }
 
-        var sampleDone = await JS.InvokeAsync<string?>("localStorage.getItem", "omnisift_sample_loaded");
+        var sampleDone = await JS.InvokeAsync<string?>("localStorage.getItem", "lindrake_sample_loaded");
         _sampleLoaded = sampleDone == "1";
 
         _healthy = await Api.CheckHealthAsync();
@@ -170,13 +170,13 @@ else
         if (string.IsNullOrEmpty(_pendingRole))
             return;
 
-        await JS.InvokeVoidAsync("localStorage.setItem", "omnisift_role", _pendingRole);
+        await JS.InvokeVoidAsync("localStorage.setItem", "lindrake_role", _pendingRole);
         _roleChosen = true;
     }
 
     private async Task ResetRole()
     {
-        await JS.InvokeVoidAsync("localStorage.removeItem", "omnisift_role");
+        await JS.InvokeVoidAsync("localStorage.removeItem", "lindrake_role");
         _roleChosen = false;
         _pendingRole = string.Empty;
     }
@@ -223,7 +223,7 @@ else
         _sampleOk = true;
         _sampleMessage = $"{uploaded} sample documents uploaded. Head to the Research Agent to try a query!";
         _sampleLoading = false;
-        await JS.InvokeVoidAsync("localStorage.setItem", "omnisift_sample_loaded", "1");
+        await JS.InvokeVoidAsync("localStorage.setItem", "lindrake_sample_loaded", "1");
     }
 
     private sealed record RoleInfo(

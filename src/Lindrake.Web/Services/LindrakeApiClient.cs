@@ -1,6 +1,6 @@
 // ============================================================
-// OmniSift.Web — API Client Service
-// Typed HTTP client for communicating with the OmniSift API
+// Lindrake.Web — API Client Service
+// Typed HTTP client for communicating with the Lindrake API
 // ============================================================
 
 using System.Net.Http.Headers;
@@ -9,17 +9,17 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using Lindrake.Shared;
+using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Components.WebAssembly.Http;
-using OmniSift.Shared;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
-/// Strongly-typed HTTP client for the OmniSift API, registered with
+/// Strongly-typed HTTP client for the Lindrake API, registered with
 /// <c>AddHttpClient</c>. <see cref="AuthHandler"/> adds the bearer token; the
 /// tenant is the token's <c>tenant_id</c> claim. All JSON goes through the
-/// source-generated <see cref="OmniSiftJsonContext"/> (no reflection).
+/// source-generated <see cref="LindrakeJsonContext"/> (no reflection).
 /// <para>
 /// Every call returns an <see cref="ApiResult"/> instead of throwing: a non-2xx
 /// response becomes an <see cref="ApiError"/> carrying the ProblemDetails message,
@@ -27,9 +27,9 @@ namespace OmniSift.Web.Services;
 /// login page). Only cancellation of the caller's token throws.
 /// </para>
 /// </summary>
-public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService auth)
+public sealed class LindrakeApiClient(HttpClient httpClient, AuthStateService auth)
 {
-    private static OmniSiftJsonContext Json => OmniSiftJsonContext.Default;
+    private static LindrakeJsonContext Json => LindrakeJsonContext.Default;
 
     // ── Auth ────────────────────────────────────────────────
 

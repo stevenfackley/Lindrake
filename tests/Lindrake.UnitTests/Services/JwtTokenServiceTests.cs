@@ -1,11 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using FluentAssertions;
+using Lindrake.Api.Models;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Models;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class JwtTokenServiceTests
 {

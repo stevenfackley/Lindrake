@@ -1,15 +1,15 @@
+using Lindrake.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using OmniSift.Api.Middleware;
 
-namespace OmniSift.Api.Data;
+namespace Lindrake.Api.Data;
 
 /// <summary>
-/// Creates <see cref="OmniSiftDbContext"/> instances for EF Core tooling.
+/// Creates <see cref="LindrakeDbContext"/> instances for EF Core tooling.
 /// </summary>
-public sealed class OmniSiftDesignTimeDbContextFactory : IDesignTimeDbContextFactory<OmniSiftDbContext>
+public sealed class LindrakeDesignTimeDbContextFactory : IDesignTimeDbContextFactory<LindrakeDbContext>
 {
-    public OmniSiftDbContext CreateDbContext(string[] args)
+    public LindrakeDbContext CreateDbContext(string[] args)
     {
         var basePath = Directory.GetCurrentDirectory();
         var configuration = new ConfigurationBuilder()
@@ -24,7 +24,7 @@ public sealed class OmniSiftDesignTimeDbContextFactory : IDesignTimeDbContextFac
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? "Host=localhost;Port=5432;Database=omnisift;Username=omnisift_app;Password=omnisift_dev";
 
-        var options = new DbContextOptionsBuilder<OmniSiftDbContext>()
+        var options = new DbContextOptionsBuilder<LindrakeDbContext>()
             .UseNpgsql(connectionString, npgsql =>
             {
                 npgsql.UseVector();
@@ -33,6 +33,6 @@ public sealed class OmniSiftDesignTimeDbContextFactory : IDesignTimeDbContextFac
             .Options;
 
         // No tenant is bound: migrations and tooling never query tenant-owned rows.
-        return new OmniSiftDbContext(options, new TenantContext());
+        return new LindrakeDbContext(options, new TenantContext());
     }
 }

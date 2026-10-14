@@ -1,14 +1,14 @@
 // ============================================================
-// OmniSift.Api — Research report model
+// Lindrake.Api — Research report model
 // The normalized input every report renderer consumes.
 // ============================================================
 
 using System.Globalization;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services.Agent;
-using OmniSift.Shared.DTOs;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services.Agent;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Services.Reports;
+namespace Lindrake.Api.Services.Reports;
 
 /// <summary>A single conversation turn to export.</summary>
 public sealed record ReportMessage

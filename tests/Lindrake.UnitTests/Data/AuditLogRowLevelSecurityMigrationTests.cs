@@ -4,13 +4,13 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Data.Migrations;
+using Lindrake.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using OmniSift.Api.Data;
-using OmniSift.Api.Data.Migrations;
-using OmniSift.Api.Middleware;
 
-namespace OmniSift.UnitTests.Data;
+namespace Lindrake.UnitTests.Data;
 
 public sealed class AuditLogRowLevelSecurityMigrationTests
 {
@@ -44,8 +44,8 @@ public sealed class AuditLogRowLevelSecurityMigrationTests
     [Fact]
     public void Migration_IsDiscoveredAfterAddDataSourcePiiFlags()
     {
-        using var db = new OmniSiftDbContext(new DbContextOptionsBuilder<OmniSiftDbContext>()
-            .UseNpgsql("Host=unused.invalid;Database=omnisift", npgsql => npgsql.UseVector())
+        using var db = new LindrakeDbContext(new DbContextOptionsBuilder<LindrakeDbContext>()
+            .UseNpgsql("Host=unused.invalid;Database=lindrake", npgsql => npgsql.UseVector())
             .Options, new TenantContext());
 
         db.Database.GetMigrations().Should()

@@ -1,9 +1,9 @@
 // ============================================================
-// OmniSift.Api — Text Extractor Interface
+// Lindrake.Api — Text Extractor Interface
 // Strategy pattern for extracting text from different formats
 // ============================================================
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Defines the contract for extracting raw text from a data source.

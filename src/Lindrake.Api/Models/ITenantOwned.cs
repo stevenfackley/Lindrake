@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Api — Tenant-owned entity marker
+// Lindrake.Api — Tenant-owned entity marker
 // ============================================================
 
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 /// <summary>
-/// An entity that belongs to exactly one tenant. <see cref="Data.OmniSiftDbContext"/>
+/// An entity that belongs to exactly one tenant. <see cref="Data.LindrakeDbContext"/>
 /// applies a global query filter to every implementation, so queries only ever
 /// see the current scope's tenant (Row-Level Security is the second line).
 /// </summary>

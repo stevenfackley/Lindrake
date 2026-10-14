@@ -1,14 +1,14 @@
 // ============================================================
-// OmniSift.Api — Research profile configuration
+// Lindrake.Api — Research profile configuration
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using Lindrake.Api.Plugins;
+using Lindrake.Api.Services.Agent;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Plugins;
-using OmniSift.Api.Services.Agent;
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// The research profile the agent runs with: its system prompt, which kernel

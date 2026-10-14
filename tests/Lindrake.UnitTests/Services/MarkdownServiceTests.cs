@@ -4,9 +4,9 @@
 // ============================================================
 
 using FluentAssertions;
-using OmniSift.Web.Services;
+using Lindrake.Web.Services;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class MarkdownServiceTests
 {

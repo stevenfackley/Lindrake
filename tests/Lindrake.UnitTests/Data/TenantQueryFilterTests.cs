@@ -5,13 +5,13 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Data;
+namespace Lindrake.UnitTests.Data;
 
 public sealed class TenantQueryFilterTests
 {
@@ -55,7 +55,7 @@ public sealed class TenantQueryFilterTests
 
         await using var db = InMemoryDb.ForTenant(_databaseName, TenantA);
 
-        (await db.DataSources.IgnoreQueryFilters([OmniSiftDbContext.TenantFilter]).CountAsync()).Should().Be(2);
+        (await db.DataSources.IgnoreQueryFilters([LindrakeDbContext.TenantFilter]).CountAsync()).Should().Be(2);
         (await db.Users.IgnoreQueryFilters().CountAsync()).Should().Be(2);
     }
 
@@ -97,7 +97,7 @@ public sealed class TenantQueryFilterTests
 
         tenantOwned.Select(e => e.ClrType).Should().BeEquivalentTo(
             [typeof(DataSource), typeof(DocumentChunk), typeof(QueryHistory), typeof(AuditLog), typeof(AppUser)]);
-        tenantOwned.Should().OnlyContain(e => e.FindDeclaredQueryFilter(OmniSiftDbContext.TenantFilter) != null);
+        tenantOwned.Should().OnlyContain(e => e.FindDeclaredQueryFilter(LindrakeDbContext.TenantFilter) != null);
     }
 
     /// <summary>One row of every tenant-owned entity for each of tenants A and B.</summary>

@@ -1,4 +1,4 @@
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Configuration for validating Supabase-issued JWTs via OIDC discovery.

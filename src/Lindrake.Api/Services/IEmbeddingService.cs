@@ -1,14 +1,14 @@
 // ============================================================
-// OmniSift.Api — Embedding Service Interface & Implementation
+// Lindrake.Api — Embedding Service Interface & Implementation
 // Generates vector embeddings via OpenAI API
 // ============================================================
 
 using System.Text.Json.Serialization;
+using Lindrake.Api.Options;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Options;
 using Pgvector;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Service for generating vector embeddings from text.
@@ -29,7 +29,7 @@ public interface IEmbeddingService
 /// <summary>
 /// OpenAI embedding service implementation using text-embedding-3-large.
 /// The typed HttpClient carries <see cref="BaseAddress"/> and the bearer key
-/// (configured in AddOmniSiftEmbeddings); requests use relative URIs.
+/// (configured in AddLindrakeEmbeddings); requests use relative URIs.
 /// </summary>
 public sealed partial class OpenAIEmbeddingService(
     HttpClient httpClient,

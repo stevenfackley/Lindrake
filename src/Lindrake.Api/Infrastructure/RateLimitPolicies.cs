@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — Rate limiter policy names
+// Lindrake.Api — Rate limiter policy names
 // ============================================================
 
-namespace OmniSift.Api.Infrastructure;
+namespace Lindrake.Api.Infrastructure;
 
 /// <summary>Named rate-limiter policies referenced by <c>[EnableRateLimiting]</c>.</summary>
 public static class RateLimitPolicies

@@ -1,13 +1,13 @@
 using System.Net;
 using FluentAssertions;
-using OmniSift.Shared.DTOs;
-using OmniSift.UnitTests.TestSupport;
-using OmniSift.Web.Services;
-using static OmniSift.UnitTests.TestSupport.FakeHttpMessageHandler;
+using Lindrake.Shared.DTOs;
+using Lindrake.UnitTests.TestSupport;
+using Lindrake.Web.Services;
+using static Lindrake.UnitTests.TestSupport.FakeHttpMessageHandler;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
-/// <summary>OmniSiftApiClient.QueryAgentStreamAsync over a fake transport.</summary>
+/// <summary>LindrakeApiClient.QueryAgentStreamAsync over a fake transport.</summary>
 public sealed class AgentStreamClientTests
 {
     private const string DeltaFrame = "data: {\"type\":\"delta\",\"content\":\"Hi\"}\n\n";
@@ -95,7 +95,7 @@ public sealed class AgentStreamClientTests
 
         var events = await ReadAllAsync(harness.Api.QueryAgentStreamAsync(Request));
 
-        events.Should().Equal(new SseEvent.Delta("Hi"), new SseEvent.Error(OmniSiftApiClient.StreamInterruptedMessage));
+        events.Should().Equal(new SseEvent.Delta("Hi"), new SseEvent.Error(LindrakeApiClient.StreamInterruptedMessage));
     }
 
     [Theory]

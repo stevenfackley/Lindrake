@@ -1,12 +1,12 @@
 using System.Net;
 using FluentAssertions;
-using OmniSift.Shared.DTOs;
-using OmniSift.UnitTests.TestSupport;
-using OmniSift.Web.Services;
+using Lindrake.Shared.DTOs;
+using Lindrake.UnitTests.TestSupport;
+using Lindrake.Web.Services;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
-public sealed class OmniSiftApiClientTests
+public sealed class LindrakeApiClientTests
 {
     private static readonly Guid SourceId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
 
@@ -68,7 +68,7 @@ public sealed class OmniSiftApiClientTests
 
         result.Error!.IsUnauthorized.Should().BeTrue();
         harness.Auth.IsAuthenticated.Should().BeFalse();
-        harness.Js.LocalStorage.Should().NotContainKey("omnisift_token");
+        harness.Js.LocalStorage.Should().NotContainKey("lindrake_token");
         changes.Should().Be(1);
     }
 

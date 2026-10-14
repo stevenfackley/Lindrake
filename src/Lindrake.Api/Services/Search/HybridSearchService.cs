@@ -1,17 +1,17 @@
 // ============================================================
-// OmniSift.Api — Hybrid document search
+// Lindrake.Api — Hybrid document search
 // Vector arm (pgvector cosine) + keyword arm (pg_trgm
 // word_similarity), each tenant-scoped and run independently,
 // fused with Reciprocal Rank Fusion.
 // ============================================================
 
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
 using Pgvector;
 using Pgvector.EntityFrameworkCore;
 
-namespace OmniSift.Api.Services.Search;
+namespace Lindrake.Api.Services.Search;
 
 /// <summary>Searches the current tenant's document chunks.</summary>
 public interface IHybridSearchService
@@ -47,7 +47,7 @@ public sealed record SearchHit(
 
 /// <summary>EF Core / PostgreSQL implementation of <see cref="IHybridSearchService"/>.</summary>
 public sealed class HybridSearchService(
-    OmniSiftDbContext dbContext,
+    LindrakeDbContext dbContext,
     ITenantContext tenantContext,
     IEmbeddingService embeddingService,
     ILogger<HybridSearchService> logger) : IHybridSearchService

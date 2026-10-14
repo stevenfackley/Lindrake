@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — Token counting for chunk sizing
+// Lindrake.Api — Token counting for chunk sizing
 // ============================================================
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Counts tokens the way the active embedding model sees them, so chunks can be

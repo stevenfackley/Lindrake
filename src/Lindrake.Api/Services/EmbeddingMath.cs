@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Embedding Math Helpers
+// Lindrake.Api — Embedding Math Helpers
 // Pure, model-independent post-processing for sentence-embedding
 // models: masked mean-pooling + L2-normalization.
 // Extracted so the parity-critical math is unit-testable without
 // loading the ONNX model.
 // ============================================================
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Stateless numeric helpers shared by the ONNX embedding path.

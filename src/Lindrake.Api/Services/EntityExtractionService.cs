@@ -1,17 +1,17 @@
 // ============================================================
-// OmniSift.Api — Entity Extraction Service
+// Lindrake.Api — Entity Extraction Service
 // Extracts entities, relationships, and timeline from document chunks
 // using Semantic Kernel / Anthropic LLM
 // ============================================================
 
 using System.Text.Json;
+using Lindrake.Api.Data;
+using Lindrake.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using OmniSift.Api.Data;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 public interface IEntityExtractionService
 {
@@ -19,7 +19,7 @@ public interface IEntityExtractionService
 }
 
 public sealed class EntityExtractionService(
-    OmniSiftDbContext dbContext,
+    LindrakeDbContext dbContext,
     Kernel kernel,
     ILogger<EntityExtractionService> logger) : IEntityExtractionService
 {

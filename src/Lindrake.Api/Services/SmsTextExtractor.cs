@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — SMS Text Extractor
+// Lindrake.Api — SMS Text Extractor
 // Parses SMS exports from CSV or JSON formats
 // ============================================================
 
 using System.Text;
 using System.Text.Json;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Extracts text from SMS exports in CSV or JSON format.

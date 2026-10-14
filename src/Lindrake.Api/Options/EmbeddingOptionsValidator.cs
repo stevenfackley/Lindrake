@@ -1,10 +1,10 @@
 // ============================================================
-// OmniSift.Api — Embedding options startup validation
+// Lindrake.Api — Embedding options startup validation
 // ============================================================
 
 using Microsoft.Extensions.Options;
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Fail-fast guard for the OpenAI embedding provider. OpenAI emits

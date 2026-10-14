@@ -1,18 +1,18 @@
 // ============================================================
-// OmniSift.Api — Built-in research profiles
+// Lindrake.Api — Built-in research profiles
 // A profile is the agent's persona: system prompt, plugin set and
 // report titling. Deployments pick one through the ResearchProfile
 // configuration section; this file holds the built-in defaults.
 // ============================================================
 
-using OmniSift.Api.Plugins;
+using Lindrake.Api.Plugins;
 
-namespace OmniSift.Api.Services.Agent;
+namespace Lindrake.Api.Services.Agent;
 
 public static class ResearchProfiles
 {
     /// <summary>
-    /// The original OmniSift profile (personal and family-history research), and
+    /// The original Lindrake profile (personal and family-history research), and
     /// the default whenever <c>ResearchProfile</c> is not configured.
     /// </summary>
     public static class FamilyHistory
@@ -22,7 +22,7 @@ public static class ResearchProfiles
         public const string ReportTitle = "Research Report";
 
         public const string SystemPrompt = """
-            You are OmniSift, an AI research assistant. You help users find and analyze information
+            You are Lindrake, an AI research assistant. You help users find and analyze information
             from their uploaded documents and the web.
 
             Guidelines:

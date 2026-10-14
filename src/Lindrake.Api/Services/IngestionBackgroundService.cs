@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Ingestion Background Service
+// Lindrake.Api — Ingestion Background Service
 // Drains the IngestionChannel and runs the ingestion pipeline
 // outside the HTTP request lifecycle.
 //
@@ -15,13 +15,13 @@
 //   every DB write made by the worker.
 // ============================================================
 
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.Api.Services.Ingestion;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.Api.Services.Ingestion;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Long-running hosted service that drains the <see cref="IngestionChannel"/>
@@ -71,7 +71,7 @@ public sealed class IngestionBackgroundService(
         // tenant BEFORE any EF query. The tenant query filter and the RLS
         // connection interceptor both read it from here.
         services.GetRequiredService<ITenantContext>().Set(item.TenantId);
-        var dbContext = services.GetRequiredService<OmniSiftDbContext>();
+        var dbContext = services.GetRequiredService<LindrakeDbContext>();
 
         var dataSource = await dbContext.DataSources
             .FirstOrDefaultAsync(ds => ds.Id == item.DataSourceId, stoppingToken)

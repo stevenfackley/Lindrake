@@ -1,13 +1,13 @@
 // ============================================================
-// OmniSift.Web — Research Agent chat state and behaviour
+// Lindrake.Web — Research Agent chat state and behaviour
 // Plain C# (no Blazor types) so it is unit-testable.
 // ============================================================
 
 using System.Text;
-using OmniSift.Shared.DTOs;
-using OmniSift.Web.Services;
+using Lindrake.Shared.DTOs;
+using Lindrake.Web.Services;
 
-namespace OmniSift.Web.ViewModels;
+namespace Lindrake.Web.ViewModels;
 
 /// <summary>Roles of <see cref="ConversationMessage.Role"/> (validated case-sensitively by the API).</summary>
 public static class ChatRoles
@@ -33,13 +33,13 @@ public sealed record ChatMessage(string Role, string Content)
 /// the PDF report. Raises <see cref="Changed"/> after every state change.
 /// <see cref="Stop"/> cancels the running answer; <see cref="Dispose"/> cancels everything.
 /// </summary>
-public sealed class AgentChatViewModel(OmniSiftApiClient api) : IDisposable
+public sealed class AgentChatViewModel(LindrakeApiClient api) : IDisposable
 {
     /// <summary>The API's query length bounds.</summary>
     public const int MinQueryLength = 3;
     public const int MaxQueryLength = 5000;
 
-    public const string ReportTitle = "OmniSift Research Report";
+    public const string ReportTitle = "Lindrake Research Report";
     public const string IncompleteResponseMessage = "The response ended before it was complete. Please try again.";
 
     private readonly List<ChatMessage> _messages = [];

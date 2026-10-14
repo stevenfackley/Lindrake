@@ -1,17 +1,17 @@
 // ============================================================
-// OmniSift.Api — Local ONNX Embedding Service
+// Lindrake.Api — Local ONNX Embedding Service
 // Implements IEmbeddingService using a local sentence-embedding
 // model via Microsoft.ML.OnnxRuntime — no cloud API, no per-token cost.
 // ============================================================
 
+using Lindrake.Api.Options;
 using Microsoft.Extensions.Options;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Microsoft.ML.Tokenizers;
-using OmniSift.Api.Options;
 using Pgvector;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Generates embeddings locally with an ONNX sentence-transformer model.

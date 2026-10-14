@@ -8,18 +8,18 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Services.Agent;
+using Lindrake.Api.Services.Search;
+using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Moq;
-using OmniSift.Api.Data;
-using OmniSift.Api.Services.Agent;
-using OmniSift.Api.Services.Search;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class AgentEndpointTests
 {
@@ -50,7 +50,7 @@ public sealed class AgentEndpointTests
         frames[2].TryGetProperty("durationMs", out _).Should().BeTrue();
 
         using var scope = factory.CreateTenantScope();
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         var history = await db.QueryHistories.SingleAsync(h => h.QueryText == query);
         history.ResponseText.Should().Be("Born in Cork.");
         history.TenantId.Should().Be(CustomWebApplicationFactory.TestTenantId);
@@ -97,7 +97,7 @@ public sealed class AgentEndpointTests
         source.RelevanceScore.Should().Be(0.8123);
 
         using var scope = factory.CreateTenantScope();
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         var history = await db.QueryHistories.SingleAsync(h => h.QueryText == query);
         history.ResponseText.Should().Be("He was born in Cork.");
         history.PluginsUsed.Should().Equal("VectorSearch");
@@ -147,7 +147,7 @@ public sealed class AgentEndpointTests
         body!.Response.Should().Be("Forty-two");
 
         using var scope = factory.CreateTenantScope();
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         (await db.QueryHistories.SingleAsync(h => h.QueryText == query)).ResponseText.Should().Be("Forty-two");
     }
 

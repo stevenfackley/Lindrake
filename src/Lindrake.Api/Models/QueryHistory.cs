@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Api — QueryHistory Entity
+// Lindrake.Api — QueryHistory Entity
 // Stores agent query/response pairs for audit and context
 // ============================================================
 
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 /// <summary>
 /// Records every agent query and response for audit trails
@@ -37,7 +37,7 @@ public sealed class QueryHistory : ITenantOwned, ICreationTimestamped
 
     /// <summary>
     /// Source citations included in the response, stored as JSON (jsonb) through the
-    /// source-generated <see cref="OmniSift.Shared.OmniSiftJsonContext"/> (camelCase).
+    /// source-generated <see cref="Lindrake.Shared.LindrakeJsonContext"/> (camelCase).
     /// </summary>
     public List<SourceCitation> Sources { get; set; } = [];
 

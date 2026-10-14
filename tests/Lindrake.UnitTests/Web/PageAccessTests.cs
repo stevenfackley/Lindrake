@@ -1,8 +1,8 @@
 using FluentAssertions;
-using OmniSift.Web.Pages;
-using OmniSift.Web.Services;
+using Lindrake.Web.Pages;
+using Lindrake.Web.Services;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class PageAccessTests
 {
@@ -27,7 +27,7 @@ public sealed class PageAccessTests
     [Fact]
     public void ComponentWithoutAuthorize_IsAnonymous()
     {
-        PageAccess.RequiresAuthentication(typeof(OmniSift.Web.Layout.NavMenu)).Should().BeFalse();
+        PageAccess.RequiresAuthentication(typeof(Lindrake.Web.Layout.NavMenu)).Should().BeFalse();
     }
 
     [Theory]

@@ -1,19 +1,19 @@
+using Lindrake.Api.Data;
+using Lindrake.Api.Data.Projections;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Services;
+using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Data.Projections;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Services;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Controllers;
+namespace Lindrake.Api.Controllers;
 
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
 public sealed class AccountController(
-    OmniSiftDbContext dbContext,
+    LindrakeDbContext dbContext,
     ITenantContext tenantContext,
     IAuditLogger auditLogger) : ControllerBase
 {

@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Tenant Context
+// Lindrake.Api — Tenant Context
 // The tenant a DI scope acts for: set by TenantMiddleware from the
 // JWT claim, or by IngestionBackgroundService from the work item.
 // ============================================================
 
-using OmniSift.Api.Infrastructure;
+using Lindrake.Api.Infrastructure;
 
-namespace OmniSift.Api.Middleware;
+namespace Lindrake.Api.Middleware;
 
 /// <summary>
 /// The tenant the current DI scope acts for. Registered as scoped, so each

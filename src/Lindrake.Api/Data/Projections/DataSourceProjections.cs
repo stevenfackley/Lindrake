@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — DataSource → DataSourceDto projection
+// Lindrake.Api — DataSource → DataSourceDto projection
 // ============================================================
 
 using System.Linq.Expressions;
-using OmniSift.Api.Models;
-using OmniSift.Shared.DTOs;
+using Lindrake.Api.Models;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Data.Projections;
+namespace Lindrake.Api.Data.Projections;
 
 /// <summary>
 /// The single <see cref="DataSource"/> → <see cref="DataSourceDto"/> mapping, as an

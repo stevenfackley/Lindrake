@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Web — API call outcomes
+// Lindrake.Web — API call outcomes
 // ============================================================
 
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// Why an API call failed, with a message fit to show the user. <see cref="StatusCode"/>
@@ -23,13 +23,13 @@ public sealed record ApiError(int StatusCode, string Message)
     public bool IsTransient => StatusCode == 0 || StatusCode >= 500 || StatusCode == (int)HttpStatusCode.TooManyRequests;
 
     public static ApiError Unreachable() =>
-        new(0, "Could not reach the OmniSift API. Check your connection and try again.");
+        new(0, "Could not reach the Lindrake API. Check your connection and try again.");
 
     public static ApiError TimedOut() =>
-        new(0, "The OmniSift API did not respond in time. Please try again.");
+        new(0, "The Lindrake API did not respond in time. Please try again.");
 
     public static ApiError InvalidResponse(int statusCode) =>
-        new(statusCode, "The OmniSift API returned a response this app could not read.");
+        new(statusCode, "The Lindrake API returned a response this app could not read.");
 }
 
 /// <summary>The outcome of an API call that returns no body.</summary>

@@ -5,11 +5,11 @@
 
 using System.Text;
 using FluentAssertions;
+using Lindrake.Api.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
-using OmniSift.Api.Services;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class WebTextExtractorTests
 {

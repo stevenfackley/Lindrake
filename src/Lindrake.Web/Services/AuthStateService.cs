@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.JSInterop;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// The client's authentication state: the JWT persisted in localStorage, the
@@ -17,8 +17,8 @@ namespace OmniSift.Web.Services;
 /// </summary>
 public sealed class AuthStateService(IJSRuntime js, TimeProvider time)
 {
-    private const string TokenKey = "omnisift_token";
-    private const string LastTenantKey = "omnisift_last_tenant";
+    private const string TokenKey = "lindrake_token";
+    private const string LastTenantKey = "lindrake_last_tenant";
 
     // A timer longer than this would overflow; it fires early and re-arms nothing,
     // which is harmless (IsAuthenticated reads the clock on every call).

@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — Ingestion source-type keys
+// Lindrake.Api — Ingestion source-type keys
 // ============================================================
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Source-type keys, as returned by each <see cref="ITextExtractor.SourceType"/>.

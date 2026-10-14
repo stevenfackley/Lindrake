@@ -2,16 +2,16 @@
 // Unit Tests — EF InMemory DbContext helper
 // ============================================================
 
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
 
-namespace OmniSift.UnitTests.TestSupport;
+namespace Lindrake.UnitTests.TestSupport;
 
 /// <summary>
-/// Creates <see cref="OmniSiftDbContext"/> instances over a named InMemory store.
+/// Creates <see cref="LindrakeDbContext"/> instances over a named InMemory store.
 /// Contexts created with the same name share data, so a second context reads only
 /// what the first one actually saved.
 /// <para>
@@ -26,11 +26,11 @@ namespace OmniSift.UnitTests.TestSupport;
 internal static class InMemoryDb
 {
     /// <summary>A context with no tenant bound (sees no tenant-owned rows).</summary>
-    public static OmniSiftDbContext Create(string databaseName, params IInterceptor[] interceptors) =>
+    public static LindrakeDbContext Create(string databaseName, params IInterceptor[] interceptors) =>
         Create(databaseName, new TenantContext(), interceptors);
 
     /// <summary>A context scoped to <paramref name="tenantId"/>.</summary>
-    public static OmniSiftDbContext ForTenant(string databaseName, Guid tenantId, params IInterceptor[] interceptors)
+    public static LindrakeDbContext ForTenant(string databaseName, Guid tenantId, params IInterceptor[] interceptors)
     {
         var tenant = new TenantContext();
         tenant.Set(tenantId);
@@ -38,21 +38,21 @@ internal static class InMemoryDb
     }
 
     /// <summary>A context scoped to <paramref name="tenantContext"/>.</summary>
-    public static OmniSiftDbContext Create(
+    public static LindrakeDbContext Create(
         string databaseName, ITenantContext tenantContext, params IInterceptor[] interceptors)
     {
-        var options = new DbContextOptionsBuilder<OmniSiftDbContext>()
+        var options = new DbContextOptionsBuilder<LindrakeDbContext>()
             .UseInMemoryDatabase(databaseName)
             .AddInterceptors(interceptors)
             .Options;
 
-        return new InMemoryOmniSiftDbContext(options, tenantContext);
+        return new InMemoryLindrakeDbContext(options, tenantContext);
     }
 
     /// <summary>Ignores the pgvector column, which InMemory cannot map.</summary>
-    private sealed class InMemoryOmniSiftDbContext(
-        DbContextOptions<OmniSiftDbContext> options, ITenantContext tenantContext)
-        : OmniSiftDbContext(options, tenantContext)
+    private sealed class InMemoryLindrakeDbContext(
+        DbContextOptions<LindrakeDbContext> options, ITenantContext tenantContext)
+        : LindrakeDbContext(options, tenantContext)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

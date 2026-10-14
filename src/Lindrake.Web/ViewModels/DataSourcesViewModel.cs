@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Web — Data Sources page state and behaviour
+// Lindrake.Web — Data Sources page state and behaviour
 // Plain C# (no Blazor types) so it is unit-testable.
 // ============================================================
 
-using OmniSift.Shared.DTOs;
-using OmniSift.Web.Services;
+using Lindrake.Shared.DTOs;
+using Lindrake.Web.Services;
 
-namespace OmniSift.Web.ViewModels;
+namespace Lindrake.Web.ViewModels;
 
 /// <summary>A file picked for upload; <see cref="OpenRead"/> is called only if the size is allowed.</summary>
 public sealed record UploadFile(string Name, long Size, string? ContentType, Func<Stream> OpenRead);
@@ -23,7 +23,7 @@ public sealed record PollingOptions(TimeSpan Interval, TimeSpan Timeout)
 /// deletion. Raises <see cref="Changed"/> after every state change; the page
 /// re-renders on it. <see cref="Dispose"/> cancels in-flight calls and polls.
 /// </summary>
-public sealed class DataSourcesViewModel(OmniSiftApiClient api, PollingOptions? polling = null) : IDisposable
+public sealed class DataSourcesViewModel(LindrakeApiClient api, PollingOptions? polling = null) : IDisposable
 {
     /// <summary>The API's upload limit (50 MB).</summary>
     public const long MaxUploadBytes = 50L * 1024 * 1024;

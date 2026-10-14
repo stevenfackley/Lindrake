@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Reciprocal Rank Fusion (RRF)
+// Lindrake.Api — Reciprocal Rank Fusion (RRF)
 // Pure, side-effect-free function — fully unit-testable.
 // Given two ranked lists (vector arm + keyword arm), fuses them
 // into a single ranking using the standard RRF formula:
@@ -7,7 +7,7 @@
 // where k = 60 (Cormack et al. 2009).
 // ============================================================
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>A key with its fused RRF score.</summary>
 public readonly record struct FusedRank<TKey>(TKey Key, double Score);

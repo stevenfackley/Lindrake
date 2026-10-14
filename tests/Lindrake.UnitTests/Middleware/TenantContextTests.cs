@@ -3,11 +3,11 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Middleware;
 using Microsoft.AspNetCore.Http;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Middleware;
 
-namespace OmniSift.UnitTests.Middleware;
+namespace Lindrake.UnitTests.Middleware;
 
 public sealed class TenantContextTests
 {

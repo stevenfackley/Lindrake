@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Web — JWT payload reader (no signature check)
+// Lindrake.Web — JWT payload reader (no signature check)
 // ============================================================
 
 using System.Buffers.Text;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// The claims and expiry carried by a JWT, read client-side so the UI knows who

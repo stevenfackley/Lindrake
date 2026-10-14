@@ -1,18 +1,18 @@
 // ============================================================
-// OmniSift.Api — Entities Controller
+// Lindrake.Api — Entities Controller
 // Extracts named entities and relationship graph from tenant documents
 // ============================================================
 
 using System.Diagnostics;
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Services;
+using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Services;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Controllers;
+namespace Lindrake.Api.Controllers;
 
 [ApiController]
 [Authorize]

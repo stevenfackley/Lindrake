@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — Kernel plugin names
+// Lindrake.Api — Kernel plugin names
 // ============================================================
 
-namespace OmniSift.Api.Plugins;
+namespace Lindrake.Api.Plugins;
 
 /// <summary>
 /// Names under which the agent's plugins are imported into the Kernel. These are

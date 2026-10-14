@@ -5,14 +5,14 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using OmniSift.Api.Data;
+using Lindrake.Api.Data;
 using Pgvector;
 
 #nullable disable
 
-namespace OmniSift.Api.Data.Migrations
+namespace Lindrake.Api.Data.Migrations
 {
-    [DbContext(typeof(OmniSiftDbContext))]
+    [DbContext(typeof(LindrakeDbContext))]
     [Migration("20260410060611_InitialCreate")]
     partial class InitialCreate
     {
@@ -28,7 +28,7 @@ namespace OmniSift.Api.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("OmniSift.Api.Models.DataSource", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.DataSource", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -95,7 +95,7 @@ namespace OmniSift.Api.Data.Migrations
                     b.ToTable("data_sources", (string)null);
                 });
 
-            modelBuilder.Entity("OmniSift.Api.Models.DocumentChunk", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.DocumentChunk", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -157,7 +157,7 @@ namespace OmniSift.Api.Data.Migrations
                     b.ToTable("document_chunks", (string)null);
                 });
 
-            modelBuilder.Entity("OmniSift.Api.Models.QueryHistory", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.QueryHistory", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -210,7 +210,7 @@ namespace OmniSift.Api.Data.Migrations
                     b.ToTable("query_history", (string)null);
                 });
 
-            modelBuilder.Entity("OmniSift.Api.Models.Tenant", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -264,9 +264,9 @@ namespace OmniSift.Api.Data.Migrations
                     b.ToTable("tenants", (string)null);
                 });
 
-            modelBuilder.Entity("OmniSift.Api.Models.DataSource", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.DataSource", b =>
                 {
-                    b.HasOne("OmniSift.Api.Models.Tenant", "Tenant")
+                    b.HasOne("Lindrake.Api.Models.Tenant", "Tenant")
                         .WithMany("DataSources")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -275,15 +275,15 @@ namespace OmniSift.Api.Data.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("OmniSift.Api.Models.DocumentChunk", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.DocumentChunk", b =>
                 {
-                    b.HasOne("OmniSift.Api.Models.DataSource", "DataSource")
+                    b.HasOne("Lindrake.Api.Models.DataSource", "DataSource")
                         .WithMany("Chunks")
                         .HasForeignKey("DataSourceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("OmniSift.Api.Models.Tenant", "Tenant")
+                    b.HasOne("Lindrake.Api.Models.Tenant", "Tenant")
                         .WithMany("DocumentChunks")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -294,9 +294,9 @@ namespace OmniSift.Api.Data.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("OmniSift.Api.Models.QueryHistory", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.QueryHistory", b =>
                 {
-                    b.HasOne("OmniSift.Api.Models.Tenant", "Tenant")
+                    b.HasOne("Lindrake.Api.Models.Tenant", "Tenant")
                         .WithMany("QueryHistories")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -305,12 +305,12 @@ namespace OmniSift.Api.Data.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("OmniSift.Api.Models.DataSource", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.DataSource", b =>
                 {
                     b.Navigation("Chunks");
                 });
 
-            modelBuilder.Entity("OmniSift.Api.Models.Tenant", b =>
+            modelBuilder.Entity("Lindrake.Api.Models.Tenant", b =>
                 {
                     b.Navigation("DataSources");
 

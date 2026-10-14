@@ -1,10 +1,10 @@
 // ============================================================
-// OmniSift.Api — Ingestion configuration options
+// Lindrake.Api — Ingestion configuration options
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Limits for content pulled into the ingestion pipeline.

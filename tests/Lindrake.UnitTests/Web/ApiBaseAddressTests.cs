@@ -1,11 +1,11 @@
 using FluentAssertions;
-using OmniSift.Web.Services;
+using Lindrake.Web.Services;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class ApiBaseAddressTests
 {
-    private const string HostBase = "https://omnisift.example/app/";
+    private const string HostBase = "https://lindrake.example/app/";
 
     [Theory]
     [InlineData(null)]
@@ -15,8 +15,8 @@ public sealed class ApiBaseAddressTests
     {
         var uri = ApiBaseAddress.Resolve(configured, HostBase);
 
-        uri.Should().Be(new Uri("https://omnisift.example/"));
-        new Uri(uri, "api/datasources").Should().Be(new Uri("https://omnisift.example/api/datasources"));
+        uri.Should().Be(new Uri("https://lindrake.example/"));
+        new Uri(uri, "api/datasources").Should().Be(new Uri("https://lindrake.example/api/datasources"));
     }
 
     [Theory]

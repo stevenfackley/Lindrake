@@ -1,12 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Lindrake.Api.Models;
+using Lindrake.Api.Options;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using OmniSift.Api.Models;
-using OmniSift.Api.Options;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>Issues the in-house HS256 access tokens; expiry is read from <see cref="TimeProvider"/>.</summary>
 public sealed class JwtTokenService(IOptions<JwtOptions> options, TimeProvider timeProvider)

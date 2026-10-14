@@ -4,7 +4,7 @@
 
 using Microsoft.JSInterop;
 
-namespace OmniSift.UnitTests.TestSupport;
+namespace Lindrake.UnitTests.TestSupport;
 
 /// <summary>Implements the <c>localStorage.*</c> calls AuthStateService makes.</summary>
 internal sealed class FakeJsRuntime : IJSRuntime

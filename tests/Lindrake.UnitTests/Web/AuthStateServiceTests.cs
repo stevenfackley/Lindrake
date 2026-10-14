@@ -1,8 +1,8 @@
 using System.Net;
 using FluentAssertions;
-using OmniSift.UnitTests.TestSupport;
+using Lindrake.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class AuthStateServiceTests
 {
@@ -24,8 +24,8 @@ public sealed class AuthStateServiceTests
         harness.Auth.Token.Should().Be(token);
         harness.Auth.ExpiresAt.Should().Be(Now.AddMinutes(60));
         harness.Auth.User.FindFirst("tenant_id")!.Value.Should().Be(WebClientHarness.TenantId.ToString());
-        harness.Js.LocalStorage["omnisift_token"].Should().Be(token);
-        harness.Js.LocalStorage["omnisift_last_tenant"].Should().Be(WebClientHarness.TenantId.ToString());
+        harness.Js.LocalStorage["lindrake_token"].Should().Be(token);
+        harness.Js.LocalStorage["lindrake_last_tenant"].Should().Be(WebClientHarness.TenantId.ToString());
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public sealed class AuthStateServiceTests
         var time = new ManualTimeProvider(Now);
         using var harness = NewHarness(time);
         var token = TestJwt.Create(Now.AddMinutes(5), WebClientHarness.TenantId);
-        harness.Js.LocalStorage["omnisift_token"] = token;
+        harness.Js.LocalStorage["lindrake_token"] = token;
 
         await harness.Auth.InitializeAsync();
 
@@ -83,14 +83,14 @@ public sealed class AuthStateServiceTests
     {
         var time = new ManualTimeProvider(Now);
         using var harness = NewHarness(time);
-        harness.Js.LocalStorage["omnisift_token"] = expired
+        harness.Js.LocalStorage["lindrake_token"] = expired
             ? TestJwt.Create(Now.AddMinutes(-5), WebClientHarness.TenantId)
             : "not.a.jwt";
 
         await harness.Auth.InitializeAsync();
 
         harness.Auth.IsAuthenticated.Should().BeFalse();
-        harness.Js.LocalStorage.Should().NotContainKey("omnisift_token");
+        harness.Js.LocalStorage.Should().NotContainKey("lindrake_token");
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class AuthStateServiceTests
         await harness.Auth.SignOutAsync();
 
         harness.Auth.IsAuthenticated.Should().BeFalse();
-        harness.Js.LocalStorage.Should().NotContainKey("omnisift_token");
+        harness.Js.LocalStorage.Should().NotContainKey("lindrake_token");
         (await harness.Auth.GetLastTenantIdAsync()).Should().Be(WebClientHarness.TenantId);
     }
 
@@ -127,7 +127,7 @@ public sealed class AuthStateServiceTests
     {
         using var harness = NewHarness(new ManualTimeProvider(Now));
         if (stored is not null)
-            harness.Js.LocalStorage["omnisift_last_tenant"] = stored;
+            harness.Js.LocalStorage["lindrake_last_tenant"] = stored;
 
         (await harness.Auth.GetLastTenantIdAsync()).Should().BeNull();
     }

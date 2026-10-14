@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Text Chunker Interface & Implementation
+// Lindrake.Api — Text Chunker Interface & Implementation
 // Splits text into overlapping, token-budgeted chunks for embedding
 // ============================================================
 
+using Lindrake.Api.Options;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Options;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Represents a single text chunk with metadata.

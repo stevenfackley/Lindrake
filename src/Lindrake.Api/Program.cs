@@ -1,15 +1,15 @@
 // ============================================================
-// OmniSift.Api — Application Entry Point
+// Lindrake.Api — Application Entry Point
 // Composes the service modules in Extensions/ and runs the host.
 // ============================================================
 
-using OmniSift.Api.Extensions;
+using Lindrake.Api.Extensions;
 using Serilog;
 using Serilog.Events;
 
 // ── Serilog Bootstrap Logger ─────────────────────────────────
 // Used only during host startup (before DI is ready). Replaced
-// by the full logger configured in AddOmniSiftObservability().
+// by the full logger configured in AddLindrakeObservability().
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
@@ -26,25 +26,25 @@ try
     builder.Configuration.AddKeyPerFile(directoryPath: "/run/secrets", optional: true);
 
     builder.Services
-        .AddOmniSiftObservability(builder.Configuration, builder.Environment)
-        .AddOmniSiftPersistence(builder.Configuration)
-        .AddOmniSiftEmbeddings()
-        .AddOmniSiftIngestion()
-        .AddOmniSiftAgent()
-        .AddOmniSiftReports()
-        .AddOmniSiftAuth()
-        .AddOmniSiftRateLimiting()
-        .AddOmniSiftApi();
+        .AddLindrakeObservability(builder.Configuration, builder.Environment)
+        .AddLindrakePersistence(builder.Configuration)
+        .AddLindrakeEmbeddings()
+        .AddLindrakeIngestion()
+        .AddLindrakeAgent()
+        .AddLindrakeReports()
+        .AddLindrakeAuth()
+        .AddLindrakeRateLimiting()
+        .AddLindrakeApi();
 
     var app = builder.Build();
 
-    app.InitializeOmniSift()
-        .UseOmniSiftPipeline()
+    app.InitializeLindrake()
+        .UseLindrakePipeline()
         .Run();
 }
 catch (Exception ex) when (ex is not HostAbortedException)
 {
-    Log.Fatal(ex, "OmniSift host terminated unexpectedly");
+    Log.Fatal(ex, "Lindrake host terminated unexpectedly");
     Environment.ExitCode = 1;
 }
 finally

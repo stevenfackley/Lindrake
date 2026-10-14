@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — DOCX Text Extractor
+// Lindrake.Api — DOCX Text Extractor
 // Extracts text from Word .docx files using DocumentFormat.OpenXml
 // ============================================================
 
@@ -7,7 +7,7 @@ using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Extracts readable text from Word .docx documents.

@@ -1,14 +1,14 @@
 // ============================================================
-// OmniSift.Api — Tenant Resolution Middleware
+// Lindrake.Api — Tenant Resolution Middleware
 // Derives the tenant from the authenticated JWT (tenant_id claim)
 // and binds it to the request's ITenantContext.
 // ============================================================
 
+using Lindrake.Api.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using OmniSift.Api.Extensions;
 
-namespace OmniSift.Api.Middleware;
+namespace Lindrake.Api.Middleware;
 
 /// <summary>
 /// Resolves the current tenant from the validated JWT's <c>tenant_id</c> claim and

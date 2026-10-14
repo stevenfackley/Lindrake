@@ -3,12 +3,12 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Models;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Models;
-using OmniSift.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Data;
+namespace Lindrake.UnitTests.Data;
 
 public sealed class TimestampInterceptorTests
 {
@@ -87,7 +87,7 @@ public sealed class TimestampInterceptorTests
         source.UpdatedAt.Should().Be(T0.UtcDateTime);
     }
 
-    private OmniSiftDbContext Db() =>
+    private LindrakeDbContext Db() =>
         InMemoryDb.ForTenant(_databaseName, TenantId, new TimestampInterceptor(_clock));
 
     private sealed class SettableTimeProvider(DateTimeOffset now) : TimeProvider

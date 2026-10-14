@@ -1,20 +1,20 @@
 // ============================================================
 // Unit Tests — PdfReportRenderer
-// Resolved through AddOmniSiftReports(), which also sets the
+// Resolved through AddLindrakeReports(), which also sets the
 // QuestPDF license the renderer depends on.
 // ============================================================
 
 using System.Text;
+using Lindrake.Api.Extensions;
+using Lindrake.Api.Services.Reports;
 using Microsoft.Extensions.DependencyInjection;
-using OmniSift.Api.Extensions;
-using OmniSift.Api.Services.Reports;
 
-namespace OmniSift.UnitTests.Services.Reports;
+namespace Lindrake.UnitTests.Services.Reports;
 
 public sealed class PdfReportRendererTests
 {
     private static readonly IReportRenderer<byte[]> Renderer = new ServiceCollection()
-        .AddOmniSiftReports()
+        .AddLindrakeReports()
         .BuildServiceProvider()
         .GetRequiredService<IReportRenderer<byte[]>>();
 

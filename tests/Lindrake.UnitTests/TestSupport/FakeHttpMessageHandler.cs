@@ -6,7 +6,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
-namespace OmniSift.UnitTests.TestSupport;
+namespace Lindrake.UnitTests.TestSupport;
 
 /// <summary>What a request looked like when it reached the handler (the client disposes it afterwards).</summary>
 internal sealed record CapturedRequest(

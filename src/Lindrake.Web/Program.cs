@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Web — Blazor WASM Entry Point
+// Lindrake.Web — Blazor WASM Entry Point
 // Configures HttpClient and services for the frontend
 // ============================================================
 
+using Lindrake.Web;
+using Lindrake.Web.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using OmniSift.Web;
-using OmniSift.Web.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -20,7 +20,7 @@ var apiBaseAddress = ApiBaseAddress.Resolve(builder.Configuration["ApiBaseUrl"],
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<AuthStateService>();
 builder.Services.AddTransient<AuthHandler>();
-builder.Services.AddHttpClient<OmniSiftApiClient>(client => client.BaseAddress = apiBaseAddress)
+builder.Services.AddHttpClient<LindrakeApiClient>(client => client.BaseAddress = apiBaseAddress)
     .AddHttpMessageHandler<AuthHandler>();
 builder.Services.AddSingleton<MarkdownService>();
 

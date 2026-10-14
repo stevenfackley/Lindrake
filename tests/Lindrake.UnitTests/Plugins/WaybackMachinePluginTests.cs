@@ -6,13 +6,13 @@
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Api.Plugins;
+using Lindrake.Api.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
-using OmniSift.Api.Plugins;
-using OmniSift.Api.Services;
 
-namespace OmniSift.UnitTests.Plugins;
+namespace Lindrake.UnitTests.Plugins;
 
 public sealed class WaybackMachinePluginTests
 {

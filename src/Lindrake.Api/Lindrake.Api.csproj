@@ -63,9 +63,4 @@
     <ProjectReference Include="..\Lindrake.Shared\Lindrake.Shared.csproj" />
   </ItemGroup>
 
-  <!-- Temporary: the test assembly is renamed before Properties/AssemblyInfo.cs is; the namespace rename commit removes this. -->
-  <ItemGroup>
-    <InternalsVisibleTo Include="Lindrake.UnitTests" />
-  </ItemGroup>
-
 </Project>

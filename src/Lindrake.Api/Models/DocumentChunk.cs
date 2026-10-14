@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Api — DocumentChunk Entity
+// Lindrake.Api — DocumentChunk Entity
 // Stores text chunks with vector embeddings for semantic search
 // ============================================================
 
 using Pgvector;
 
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 /// <summary>
 /// An individual text chunk extracted from a data source,

@@ -6,9 +6,9 @@
 
 using System.Net;
 using FluentAssertions;
-using static OmniSift.IntegrationTests.ProblemAssertions;
+using static Lindrake.IntegrationTests.ProblemAssertions;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class RateLimitingTests : IDisposable
 {

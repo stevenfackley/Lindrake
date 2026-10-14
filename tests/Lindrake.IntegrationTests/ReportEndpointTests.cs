@@ -5,11 +5,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Lindrake.Shared.DTOs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class ReportEndpointTests : IDisposable
 {

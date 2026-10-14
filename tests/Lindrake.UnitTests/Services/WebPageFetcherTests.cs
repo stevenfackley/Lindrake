@@ -7,14 +7,14 @@
 
 using System.Net;
 using FluentAssertions;
+using Lindrake.Api.Extensions;
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Services.Ingestion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using OmniSift.Api.Extensions;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Services.Ingestion;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class WebPageFetcherTests
 {
@@ -58,7 +58,7 @@ public sealed class WebPageFetcherTests
         using var sp = new ServiceCollection()
             .AddLogging()
             .AddSingleton<IConfiguration>(new ConfigurationBuilder().Build())
-            .AddOmniSiftIngestion()
+            .AddLindrakeIngestion()
             .BuildServiceProvider();
 
         var act = () => sp.GetRequiredService<IWebPageFetcher>().FetchAsync("http://127.0.0.1:9/");

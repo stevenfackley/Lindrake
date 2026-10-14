@@ -9,9 +9,9 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
-using static OmniSift.IntegrationTests.ProblemAssertions;
+using static Lindrake.IntegrationTests.ProblemAssertions;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class HealthEndpointTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -29,7 +29,7 @@ public sealed class HealthEndpointTests : IClassFixture<CustomWebApplicationFact
     {
         var options = _factory.Services.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value;
 
-        options.Registrations.Should().Contain(r => r.Name == "OmniSiftDbContext");
+        options.Registrations.Should().Contain(r => r.Name == "LindrakeDbContext");
     }
 
     [Fact]

@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Global Exception Handler
+// Lindrake.Api — Global Exception Handler
 // Catches unhandled exceptions and returns RFC 7807 ProblemDetails
 // ============================================================
 
@@ -7,12 +7,12 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
-namespace OmniSift.Api.Infrastructure;
+namespace Lindrake.Api.Infrastructure;
 
 /// <summary>
 /// Converts unhandled exceptions into RFC 7807 ProblemDetails.
 /// <list type="bullet">
-/// <item><see cref="OmniSiftException"/>: its status code and message (expected, client-facing).</item>
+/// <item><see cref="LindrakeException"/>: its status code and message (expected, client-facing).</item>
 /// <item><see cref="BadHttpRequestException"/>: its status code (malformed / oversized request).</item>
 /// <item><see cref="HttpRequestException"/>: 502, generic detail (upstream fetch failed).</item>
 /// <item>Anything else: 500, generic detail. The message is logged, never returned.</item>
@@ -34,7 +34,7 @@ public sealed class GlobalExceptionHandler(
 
         var problem = exception switch
         {
-            OmniSiftException known => new ProblemDetails { Status = known.StatusCode, Detail = known.Message },
+            LindrakeException known => new ProblemDetails { Status = known.StatusCode, Detail = known.Message },
             BadHttpRequestException badRequest => new ProblemDetails { Status = badRequest.StatusCode, Detail = badRequest.Message },
             HttpRequestException => new ProblemDetails
             {

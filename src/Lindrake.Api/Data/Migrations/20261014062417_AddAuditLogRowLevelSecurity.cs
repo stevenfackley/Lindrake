@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace OmniSift.Api.Data.Migrations
+namespace Lindrake.Api.Data.Migrations
 {
     /// <summary>
     /// Row-Level Security for <c>audit_log</c>, which <c>AddAuditLogAndUsers</c> created

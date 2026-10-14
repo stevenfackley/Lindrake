@@ -11,14 +11,14 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Models;
+using Lindrake.Shared.DTOs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using OmniSift.Api.Data;
-using OmniSift.Api.Models;
-using OmniSift.Shared.DTOs;
-using static OmniSift.IntegrationTests.ProblemAssertions;
+using static Lindrake.IntegrationTests.ProblemAssertions;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class AuthenticationTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -108,7 +108,7 @@ public sealed class AuthenticationTests : IClassFixture<CustomWebApplicationFact
     private async Task SeedDataSourceAsync(Guid tenantId, string fileName)
     {
         using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         db.DataSources.Add(new DataSource
         {
             TenantId = tenantId,

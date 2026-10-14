@@ -1,15 +1,15 @@
 // ============================================================
-// OmniSift.Api — Wayback Machine Plugin for Semantic Kernel
+// Lindrake.Api — Wayback Machine Plugin for Semantic Kernel
 // Retrieves archived web page snapshots from the Internet Archive
 // ============================================================
 
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lindrake.Api.Services;
 using Microsoft.SemanticKernel;
-using OmniSift.Api.Services;
 
-namespace OmniSift.Api.Plugins;
+namespace Lindrake.Api.Plugins;
 
 /// <summary>
 /// Semantic Kernel plugin that queries the Wayback Machine API
@@ -17,7 +17,7 @@ namespace OmniSift.Api.Plugins;
 /// research and recovering removed or changed web content.
 /// Also records results in <see cref="ICitationAccumulator"/>.
 /// The typed HttpClient carries <see cref="BaseAddress"/> (configured in
-/// AddOmniSiftAgent); requests use relative URIs.
+/// AddLindrakeAgent); requests use relative URIs.
 /// </summary>
 public sealed partial class WaybackMachinePlugin(
     HttpClient httpClient,

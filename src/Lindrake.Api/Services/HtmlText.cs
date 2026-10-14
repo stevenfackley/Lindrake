@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Api — HTML to plain text (HtmlAgilityPack)
+// Lindrake.Api — HTML to plain text (HtmlAgilityPack)
 // Shared by the web and email extractors.
 // ============================================================
 
 using HtmlAgilityPack;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 internal static class HtmlText
 {

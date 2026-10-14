@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Shared — JSON Source Generation Context
+// Lindrake.Shared — JSON Source Generation Context
 // Compile-time serialization for all API DTOs
 // ============================================================
 
 using System.Text.Json.Serialization;
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Shared;
+namespace Lindrake.Shared;
 
 /// <summary>
 /// Source-generated JsonSerializerContext for all shared DTOs.
@@ -50,4 +50,4 @@ namespace OmniSift.Shared;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     WriteIndented = false)]
-public partial class OmniSiftJsonContext : JsonSerializerContext { }
+public partial class LindrakeJsonContext : JsonSerializerContext { }

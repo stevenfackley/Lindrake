@@ -1,16 +1,16 @@
 // ============================================================
-// OmniSift.Api — Server-Sent Events writer for streamed agent runs
-// Wire format consumed by OmniSift.Web's SseParser:
+// Lindrake.Api — Server-Sent Events writer for streamed agent runs
+// Wire format consumed by Lindrake.Web's SseParser:
 //   data: {"type":"delta","content":"..."}\n\n
 //   data: {"type":"final","pluginsUsed":[...],"durationMs":n,"sources":[...]}\n\n
 //   data: {"type":"error","message":"..."}\n\n   (only if the stream fails mid-way)
 // ============================================================
 
 using System.Text.Json;
-using OmniSift.Shared;
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Services.Agent;
+namespace Lindrake.Api.Services.Agent;
 
 /// <summary>Writes an agent event stream to an HTTP response as SSE frames.</summary>
 public sealed class AgentSseWriter(ILogger<AgentSseWriter> logger)
@@ -55,17 +55,17 @@ public sealed class AgentSseWriter(ILogger<AgentSseWriter> logger)
     {
         AgentStreamEvent.Delta delta => Frame(JsonSerializer.Serialize(
             new AgentStreamDeltaEvent { Type = "delta", Content = delta.Content },
-            OmniSiftJsonContext.Default.AgentStreamDeltaEvent)),
+            LindrakeJsonContext.Default.AgentStreamDeltaEvent)),
         AgentStreamEvent.Completed completed => Frame(JsonSerializer.Serialize(
             completed.Result.ToFinalEvent(),
-            OmniSiftJsonContext.Default.AgentStreamFinalEvent)),
+            LindrakeJsonContext.Default.AgentStreamFinalEvent)),
         _ => throw new ArgumentOutOfRangeException(nameof(evt), evt, "Unknown agent stream event.")
     };
 
     /// <summary>The terminal SSE error frame.</summary>
     public static string ErrorFrame(string message) => Frame(JsonSerializer.Serialize(
         new AgentStreamErrorEvent { Type = "error", Message = message },
-        OmniSiftJsonContext.Default.AgentStreamErrorEvent));
+        LindrakeJsonContext.Default.AgentStreamErrorEvent));
 
     private static string Frame(string json) => $"data: {json}\n\n";
 

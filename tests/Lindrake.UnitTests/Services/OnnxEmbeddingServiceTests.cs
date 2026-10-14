@@ -5,14 +5,14 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services;
-using OmniSift.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class OnnxEmbeddingServiceTests
 {

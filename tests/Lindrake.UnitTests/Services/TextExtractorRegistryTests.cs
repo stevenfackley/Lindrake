@@ -3,12 +3,12 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Extraction;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Extraction;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class TextExtractorRegistryTests
 {

@@ -4,12 +4,12 @@
 
 using System.Buffers.Text;
 using System.Text;
-using OmniSift.Web.Services;
+using Lindrake.Web.Services;
 
-namespace OmniSift.UnitTests.TestSupport;
+namespace Lindrake.UnitTests.TestSupport;
 
 /// <summary>
-/// Wires <see cref="OmniSiftApiClient"/> → <see cref="AuthHandler"/> → a
+/// Wires <see cref="LindrakeApiClient"/> → <see cref="AuthHandler"/> → a
 /// <see cref="FakeHttpMessageHandler"/>, with <see cref="AuthStateService"/> over an
 /// in-memory localStorage — the same chain Program.cs registers.
 /// </summary>
@@ -26,14 +26,14 @@ internal sealed class WebClientHarness : IDisposable
         {
             BaseAddress = new Uri("http://api.test/")
         };
-        Api = new OmniSiftApiClient(_http, Auth);
+        Api = new LindrakeApiClient(_http, Auth);
     }
 
     public FakeJsRuntime Js { get; } = new();
     public TimeProvider Time { get; }
     public AuthStateService Auth { get; }
     public FakeHttpMessageHandler Handler { get; }
-    public OmniSiftApiClient Api { get; }
+    public LindrakeApiClient Api { get; }
 
     public static readonly Guid TenantId = Guid.Parse("11111111-2222-3333-4444-555555555555");
 

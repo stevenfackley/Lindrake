@@ -1,17 +1,17 @@
 // ============================================================
-// OmniSift.Api — Ingestion Pipeline
+// Lindrake.Api — Ingestion Pipeline
 // Extract → PII scan → chunk → embed → persist for one DataSource.
 // Shared by the background worker (uploads) and the synchronous
 // web-ingestion endpoint.
 // ============================================================
 
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.Api.Services.Extraction;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.Api.Services.Extraction;
 
-namespace OmniSift.Api.Services.Ingestion;
+namespace Lindrake.Api.Services.Ingestion;
 
 /// <summary>Runs the ingestion pipeline for a single <see cref="DataSource"/>.</summary>
 public interface IIngestionPipeline
@@ -37,7 +37,7 @@ public interface IIngestionPipeline
 /// writes only the Failed status, outside that transaction.
 /// </summary>
 public sealed class IngestionPipeline(
-    OmniSiftDbContext dbContext,
+    LindrakeDbContext dbContext,
     ITenantContext tenantContext,
     ITextExtractorRegistry extractors,
     ITextChunker chunker,

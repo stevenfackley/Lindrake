@@ -1,10 +1,10 @@
 using System.Buffers.Text;
 using System.Text;
 using FluentAssertions;
-using OmniSift.UnitTests.TestSupport;
-using OmniSift.Web.Services;
+using Lindrake.UnitTests.TestSupport;
+using Lindrake.Web.Services;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class JwtSessionTests
 {

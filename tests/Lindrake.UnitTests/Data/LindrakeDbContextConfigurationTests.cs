@@ -1,12 +1,12 @@
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
 
-namespace OmniSift.UnitTests.Data;
+namespace Lindrake.UnitTests.Data;
 
-public sealed class OmniSiftDbContextConfigurationTests
+public sealed class LindrakeDbContextConfigurationTests
 {
     [Fact]
     public void DesignTimeFactory_CreateDbContext_UsesNpgsqlProvider()
@@ -18,7 +18,7 @@ public sealed class OmniSiftDbContextConfigurationTests
         {
             Directory.SetCurrentDirectory(isolatedDirectory.FullName);
 
-            var factory = new OmniSiftDesignTimeDbContextFactory();
+            var factory = new LindrakeDesignTimeDbContextFactory();
             using var context = factory.CreateDbContext([]);
 
             context.Database.ProviderName.Should().Be("Npgsql.EntityFrameworkCore.PostgreSQL");
@@ -37,15 +37,15 @@ public sealed class OmniSiftDbContextConfigurationTests
         var tenantStatusIndex = new[] { nameof(DataSource.TenantId), nameof(DataSource.Status) };
         var queryHistoryIndex = new[] { nameof(QueryHistory.TenantId), nameof(QueryHistory.CreatedAt) };
 
-        var options = new DbContextOptionsBuilder<OmniSiftDbContext>()
-            .UseNpgsql("Host=localhost;Database=omnisift_tests;Username=postgres;Password=postgres", npgsql =>
+        var options = new DbContextOptionsBuilder<LindrakeDbContext>()
+            .UseNpgsql("Host=localhost;Database=lindrake_tests;Username=postgres;Password=postgres", npgsql =>
             {
                 npgsql.UseVector();
                 npgsql.EnableRetryOnFailure(3);
             })
             .Options;
 
-        using var context = new OmniSiftDbContext(options, new TenantContext());
+        using var context = new LindrakeDbContext(options, new TenantContext());
         var model = context.Model;
         var createScript = context.Database.GenerateCreateScript();
 

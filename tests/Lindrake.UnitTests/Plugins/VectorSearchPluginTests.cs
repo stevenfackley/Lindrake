@@ -4,14 +4,14 @@
 
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Api.Plugins;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Search;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.Extensions.Logging;
 using Moq;
-using OmniSift.Api.Plugins;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Search;
-using OmniSift.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Plugins;
+namespace Lindrake.UnitTests.Plugins;
 
 public sealed class VectorSearchPluginTests
 {
@@ -76,7 +76,7 @@ public sealed class VectorSearchPluginTests
     public async Task SearchDocuments_SearchFails_ReturnsGenericMessageAndLogsError()
     {
         _search.Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Npgsql: password authentication failed for user omnisift"));
+            .ThrowsAsync(new InvalidOperationException("Npgsql: password authentication failed for user lindrake"));
 
         var output = await Plugin().SearchDocumentsAsync("q");
 

@@ -1,11 +1,11 @@
 using System.Net;
 using FluentAssertions;
-using OmniSift.Shared.DTOs;
-using OmniSift.UnitTests.TestSupport;
-using OmniSift.Web.ViewModels;
-using static OmniSift.UnitTests.TestSupport.FakeHttpMessageHandler;
+using Lindrake.Shared.DTOs;
+using Lindrake.UnitTests.TestSupport;
+using Lindrake.Web.ViewModels;
+using static Lindrake.UnitTests.TestSupport.FakeHttpMessageHandler;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class DataSourcesViewModelTests
 {

@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Web — RFC 7807 ProblemDetails → user-facing message
+// Lindrake.Web — RFC 7807 ProblemDetails → user-facing message
 // ============================================================
 
 using System.Net;
 using System.Text.Json;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// Reads an error response (the API answers every failure with RFC 7807

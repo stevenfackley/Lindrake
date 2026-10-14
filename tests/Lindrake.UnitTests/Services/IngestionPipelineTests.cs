@@ -6,22 +6,22 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Extraction;
+using Lindrake.Api.Services.Ingestion;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Extraction;
-using OmniSift.Api.Services.Ingestion;
-using OmniSift.UnitTests.TestSupport;
 using Pgvector;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class IngestionPipelineTests
 {
@@ -175,7 +175,7 @@ public sealed class IngestionPipelineTests
     private static System.Linq.Expressions.Expression<Func<ITextExtractor, Task<string>>> ExtractCall() =>
         e => e.ExtractTextAsync(It.IsAny<Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>());
 
-    private async Task<(OmniSiftDbContext Db, DataSource DataSource)> SeedAsync(params IInterceptor[] interceptors)
+    private async Task<(LindrakeDbContext Db, DataSource DataSource)> SeedAsync(params IInterceptor[] interceptors)
     {
         var db = InMemoryDb.ForTenant(_databaseName, TenantId, interceptors);
         var dataSource = new DataSource
@@ -190,7 +190,7 @@ public sealed class IngestionPipelineTests
         return (db, dataSource);
     }
 
-    private IngestionPipeline CreatePipeline(OmniSiftDbContext db, ITenantContext? tenantContext = null)
+    private IngestionPipeline CreatePipeline(LindrakeDbContext db, ITenantContext? tenantContext = null)
     {
         if (tenantContext is null)
         {

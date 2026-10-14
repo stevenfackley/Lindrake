@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Web — API base address resolution
+// Lindrake.Web — API base address resolution
 // ============================================================
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// Turns the <c>ApiBaseUrl</c> setting (wwwroot/appsettings.json, rendered from

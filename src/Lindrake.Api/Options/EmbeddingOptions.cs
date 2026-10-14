@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Api — Embedding Provider Configuration Options
+// Lindrake.Api — Embedding Provider Configuration Options
 // Selects between the paid OpenAI API and a local ONNX model.
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Which embedding backend the API uses.

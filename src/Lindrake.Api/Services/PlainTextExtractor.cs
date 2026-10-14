@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Plain Text Extractor
+// Lindrake.Api — Plain Text Extractor
 // Reads .txt and .md files as-is (Markdown is kept verbatim:
 // its syntax is readable text and chunks fine).
 // ============================================================
 
 using System.Text;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Extracts text from plain-text and Markdown files. Decodes UTF-8 unless a

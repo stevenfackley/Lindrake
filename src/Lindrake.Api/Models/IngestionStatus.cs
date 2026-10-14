@@ -1,9 +1,9 @@
 // ============================================================
-// OmniSift.Api — Ingestion Status Enum
+// Lindrake.Api — Ingestion Status Enum
 // Type-safe replacement for "pending"/"processing"/"completed"/"failed" magic strings
 // ============================================================
 
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 /// <summary>
 /// Represents the processing status of a data source ingestion pipeline.

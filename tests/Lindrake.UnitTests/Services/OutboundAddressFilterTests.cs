@@ -4,9 +4,9 @@
 
 using System.Net;
 using FluentAssertions;
-using OmniSift.Api.Services.Ingestion;
+using Lindrake.Api.Services.Ingestion;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class OutboundAddressFilterTests
 {

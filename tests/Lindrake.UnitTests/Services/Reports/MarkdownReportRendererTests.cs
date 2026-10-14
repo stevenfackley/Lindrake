@@ -5,10 +5,10 @@
 
 using System.Globalization;
 using FluentAssertions;
-using OmniSift.Api.Services.Reports;
-using OmniSift.Shared.DTOs;
+using Lindrake.Api.Services.Reports;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.UnitTests.Services.Reports;
+namespace Lindrake.UnitTests.Services.Reports;
 
 public sealed class MarkdownReportRendererTests
 {

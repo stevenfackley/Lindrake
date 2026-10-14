@@ -1,4 +1,4 @@
-// entityGraph.js — vis-network driver for the OmniSift Entity Graph page
+// entityGraph.js — vis-network driver for the Lindrake Entity Graph page
 
 export function renderGraph(containerId, nodes, edges) {
     const container = document.getElementById(containerId);

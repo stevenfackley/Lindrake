@@ -10,7 +10,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class ErrorHandlingTests : IClassFixture<CustomWebApplicationFactory>
 {

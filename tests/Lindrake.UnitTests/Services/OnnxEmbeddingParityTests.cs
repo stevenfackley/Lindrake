@@ -9,7 +9,7 @@
 //   Run tools/generate_reference_vectors.py in a Python 3.10–3.12
 //   environment with sentence-transformers + torch installed, then:
 //     python tools/generate_reference_vectors.py \
-//       > tests/OmniSift.UnitTests/Services/Fixtures/bge_small_en_v1_5_reference_vectors.json
+//       > tests/Lindrake.UnitTests/Services/Fixtures/bge_small_en_v1_5_reference_vectors.json
 //   Then remove the [Fact(Skip="...")] attribute below.
 //
 // Note: Python 3.14 has no torch wheels as of 2026-06; use 3.10–3.12.
@@ -17,12 +17,12 @@
 
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class OnnxEmbeddingParityTests
 {

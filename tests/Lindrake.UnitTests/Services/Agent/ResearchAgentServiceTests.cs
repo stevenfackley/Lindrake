@@ -4,21 +4,21 @@
 
 using System.ComponentModel;
 using FluentAssertions;
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Agent;
+using Lindrake.Shared.DTOs;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Agent;
-using OmniSift.Shared.DTOs;
-using OmniSift.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Services.Agent;
+namespace Lindrake.UnitTests.Services.Agent;
 
 public sealed class ResearchAgentServiceTests
 {

@@ -1,10 +1,10 @@
 // ============================================================
-// OmniSift.Web — Bearer token message handler
+// Lindrake.Web — Bearer token message handler
 // ============================================================
 
 using System.Net.Http.Headers;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// Attaches <c>Authorization: Bearer &lt;jwt&gt;</c> to every API request while the

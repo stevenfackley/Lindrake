@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Api — Seekable input for extractors that rewind
+// Lindrake.Api — Seekable input for extractors that rewind
 // ============================================================
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 internal static class SeekableStream
 {

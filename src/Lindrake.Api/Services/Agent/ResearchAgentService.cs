@@ -1,5 +1,5 @@
 // ============================================================
-// OmniSift.Api — Research agent
+// Lindrake.Api — Research agent
 // One code path for the buffered and the streamed query endpoints:
 // chat history, execution settings, plugin + citation collection,
 // query-history persistence.
@@ -8,12 +8,12 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Lindrake.Api.Middleware;
+using Lindrake.Shared.DTOs;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using OmniSift.Api.Middleware;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Services.Agent;
+namespace Lindrake.Api.Services.Agent;
 
 /// <summary>Semantic Kernel implementation of <see cref="IResearchAgentService"/>.</summary>
 public sealed class ResearchAgentService(

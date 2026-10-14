@@ -7,9 +7,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class AuthModeTests
 {

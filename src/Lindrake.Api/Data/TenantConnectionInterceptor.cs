@@ -1,16 +1,16 @@
 // ============================================================
-// OmniSift.Api — PostgreSQL tenant session (RLS) on connection open
+// Lindrake.Api — PostgreSQL tenant session (RLS) on connection open
 // ============================================================
 
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
-namespace OmniSift.Api.Data;
+namespace Lindrake.Api.Data;
 
 /// <summary>
 /// Sets <c>app.current_tenant</c> — the session variable the Row-Level Security
 /// policies read — every time EF opens a connection for an
-/// <see cref="OmniSiftDbContext"/> whose tenant is bound.
+/// <see cref="LindrakeDbContext"/> whose tenant is bound.
 /// <para>
 /// Hooking the open (rather than opening the connection up front per request)
 /// means a connection is held only while EF actually needs it — not across LLM
@@ -56,7 +56,7 @@ public sealed class TenantConnectionInterceptor : DbConnectionInterceptor
     }
 
     private static Guid? TenantOf(ConnectionEndEventData eventData) =>
-        (eventData?.Context as OmniSiftDbContext)?.TenantContext.CurrentTenantId;
+        (eventData?.Context as LindrakeDbContext)?.TenantContext.CurrentTenantId;
 
     private static DbCommand CreateCommand(DbConnection connection, Guid tenantId)
     {

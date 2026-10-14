@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Query history persistence for agent runs
+// Lindrake.Api — Query history persistence for agent runs
 // ============================================================
 
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
 
-namespace OmniSift.Api.Services.Agent;
+namespace Lindrake.Api.Services.Agent;
 
 /// <summary>Persists a finished agent run to the tenant's query history and audit log.</summary>
 public interface IQueryHistoryRecorder
@@ -20,9 +20,9 @@ public interface IQueryHistoryRecorder
     Task RecordAsync(string queryText, AgentRunResult result, string auditAction);
 }
 
-/// <summary>EF Core implementation over the request's <see cref="OmniSiftDbContext"/>.</summary>
+/// <summary>EF Core implementation over the request's <see cref="LindrakeDbContext"/>.</summary>
 public sealed class QueryHistoryRecorder(
-    OmniSiftDbContext dbContext,
+    LindrakeDbContext dbContext,
     ITenantContext tenantContext,
     IAuditLogger auditLogger) : IQueryHistoryRecorder
 {

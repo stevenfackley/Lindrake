@@ -1,10 +1,22 @@
 // ============================================================
-// OmniSift.Api — Service registration modules
+// Lindrake.Api — Service registration modules
 // One extension per concern; Program.cs composes them.
 // ============================================================
 
 using System.Net.Http.Headers;
 using System.Threading.RateLimiting;
+using Lindrake.Api.Data;
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Options;
+using Lindrake.Api.Plugins;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Agent;
+using Lindrake.Api.Services.Extraction;
+using Lindrake.Api.Services.Ingestion;
+using Lindrake.Api.Services.Reports;
+using Lindrake.Api.Services.Search;
+using Lindrake.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,18 +27,6 @@ using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
-using OmniSift.Api.Data;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Options;
-using OmniSift.Api.Plugins;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Agent;
-using OmniSift.Api.Services.Extraction;
-using OmniSift.Api.Services.Ingestion;
-using OmniSift.Api.Services.Reports;
-using OmniSift.Api.Services.Search;
-using OmniSift.Shared;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -35,7 +35,7 @@ using Serilog;
 using Serilog.Events;
 using CorsPolicyOptions = Microsoft.AspNetCore.Cors.Infrastructure.CorsOptions;
 
-namespace OmniSift.Api.Extensions;
+namespace Lindrake.Api.Extensions;
 
 public static class ServiceCollectionExtensions
 {
@@ -55,7 +55,7 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
 
     /// <summary>Serilog (JSON console) + OpenTelemetry tracing and metrics.</summary>
-    public static IServiceCollection AddOmniSiftObservability(
+    public static IServiceCollection AddLindrakeObservability(
         this IServiceCollection services,
         IConfiguration configuration,
         IHostEnvironment environment)
@@ -83,7 +83,7 @@ public static class ServiceCollectionExtensions
         var useConsoleExporter = environment.IsDevelopment() || !useOtlpExporter;
 
         services.AddOpenTelemetry()
-            .ConfigureResource(resource => resource.AddService("OmniSift.Api"))
+            .ConfigureResource(resource => resource.AddService("Lindrake.Api"))
             .WithTracing(tracing =>
             {
                 tracing
@@ -113,7 +113,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>EF Core (Npgsql + pgvector), tenant context and audit logging.</summary>
-    public static IServiceCollection AddOmniSiftPersistence(
+    public static IServiceCollection AddLindrakePersistence(
         this IServiceCollection services,
         IConfiguration configuration)
     {
@@ -124,7 +124,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<TimestampInterceptor>();
 
-        services.AddDbContext<OmniSiftDbContext>((sp, options) =>
+        services.AddDbContext<LindrakeDbContext>((sp, options) =>
             options.UseNpgsql(
                 configuration.GetConnectionString("DefaultConnection"),
                 npgsql =>
@@ -148,7 +148,7 @@ public static class ServiceCollectionExtensions
     /// resolution from <see cref="EmbeddingOptions.Provider"/>, so neither
     /// backend is constructed unless selected.
     /// </summary>
-    public static IServiceCollection AddOmniSiftEmbeddings(this IServiceCollection services)
+    public static IServiceCollection AddLindrakeEmbeddings(this IServiceCollection services)
     {
         services.AddValidatedOptions<EmbeddingOptions>(EmbeddingOptions.Section);
         services.AddValidatedOptions<OpenAiOptions>(OpenAiOptions.Section);
@@ -184,7 +184,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>Text extraction, chunking and the async ingestion pipeline.</summary>
-    public static IServiceCollection AddOmniSiftIngestion(this IServiceCollection services)
+    public static IServiceCollection AddLindrakeIngestion(this IServiceCollection services)
     {
         services.AddValidatedOptions<IngestionOptions>(IngestionOptions.Section);
 
@@ -195,7 +195,7 @@ public static class ServiceCollectionExtensions
             client.Timeout = WebPageFetcher.Timeout;
             client.MaxResponseContentBufferSize =
                 sp.GetRequiredService<IOptions<IngestionOptions>>().Value.MaxWebPageBytes;
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("OmniSift/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Lindrake/1.0");
         })
         .ConfigurePrimaryHttpMessageHandler(() => WebPageFetcher.CreatePrimaryHandler())
         .AddStandardResilienceHandler(options =>
@@ -237,7 +237,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>Semantic Kernel, its plugins and the LLM-backed services.</summary>
-    public static IServiceCollection AddOmniSiftAgent(this IServiceCollection services)
+    public static IServiceCollection AddLindrakeAgent(this IServiceCollection services)
     {
         services.AddValidatedOptions<AnthropicOptions>(AnthropicOptions.Section);
         services.AddValidatedOptions<TavilyOptions>(TavilyOptions.Section);
@@ -321,7 +321,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>Research report rendering (Markdown, PDF) and the clock it stamps reports with.</summary>
-    public static IServiceCollection AddOmniSiftReports(this IServiceCollection services)
+    public static IServiceCollection AddLindrakeReports(this IServiceCollection services)
     {
         // QuestPDF refuses to render until a license is chosen. Process-wide; set once, here.
         QuestPDF.Settings.License = LicenseType.Community;
@@ -355,7 +355,7 @@ public static class ServiceCollectionExtensions
     /// Jwt:AllowLocalIdentityProvider is set with a unique 32+ byte secret
     /// (JwtOptionsValidator), and AuthController only exists while it is active.
     /// </summary>
-    public static IServiceCollection AddOmniSiftAuth(this IServiceCollection services)
+    public static IServiceCollection AddLindrakeAuth(this IServiceCollection services)
     {
         services.AddValidatedOptions<JwtOptions>(JwtOptions.Section);
         services.AddValidatedOptions<SupabaseOptions>(SupabaseOptions.Section);
@@ -440,7 +440,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>Per-tenant token-bucket rate limiting.</summary>
-    public static IServiceCollection AddOmniSiftRateLimiting(this IServiceCollection services)
+    public static IServiceCollection AddLindrakeRateLimiting(this IServiceCollection services)
     {
         services.AddValidatedOptions<RateLimitingOptions>(RateLimitingOptions.Section);
 
@@ -471,7 +471,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>Controllers, ProblemDetails, health checks, Swagger, JSON and CORS.</summary>
-    public static IServiceCollection AddOmniSiftApi(this IServiceCollection services)
+    public static IServiceCollection AddLindrakeApi(this IServiceCollection services)
     {
         services.AddValidatedOptions<Options.CorsOptions>(Options.CorsOptions.Section);
 
@@ -479,19 +479,19 @@ public static class ServiceCollectionExtensions
         services.AddExceptionHandler<GlobalExceptionHandler>();
         // GET /health — 200 "Healthy" / 503 "Unhealthy" incl. database reachability.
         services.AddHealthChecks()
-            .AddDbContextCheck<OmniSiftDbContext>();
+            .AddDbContextCheck<LindrakeDbContext>();
 
         // Source-generated metadata for the shared DTOs; types outside the context
         // (ProblemDetails, anonymous objects) fall through to the reflection resolver.
         services.AddControllers()
             .AddJsonOptions(opts =>
-                opts.JsonSerializerOptions.TypeInfoResolverChain.Insert(0, OmniSiftJsonContext.Default));
+                opts.JsonSerializerOptions.TypeInfoResolverChain.Insert(0, LindrakeJsonContext.Default));
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new()
             {
-                Title = "OmniSift API",
+                Title = "Lindrake API",
                 Version = "v1",
                 Description = "Multi-tenant AI research agent API with document ingestion and semantic search."
             });
@@ -500,7 +500,7 @@ public static class ServiceCollectionExtensions
         // Same for Results/WriteAsJsonAsync/ProblemDetails writer (HTTP JSON options;
         // MVC ignores these, hence AddJsonOptions above).
         services.ConfigureHttpJsonOptions(opts =>
-            opts.SerializerOptions.TypeInfoResolverChain.Insert(0, OmniSiftJsonContext.Default));
+            opts.SerializerOptions.TypeInfoResolverChain.Insert(0, LindrakeJsonContext.Default));
 
         // CORS (allow Blazor frontend) — origins from strongly-typed options.
         services.AddCors();

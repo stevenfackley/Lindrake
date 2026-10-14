@@ -1,10 +1,10 @@
 // ============================================================
-// OmniSift.Api — IngestionStatus wire/database strings
+// Lindrake.Api — IngestionStatus wire/database strings
 // ============================================================
 
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 /// <summary>
 /// The one mapping between <see cref="IngestionStatus"/> and its lowercase string

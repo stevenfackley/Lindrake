@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Api — Local (HS256) identity provider endpoint gate
+// Lindrake.Api — Local (HS256) identity provider endpoint gate
 // ============================================================
 
+using Lindrake.Api.Controllers;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
-using OmniSift.Api.Controllers;
 
-namespace OmniSift.Api.Infrastructure;
+namespace Lindrake.Api.Infrastructure;
 
 /// <summary>
 /// Removes <see cref="AuthController"/> (in-house register/login) from the

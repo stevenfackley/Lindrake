@@ -1,17 +1,17 @@
 // ============================================================
-// OmniSift.Api — Startup tasks and HTTP middleware pipeline
+// Lindrake.Api — Startup tasks and HTTP middleware pipeline
 // ============================================================
 
+using Lindrake.Api.Data;
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Options;
+using Lindrake.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Data;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Options;
-using OmniSift.Api.Services;
 using Serilog;
 
-namespace OmniSift.Api.Extensions;
+namespace Lindrake.Api.Extensions;
 
 public static class WebApplicationExtensions
 {
@@ -20,7 +20,7 @@ public static class WebApplicationExtensions
     /// Skipped in Testing — integration tests use InMemory, which doesn't support
     /// Migrate(); seeding is handled by CustomWebApplicationFactory.CreateHost.
     /// </summary>
-    public static WebApplication InitializeOmniSift(this WebApplication app)
+    public static WebApplication InitializeLindrake(this WebApplication app)
     {
         if (app.Environment.IsTesting())
             return app;
@@ -30,7 +30,7 @@ public static class WebApplicationExtensions
         app.Services.GetService<IStartupValidator>()?.Validate();
 
         using var scope = app.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>().Database.Migrate();
+        scope.ServiceProvider.GetRequiredService<LindrakeDbContext>().Database.Migrate();
 
         // Fail fast: force the ONNX model to load at startup (mirrors Migrate()
         // above) so a misconfigured local provider refuses to boot rather than
@@ -43,7 +43,7 @@ public static class WebApplicationExtensions
     }
 
     /// <summary>Middleware pipeline and endpoint mapping.</summary>
-    public static WebApplication UseOmniSiftPipeline(this WebApplication app)
+    public static WebApplication UseLindrakePipeline(this WebApplication app)
     {
         app.UseExceptionHandler();
 

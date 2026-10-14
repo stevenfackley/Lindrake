@@ -4,9 +4,9 @@
 
 using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class WebIngestionRequestTests
 {

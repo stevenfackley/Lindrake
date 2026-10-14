@@ -3,7 +3,7 @@ using Pgvector;
 
 #nullable disable
 
-namespace OmniSift.Api.Data.Migrations
+namespace Lindrake.Api.Data.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration

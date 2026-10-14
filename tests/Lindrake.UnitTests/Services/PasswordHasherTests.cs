@@ -1,7 +1,7 @@
 using FluentAssertions;
-using OmniSift.Api.Services;
+using Lindrake.Api.Services;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class PasswordHasherTests
 {

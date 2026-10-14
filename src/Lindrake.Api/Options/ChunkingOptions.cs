@@ -1,10 +1,10 @@
 // ============================================================
-// OmniSift.Api — Chunking configuration options
+// Lindrake.Api — Chunking configuration options
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Chunk sizing, in tokens of the active embedding model (see ITokenCounter).

@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Api — Research agent configuration options
+// Lindrake.Api — Research agent configuration options
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Server-side limits for the research agent.

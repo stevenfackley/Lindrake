@@ -1,4 +1,4 @@
-namespace OmniSift.Web.ViewModels;
+namespace Lindrake.Web.ViewModels;
 
 /// <summary>How a <see cref="StatusMessage"/> is presented (the <c>alert-*</c> CSS classes).</summary>
 public enum AlertKind

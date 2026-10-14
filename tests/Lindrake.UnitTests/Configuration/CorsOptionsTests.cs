@@ -5,13 +5,13 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Extensions;
 using CorsPolicyOptions = Microsoft.AspNetCore.Cors.Infrastructure.CorsOptions;
 
-namespace OmniSift.UnitTests.Configuration;
+namespace Lindrake.UnitTests.Configuration;
 
 public sealed class CorsOptionsTests
 {
@@ -48,7 +48,7 @@ public sealed class CorsOptionsTests
         using var sp = new ServiceCollection()
             .AddLogging()
             .AddSingleton<IConfiguration>(config)
-            .AddOmniSiftApi()
+            .AddLindrakeApi()
             .BuildServiceProvider();
 
         var cors = sp.GetRequiredService<IOptions<CorsPolicyOptions>>().Value;

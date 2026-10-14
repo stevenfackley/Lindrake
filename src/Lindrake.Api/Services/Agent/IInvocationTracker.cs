@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Plugin invocation tracking
+// Lindrake.Api — Plugin invocation tracking
 // Scoped per-request collector (same pattern as ICitationAccumulator)
 // fed by an auto-function-invocation filter on the request's Kernel.
 // ============================================================
 
 using Microsoft.SemanticKernel;
 
-namespace OmniSift.Api.Services.Agent;
+namespace Lindrake.Api.Services.Agent;
 
 /// <summary>Per-request record of the kernel plugins the model invoked.</summary>
 public interface IInvocationTracker

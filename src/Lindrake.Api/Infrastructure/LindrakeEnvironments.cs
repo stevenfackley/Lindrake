@@ -1,13 +1,13 @@
 // ============================================================
-// OmniSift.Api — Hosting environment names
+// Lindrake.Api — Hosting environment names
 // ============================================================
 
-namespace OmniSift.Api.Infrastructure;
+namespace Lindrake.Api.Infrastructure;
 
 /// <summary>
 /// Environment names beyond the framework's Development/Staging/Production.
 /// </summary>
-public static class OmniSiftEnvironments
+public static class LindrakeEnvironments
 {
     /// <summary>
     /// Integration-test host (CustomWebApplicationFactory). InMemory database,

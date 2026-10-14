@@ -1,10 +1,10 @@
 using FluentAssertions;
+using Lindrake.Api.Services;
+using Lindrake.Api.Services.Extraction;
+using Lindrake.Web.Services;
 using Moq;
-using OmniSift.Api.Services;
-using OmniSift.Api.Services.Extraction;
-using OmniSift.Web.Services;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 public sealed class UploadContentTypesTests
 {

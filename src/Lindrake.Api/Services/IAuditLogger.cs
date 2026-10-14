@@ -1,4 +1,4 @@
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 public interface IAuditLogger
 {

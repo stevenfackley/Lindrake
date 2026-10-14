@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using FluentAssertions;
 
-namespace OmniSift.UnitTests.Web;
+namespace Lindrake.UnitTests.Web;
 
 /// <summary>Third-party scripts in the Blazor host page must be pinned with Subresource Integrity.</summary>
 public sealed partial class IndexHtmlTests

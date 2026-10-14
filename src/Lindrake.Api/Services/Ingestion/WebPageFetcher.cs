@@ -1,14 +1,14 @@
 // ============================================================
-// OmniSift.Api — Web page fetcher (SSRF-guarded)
+// Lindrake.Api — Web page fetcher (SSRF-guarded)
 // Downloads a user-supplied URL for web ingestion without
 // letting it reach internal or cloud-metadata addresses.
 // ============================================================
 
 using System.Net;
 using System.Net.Sockets;
-using OmniSift.Api.Infrastructure;
+using Lindrake.Api.Infrastructure;
 
-namespace OmniSift.Api.Services.Ingestion;
+namespace Lindrake.Api.Services.Ingestion;
 
 /// <summary>Downloads a web page for ingestion.</summary>
 public interface IWebPageFetcher

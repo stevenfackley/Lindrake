@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Api — Ingestion Channel
+// Lindrake.Api — Ingestion Channel
 // Bounded System.Threading.Channels queue that decouples
 // the upload endpoint from the ingestion pipeline.
 // ============================================================
 
 using System.Threading.Channels;
 
-namespace OmniSift.Api.Services;
+namespace Lindrake.Api.Services;
 
 /// <summary>
 /// Wraps a bounded Channel of <see cref="IngestionWorkItem"/>.

@@ -1,21 +1,21 @@
 // ============================================================
 // Integration Tests — MVC JSON serialization
 // Controllers serialize DTOs through the source-generated
-// OmniSiftJsonContext with camelCase names; types outside it
+// LindrakeJsonContext with camelCase names; types outside it
 // (ProblemDetails, anonymous objects) still fall back to reflection.
 // ============================================================
 
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Models;
+using Lindrake.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using OmniSift.Api.Data;
-using OmniSift.Api.Models;
-using OmniSift.Shared;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class JsonSerializationTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -29,7 +29,7 @@ public sealed class JsonSerializationTests : IClassFixture<CustomWebApplicationF
         var options = _factory.Services.GetRequiredService<IOptions<JsonOptions>>().Value.JsonSerializerOptions;
 
         options.TypeInfoResolverChain.Should().HaveCountGreaterThan(1, "reflection fallback must remain for ProblemDetails");
-        options.TypeInfoResolverChain[0].Should().BeSameAs(OmniSiftJsonContext.Default);
+        options.TypeInfoResolverChain[0].Should().BeSameAs(LindrakeJsonContext.Default);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public sealed class JsonSerializationTests : IClassFixture<CustomWebApplicationF
         Guid id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+            var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
             var source = new DataSource
             {
                 TenantId = tenantId,

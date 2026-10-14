@@ -5,7 +5,7 @@
 using System.Net;
 using System.Text;
 
-namespace OmniSift.UnitTests.TestSupport;
+namespace Lindrake.UnitTests.TestSupport;
 
 /// <summary>
 /// A read-only stream that returns <paramref name="prefix"/> and then either hangs

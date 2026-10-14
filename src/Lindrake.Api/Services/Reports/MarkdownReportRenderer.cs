@@ -1,14 +1,14 @@
 // ============================================================
-// OmniSift.Api — Markdown report renderer
+// Lindrake.Api — Markdown report renderer
 // Pure function: (conversation, citations) → Markdown string.
 // No I/O, no dependencies — fully unit-testable.
 // ============================================================
 
 using System.Globalization;
 using System.Text;
-using OmniSift.Shared.DTOs;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.Api.Services.Reports;
+namespace Lindrake.Api.Services.Reports;
 
 /// <summary>Renders a <see cref="ReportDocument"/> as a Markdown report.</summary>
 public sealed class MarkdownReportRenderer : IReportRenderer<string>

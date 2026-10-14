@@ -1,28 +1,28 @@
 // ============================================================
-// OmniSift.Api — Entity Framework Core DbContext
+// Lindrake.Api — Entity Framework Core DbContext
 // Configured for PostgreSQL + pgvector with multi-tenancy
 // ============================================================
 
 using System.Linq.Expressions;
 using System.Text.Json;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.Shared;
+using Lindrake.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.Shared;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Data;
+namespace Lindrake.Api.Data;
 
 /// <summary>
-/// Primary database context for OmniSift.
+/// Primary database context for Lindrake.
 /// Configures entity mappings for PostgreSQL with pgvector support.
 /// Tenant isolation has two layers: a global query filter on every
 /// <see cref="ITenantOwned"/> entity (scoped to the injected
 /// <see cref="ITenantContext"/>), and PostgreSQL RLS policies keyed on the
 /// <c>app.current_tenant</c> session variable.
 /// </summary>
-public class OmniSiftDbContext : DbContext
+public class LindrakeDbContext : DbContext
 {
     /// <summary>
     /// Name of the tenant query filter, for targeted
@@ -31,7 +31,7 @@ public class OmniSiftDbContext : DbContext
     /// </summary>
     public const string TenantFilter = "Tenant";
 
-    public OmniSiftDbContext(DbContextOptions<OmniSiftDbContext> options, ITenantContext tenantContext)
+    public LindrakeDbContext(DbContextOptions<LindrakeDbContext> options, ITenantContext tenantContext)
         : base(options)
     {
         ArgumentNullException.ThrowIfNull(tenantContext);
@@ -166,8 +166,8 @@ public class OmniSiftDbContext : DbContext
                     v => JsonSerializer.Deserialize<List<string>>(v, JsonSerializerOptions.Default) ?? new List<string>());
             entity.Property(e => e.Sources).HasColumnName("sources").HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb")
                 .HasConversion(
-                    v => JsonSerializer.Serialize(v, OmniSiftJsonContext.Default.ListSourceCitation),
-                    v => JsonSerializer.Deserialize(v, OmniSiftJsonContext.Default.ListSourceCitation) ?? new List<SourceCitation>());
+                    v => JsonSerializer.Serialize(v, LindrakeJsonContext.Default.ListSourceCitation),
+                    v => JsonSerializer.Deserialize(v, LindrakeJsonContext.Default.ListSourceCitation) ?? new List<SourceCitation>());
             entity.Property(e => e.DurationMs).HasColumnName("duration_ms");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
 

@@ -12,13 +12,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using FluentAssertions;
+using Lindrake.Api.Data;
+using Lindrake.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using OmniSift.Api.Data;
-using OmniSift.Shared.DTOs;
-using static OmniSift.IntegrationTests.ProblemAssertions;
+using static Lindrake.IntegrationTests.ProblemAssertions;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 public sealed class AuthFlowTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -44,7 +44,7 @@ public sealed class AuthFlowTests : IClassFixture<CustomWebApplicationFactory>
         auth.ExpiresAt.Should().BeAfter(DateTime.UtcNow);
 
         using var scope = _factory.CreateTenantScope(auth.TenantId);
-        var db = scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         (await db.Tenants.AnyAsync(t => t.Id == auth.TenantId)).Should().BeTrue();
         (await db.Users.SingleAsync()).Email.Should().Be(email);
     }

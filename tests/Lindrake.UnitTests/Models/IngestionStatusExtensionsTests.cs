@@ -5,10 +5,10 @@
 // ============================================================
 
 using FluentAssertions;
-using OmniSift.Api.Models;
-using OmniSift.Shared.DTOs;
+using Lindrake.Api.Models;
+using Lindrake.Shared.DTOs;
 
-namespace OmniSift.UnitTests.Models;
+namespace Lindrake.UnitTests.Models;
 
 public sealed class IngestionStatusExtensionsTests
 {

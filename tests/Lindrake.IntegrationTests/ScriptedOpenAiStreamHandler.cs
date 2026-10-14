@@ -8,7 +8,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.SemanticKernel;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 /// <summary>
 /// HTTP handler impersonating the OpenAI chat-completions endpoint in streaming

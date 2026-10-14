@@ -2,7 +2,7 @@
 // Unit Tests — a clock that only moves when told to
 // ============================================================
 
-namespace OmniSift.UnitTests.TestSupport;
+namespace Lindrake.UnitTests.TestSupport;
 
 /// <summary>
 /// <see cref="TimeProvider"/> whose time advances only through <see cref="Advance"/>,

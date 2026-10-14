@@ -1,8 +1,8 @@
 // ============================================================
-// OmniSift.Shared — Ingestion status wire strings
+// Lindrake.Shared — Ingestion status wire strings
 // ============================================================
 
-namespace OmniSift.Shared.DTOs;
+namespace Lindrake.Shared.DTOs;
 
 /// <summary>
 /// The values of <see cref="DataSourceDto.Status"/> and <see cref="IngestionResponse.Status"/>

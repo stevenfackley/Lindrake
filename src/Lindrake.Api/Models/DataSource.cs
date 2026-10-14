@@ -1,9 +1,9 @@
 // ============================================================
-// OmniSift.Api — DataSource Entity
+// Lindrake.Api — DataSource Entity
 // Represents an uploaded/ingested data source
 // ============================================================
 
-namespace OmniSift.Api.Models;
+namespace Lindrake.Api.Models;
 
 /// <summary>
 /// Tracks every uploaded or ingested data source for a tenant.

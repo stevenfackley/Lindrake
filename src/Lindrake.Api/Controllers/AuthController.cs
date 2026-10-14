@@ -1,20 +1,20 @@
 using System.Text.RegularExpressions;
+using Lindrake.Api.Data;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
+using Lindrake.Api.Services;
+using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Data;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Models;
-using OmniSift.Api.Services;
-using OmniSift.Shared.DTOs;
 
-namespace OmniSift.Api.Controllers;
+namespace Lindrake.Api.Controllers;
 
 [ApiController]
 [AllowAnonymous]
 [Route("api/[controller]")]
 public sealed class AuthController(
-    OmniSiftDbContext dbContext,
+    LindrakeDbContext dbContext,
     ITenantContext tenantContext,
     IPasswordHasher passwordHasher,
     JwtTokenService jwtTokenService) : ControllerBase
@@ -27,7 +27,7 @@ public sealed class AuthController(
         // Emails are unique across ALL tenants (unique index) and no tenant exists
         // yet, so this check must see every tenant's users: bypass the tenant filter.
         var emailExists = await dbContext.Users
-            .IgnoreQueryFilters([OmniSiftDbContext.TenantFilter])
+            .IgnoreQueryFilters([LindrakeDbContext.TenantFilter])
             .AnyAsync(u => u.Email == request.Email, cancellationToken)
             .ConfigureAwait(false);
         if (emailExists)

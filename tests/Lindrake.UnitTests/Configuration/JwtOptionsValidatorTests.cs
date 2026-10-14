@@ -6,12 +6,12 @@
 
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Api.Options;
 using Microsoft.Extensions.Hosting;
 using Moq;
-using OmniSift.Api.Options;
 using MsOptions = Microsoft.Extensions.Options.Options;
 
-namespace OmniSift.UnitTests.Configuration;
+namespace Lindrake.UnitTests.Configuration;
 
 public sealed class JwtOptionsValidatorTests
 {

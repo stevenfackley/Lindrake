@@ -6,13 +6,13 @@
 
 using System.Text;
 using FluentAssertions;
+using Lindrake.Api.Services.Agent;
+using Lindrake.Shared.DTOs;
+using Lindrake.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
-using OmniSift.Api.Services.Agent;
-using OmniSift.Shared.DTOs;
-using OmniSift.Web.Services;
 
-namespace OmniSift.UnitTests.Services.Agent;
+namespace Lindrake.UnitTests.Services.Agent;
 
 public sealed class AgentSseWriterTests
 {

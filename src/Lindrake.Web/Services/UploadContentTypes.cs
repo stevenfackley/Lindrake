@@ -1,14 +1,14 @@
 // ============================================================
-// OmniSift.Web — MIME type of an uploaded file
+// Lindrake.Web — MIME type of an uploaded file
 // ============================================================
 
 using System.Collections.Frozen;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// The MIME type to send with an upload. Browsers report nothing (or something
-/// generic) for many of the formats OmniSift ingests, so the extension decides
+/// generic) for many of the formats Lindrake ingests, so the extension decides
 /// for those; the table matches the API's TextExtractorRegistry.
 /// </summary>
 public static class UploadContentTypes

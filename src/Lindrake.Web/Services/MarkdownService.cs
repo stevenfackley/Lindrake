@@ -1,12 +1,12 @@
 // ============================================================
-// OmniSift.Web — MarkdownService
+// Lindrake.Web — MarkdownService
 // Renders markdown to safe HTML using Markdig.
 // Raw inline HTML is DISABLED to prevent XSS from model output.
 // ============================================================
 
 using Markdig;
 
-namespace OmniSift.Web.Services;
+namespace Lindrake.Web.Services;
 
 /// <summary>
 /// Converts markdown text to sanitised HTML.

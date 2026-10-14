@@ -5,13 +5,13 @@
 using System.Net;
 using System.Security.Claims;
 using FluentAssertions;
+using Lindrake.Api.Middleware;
+using Lindrake.Api.Services;
+using Lindrake.UnitTests.TestSupport;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using OmniSift.Api.Middleware;
-using OmniSift.Api.Services;
-using OmniSift.UnitTests.TestSupport;
 
-namespace OmniSift.UnitTests.Services;
+namespace Lindrake.UnitTests.Services;
 
 public sealed class AuditLoggerTests
 {

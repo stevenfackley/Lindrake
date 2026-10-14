@@ -1,11 +1,11 @@
 // ============================================================
-// OmniSift.Shared — Data Source DTOs
+// Lindrake.Shared — Data Source DTOs
 // Shared contracts between API and Frontend
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 
-namespace OmniSift.Shared.DTOs;
+namespace Lindrake.Shared.DTOs;
 
 /// <summary>
 /// Represents a data source record returned from the API.

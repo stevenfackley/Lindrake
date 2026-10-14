@@ -6,14 +6,14 @@
 using System.Security.Claims;
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Api.Infrastructure;
+using Lindrake.Api.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
-using OmniSift.Api.Infrastructure;
-using OmniSift.Api.Middleware;
 
-namespace OmniSift.UnitTests.Middleware;
+namespace Lindrake.UnitTests.Middleware;
 
 public sealed class TenantMiddlewareTests
 {

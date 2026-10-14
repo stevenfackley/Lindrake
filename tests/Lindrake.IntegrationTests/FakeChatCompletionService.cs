@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
-namespace OmniSift.IntegrationTests;
+namespace Lindrake.IntegrationTests;
 
 /// <summary>
 /// <see cref="IChatCompletionService"/> that answers with fixed text chunks

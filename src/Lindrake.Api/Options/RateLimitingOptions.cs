@@ -1,10 +1,10 @@
 // ============================================================
-// OmniSift.Api — Rate limiting configuration options
+// Lindrake.Api — Rate limiting configuration options
 // ============================================================
 
 using System.ComponentModel.DataAnnotations;
 
-namespace OmniSift.Api.Options;
+namespace Lindrake.Api.Options;
 
 /// <summary>
 /// Per-tenant token bucket applied to the data endpoints.
