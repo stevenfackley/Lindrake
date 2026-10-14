@@ -8,6 +8,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +54,8 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
     [InlineData("page.html", "web")]
     [InlineData("letter.docx", "docx")]
     [InlineData("mail.eml", "email")]
+    [InlineData("notes.txt", "text")]
+    [InlineData("clipping.md", "text")]
     public async Task Upload_OctetStreamWithKnownExtension_ResolvesSourceTypeFromExtension(string fileName, string sourceType)
     {
         var tenantId = Guid.NewGuid();
@@ -75,6 +78,33 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
 
         await ShouldBeProblemAsync(response, HttpStatusCode.BadRequest);
         (await CountDataSourcesAsync(tenantId)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Upload_PlainText_IsIngestedIntoChunks()
+    {
+        // The Web Home page's sample corpus uploads .txt/.md with their real MIME types.
+        var tenantId = Guid.NewGuid();
+        var file = new ByteArrayContent(Encoding.UTF8.GetBytes(
+            "INVESTIGATION NOTES\r\nSubject: John Doe\r\nDOB: 1975-03-12\r\n\r\nLast known address: 42 Elm St"));
+        file.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        using var content = new MultipartFormDataContent { { file, "file", "sample-investigation.txt" } };
+
+        var response = await _factory.CreateTenantClient(tenantId).PostAsync("/api/datasources/upload", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var body = (await response.Content.ReadFromJsonAsync<IngestionResponse>())!;
+        var row = await WaitForIngestionAsync(tenantId, body.DataSourceId);
+        row.SourceType.Should().Be("text");
+        row.Status.Should().Be(IngestionStatus.Completed, row.ErrorMessage);
+
+        using var scope = _factory.CreateTenantScope(tenantId);
+        var chunks = await scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>().DocumentChunks
+            .Where(c => c.DataSourceId == body.DataSourceId)
+            .Select(c => c.Content)
+            .ToListAsync();
+        chunks.Should().NotBeEmpty();
+        string.Concat(chunks).Should().Contain("Subject: John Doe").And.NotContain("\r");
     }
 
     [Fact]
@@ -189,6 +219,23 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         using var content = new MultipartFormDataContent { { file, "file", fileName } };
         return await _factory.CreateTenantClient(tenantId).PostAsync("/api/datasources/upload", content);
+    }
+
+    /// <summary>Polls the row until the background worker finishes it (or 15 s pass).</summary>
+    private async Task<DataSource> WaitForIngestionAsync(Guid tenantId, Guid id)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (true)
+        {
+            using var scope = _factory.CreateTenantScope(tenantId);
+            var row = await scope.ServiceProvider.GetRequiredService<OmniSiftDbContext>().DataSources
+                .AsNoTracking()
+                .SingleAsync(ds => ds.Id == id);
+            if (row.Status is IngestionStatus.Completed or IngestionStatus.Failed || DateTime.UtcNow > deadline)
+                return row;
+
+            await Task.Delay(50);
+        }
     }
 
     private async Task<int> CountDataSourcesAsync(Guid tenantId)

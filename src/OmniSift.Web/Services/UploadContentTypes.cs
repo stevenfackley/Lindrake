@@ -26,7 +26,9 @@ public static class UploadContentTypes
             [".htm"] = "text/html",
             [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             [".eml"] = "message/rfc822",
-            [".mbox"] = "application/mbox"
+            [".mbox"] = "application/mbox",
+            [".txt"] = "text/plain",
+            [".md"] = "text/markdown"
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

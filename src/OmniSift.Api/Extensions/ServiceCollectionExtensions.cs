@@ -220,6 +220,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITextExtractor, WebTextExtractor>();
         services.AddSingleton<ITextExtractor, DocxTextExtractor>();
         services.AddSingleton<ITextExtractor, EmailTextExtractor>();
+        services.AddSingleton<ITextExtractor, PlainTextExtractor>();
         services.AddSingleton<ITextExtractorRegistry, TextExtractorRegistry>();
 
         // One pipeline for both paths: the synchronous web endpoint and the

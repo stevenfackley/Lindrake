@@ -16,10 +16,10 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
             <div>
                 <InputFile OnChange="HandleFileSelected" class="form-input"
-                           accept=".pdf,.csv,.json,.html,.htm,.docx,.eml,.mbox"
+                           accept=".pdf,.csv,.json,.html,.htm,.docx,.eml,.mbox,.txt,.md"
                            disabled="@_vm.IsSubmitting" />
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;">
-                    Supported: PDF, DOCX, CSV/JSON (SMS), HTML, Email (EML/MBOX) — Max 50 MB
+                    Supported: PDF, DOCX, CSV/JSON (SMS), HTML, Email (EML/MBOX), Text (TXT/MD) — Max 50 MB
                 </p>
                 @if (_selectedFile is not null)
                 {

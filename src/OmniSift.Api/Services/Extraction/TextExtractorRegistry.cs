@@ -45,7 +45,9 @@ public sealed class TextExtractorRegistry : ITextExtractorRegistry
             ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] = SourceTypes.Docx,
             ["application/msword"] = SourceTypes.Docx,
             ["message/rfc822"] = SourceTypes.Email,
-            ["application/mbox"] = SourceTypes.Email
+            ["application/mbox"] = SourceTypes.Email,
+            ["text/plain"] = SourceTypes.Text,
+            ["text/markdown"] = SourceTypes.Text
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     private static readonly FrozenDictionary<string, string> SourceTypeByExtension =
@@ -58,7 +60,9 @@ public sealed class TextExtractorRegistry : ITextExtractorRegistry
             [".htm"] = SourceTypes.Web,
             [".docx"] = SourceTypes.Docx,
             [".eml"] = SourceTypes.Email,
-            [".mbox"] = SourceTypes.Email
+            [".mbox"] = SourceTypes.Email,
+            [".txt"] = SourceTypes.Text,
+            [".md"] = SourceTypes.Text
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     private readonly FrozenDictionary<string, ITextExtractor> _extractors;
