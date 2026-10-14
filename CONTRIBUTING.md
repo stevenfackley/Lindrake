@@ -58,10 +58,12 @@ docker compose --env-file .env.dev up --build
 
 ### Running with Production Config (local)
 
-See `secrets/README.md` for how to populate the required secret files, then:
+See `secrets/README.md` for how to populate the required secret files and write a `.env.prod` (see `docs/DEPLOY.md`). The overlay removes `build` and runs the GHCR images; to run locally built ones instead, build with the base file and point the overlay at them:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+docker compose build api web    # tags omnisift-api:latest and omnisift-web:latest
+IMAGE_API=omnisift-api IMAGE_WEB=omnisift-web \
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 ## Branch & PR Workflow

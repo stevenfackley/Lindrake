@@ -38,7 +38,7 @@ echo "Host=db;Port=5432;Database=omnisift;Username=omnisift_app;Password=your_ap
                                            > secrets/ConnectionStrings__DefaultConnection.txt
 ```
 
-Then follow `docs/DEPLOY.md`: write `.env.prod` (at least `POSTGRES_PASSWORD=` empty and `Supabase__Url` or `JWT__ALLOWLOCALIDENTITYPROVIDER=true`), start `db`, set the `omnisift_app` password to `your_app_password` as the superuser, then:
+Then follow `docs/DEPLOY.md`: write `.env.prod` (at least `POSTGRES_USER`, `POSTGRES_DB`, and `Supabase__Url` or `JWT__ALLOWLOCALIDENTITYPROVIDER=true`), start `db`, set the `omnisift_app` password to `your_app_password` as the superuser, then:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
