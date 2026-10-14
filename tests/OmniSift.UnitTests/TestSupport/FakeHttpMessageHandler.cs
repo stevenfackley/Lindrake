@@ -14,7 +14,8 @@ internal sealed record CapturedRequest(
     string PathAndQuery,
     AuthenticationHeaderValue? Authorization,
     string? Body,
-    string? ContentType);
+    string? ContentType,
+    IReadOnlyList<string> HeaderNames);
 
 /// <summary>
 /// Answers each request with the next scripted response (the last one repeats)
@@ -74,7 +75,8 @@ internal sealed class FakeHttpMessageHandler : HttpMessageHandler
             request.RequestUri!.PathAndQuery,
             request.Headers.Authorization,
             body,
-            request.Content?.Headers.ContentType?.MediaType);
+            request.Content?.Headers.ContentType?.MediaType,
+            [.. request.Headers.Select(h => h.Key)]);
 
         lock (_requests)
             _requests.Add(captured);

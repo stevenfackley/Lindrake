@@ -1,0 +1,28 @@
+@* Renders the routed page, or sends an anonymous visitor of a page that needs a
+   signed-in user (PageAccess) to the login page. Re-evaluates whenever the auth
+   state changes: sign-out, a 401 from the API, or the token expiring. *@
+@implements IDisposable
+@inject AuthStateService Auth
+
+@if (PageAccess.RequiresAuthentication(RouteData.PageType) && !Auth.IsAuthenticated)
+{
+    <RedirectToLogin />
+}
+else
+{
+    <RouteView RouteData="RouteData" DefaultLayout="DefaultLayout" />
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public RouteData RouteData { get; set; } = default!;
+
+    [Parameter]
+    public Type? DefaultLayout { get; set; }
+
+    protected override void OnInitialized() => Auth.OnAuthChanged += HandleAuthChanged;
+
+    private void HandleAuthChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Auth.OnAuthChanged -= HandleAuthChanged;
+}

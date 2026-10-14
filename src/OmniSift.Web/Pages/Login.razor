@@ -1,4 +1,5 @@
 @page "/login"
+@attribute [AllowAnonymous]
 @inject OmniSiftApiClient Api
 @inject AuthStateService Auth
 @inject NavigationManager Nav
@@ -72,6 +73,10 @@
     [SupplyParameterFromQuery(Name = "tenant")]
     public string? TenantQuery { get; set; }
 
+    /// <summary>Where to go after signing in (set by RedirectToLogin).</summary>
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
     private string _email = string.Empty;
     private string _password = string.Empty;
     private string _tenantId = string.Empty;
@@ -85,6 +90,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo(PageAccess.SafeReturnUrl(ReturnUrl));
+            return;
+        }
+
         if (Guid.TryParse(TenantQuery, out var fromQuery) && fromQuery != Guid.Empty)
             _tenantId = fromQuery.ToString();
         else if (await Auth.GetLastTenantIdAsync() is { } last)
@@ -120,8 +131,13 @@
                 return;
             }
 
-            await Auth.SignInAsync(result.Value.Token, result.Value.TenantId);
-            Nav.NavigateTo("");
+            if (!await Auth.SignInAsync(result.Value.Token, result.Value.TenantId))
+            {
+                _error = "Sign-in failed: the server returned a token this app cannot read.";
+                return;
+            }
+
+            Nav.NavigateTo(PageAccess.SafeReturnUrl(ReturnUrl));
         }
         finally
         {

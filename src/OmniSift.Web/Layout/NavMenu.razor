@@ -38,7 +38,7 @@
         }
         else
         {
-            <a href="/login" class="btn btn-outline btn-sm" style="width: 100%; justify-content: center;">
+            <a href="login" class="btn btn-outline btn-sm" style="width: 100%; justify-content: center;">
                 Sign in
             </a>
         }
@@ -58,8 +58,8 @@
 
     private async Task SignOut()
     {
-        await Auth.SignOutAsync().ConfigureAwait(false);
-        Nav.NavigateTo("/");
+        await Auth.SignOutAsync();
+        Nav.NavigateTo("login");
     }
 
     public void Dispose()

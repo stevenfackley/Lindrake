@@ -226,12 +226,15 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
         }
     }
 
-    /// <summary>Reads the ProblemDetails body; a 401 while signed in ends the session.</summary>
+    /// <summary>
+    /// Reads the ProblemDetails body. A 401 ends the session (a no-op when no token
+    /// is stored, e.g. a failed login); routing then redirects to the login page.
+    /// </summary>
     private async Task<ApiError> ReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var error = await ApiProblemReader.ReadAsync(response, cancellationToken).ConfigureAwait(false);
 
-        if (error.IsUnauthorized && auth.IsAuthenticated)
+        if (error.IsUnauthorized)
             await auth.SignOutAsync().ConfigureAwait(false);
 
         return error;

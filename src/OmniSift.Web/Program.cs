@@ -17,6 +17,7 @@ var apiBaseAddress = ApiBaseAddress.Resolve(builder.Configuration["ApiBaseUrl"],
 
 // Singleton: AuthHandler is created in the HTTP client factory's own scope and
 // must share the components' auth state.
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<AuthStateService>();
 builder.Services.AddTransient<AuthHandler>();
 builder.Services.AddHttpClient<OmniSiftApiClient>(client => client.BaseAddress = apiBaseAddress)

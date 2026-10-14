@@ -17,10 +17,11 @@ internal sealed class WebClientHarness : IDisposable
 {
     private readonly HttpClient _http;
 
-    public WebClientHarness(FakeHttpMessageHandler handler)
+    public WebClientHarness(FakeHttpMessageHandler handler, TimeProvider? time = null)
     {
         Handler = handler;
-        Auth = new AuthStateService(Js);
+        Time = time ?? TimeProvider.System;
+        Auth = new AuthStateService(Js, Time);
         _http = new HttpClient(new AuthHandler(Auth) { InnerHandler = handler })
         {
             BaseAddress = new Uri("http://api.test/")
@@ -29,6 +30,7 @@ internal sealed class WebClientHarness : IDisposable
     }
 
     public FakeJsRuntime Js { get; } = new();
+    public TimeProvider Time { get; }
     public AuthStateService Auth { get; }
     public FakeHttpMessageHandler Handler { get; }
     public OmniSiftApiClient Api { get; }
@@ -38,7 +40,7 @@ internal sealed class WebClientHarness : IDisposable
     /// <summary>Signs in with a token that expires in an hour.</summary>
     public Task<string> SignInAsync()
     {
-        var token = TestJwt.Create(DateTimeOffset.UtcNow.AddHours(1), TenantId);
+        var token = TestJwt.Create(Time.GetUtcNow().AddHours(1), TenantId);
         return SignInAsync(token);
     }
 
