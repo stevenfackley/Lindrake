@@ -17,6 +17,7 @@ namespace OmniSift.Shared;
 [JsonSerializable(typeof(AgentQueryResponse))]
 [JsonSerializable(typeof(AgentStreamDeltaEvent))]
 [JsonSerializable(typeof(AgentStreamFinalEvent))]
+[JsonSerializable(typeof(AgentStreamErrorEvent))]
 [JsonSerializable(typeof(ConversationMessage))]
 [JsonSerializable(typeof(SourceCitation))]
 [JsonSerializable(typeof(DataSourceDto))]
