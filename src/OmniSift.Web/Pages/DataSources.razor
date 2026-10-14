@@ -1,4 +1,6 @@
 @page "/datasources"
+@implements IDisposable
+@inject OmniSiftApiClient Api
 
 <PageTitle>OmniSift — Data Sources</PageTitle>
 
@@ -15,15 +17,15 @@
             <div>
                 <InputFile OnChange="HandleFileSelected" class="form-input"
                            accept=".pdf,.csv,.json,.html,.htm,.docx,.eml,.mbox"
-                           disabled="@_uploading" />
+                           disabled="@_vm.IsSubmitting" />
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;">
                     Supported: PDF, DOCX, CSV/JSON (SMS), HTML, Email (EML/MBOX) — Max 50 MB
                 </p>
                 @if (_selectedFile is not null)
                 {
                     <button class="btn btn-primary" style="margin-top: 0.75rem;"
-                            @onclick="UploadFile" disabled="@_uploading">
-                        @if (_uploading)
+                            @onclick="UploadFile" disabled="@_vm.IsSubmitting">
+                        @if (_vm.IsSubmitting)
                         {
                             <span class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></span>
                             <span>Uploading...</span>
@@ -40,20 +42,18 @@
                 <div class="form-group">
                     <label class="form-label">Or ingest a web page URL:</label>
                     <input class="form-input" @bind="_webUrl" placeholder="https://example.com/page"
-                           disabled="@_uploading" />
+                           disabled="@_vm.IsSubmitting" />
                 </div>
                 <button class="btn btn-outline" @onclick="IngestWeb"
-                        disabled="@(_uploading || string.IsNullOrWhiteSpace(_webUrl))">
+                        disabled="@(_vm.IsSubmitting || string.IsNullOrWhiteSpace(_webUrl))">
                     Ingest Web Page
                 </button>
             </div>
         </div>
 
-        @if (!string.IsNullOrWhiteSpace(_uploadMessage))
+        @if (_vm.SubmitStatus is { } status)
         {
-            <div class="alert @(_uploadSuccess ? "alert-success" : "alert-error")" style="margin-top: 1rem;">
-                @_uploadMessage
-            </div>
+            <div class="alert @AlertClass(status.Kind)" style="margin-top: 1rem;">@status.Text</div>
         }
     </div>
 
@@ -61,16 +61,20 @@
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <div class="card-title" style="margin-bottom: 0;">Your Data Sources</div>
-            <button class="btn btn-outline btn-sm" @onclick="LoadDataSources" disabled="@_loading">
+            <button class="btn btn-outline btn-sm" @onclick="_vm.LoadAsync" disabled="@_vm.IsLoading">
                 🔄 Refresh
             </button>
         </div>
 
-        @if (_loading)
+        @if (_vm.LoadError is not null)
+        {
+            <div class="alert alert-error">@_vm.LoadError</div>
+        }
+        else if (_vm.IsLoading && _vm.Items.Count == 0)
         {
             <p style="color: var(--text-muted);">Loading data sources...</p>
         }
-        else if (_dataSources.Count == 0)
+        else if (_vm.Items.Count == 0)
         {
             <p style="color: var(--text-muted);">No data sources yet. Upload a file or ingest a web page to get started.</p>
         }
@@ -88,9 +92,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var source in _dataSources)
+                    @foreach (var source in _vm.Items)
                     {
-                        <tr>
+                        <tr @key="source.Id">
                             <td>
                                 @switch (source.SourceType)
                                 {
@@ -135,133 +139,83 @@
                             <td style="font-size: 0.85rem;">@source.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 <button class="btn btn-danger btn-sm"
-                                        @onclick="() => DeleteSource(source.Id)"
-                                        disabled="@_deleting">
-                                    Delete
+                                        @onclick="() => _vm.DeleteAsync(source.Id)"
+                                        disabled="@(_vm.DeletingId is not null)">
+                                    @(_vm.DeletingId == source.Id ? "Deleting…" : "Delete")
                                 </button>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+
+            @if (_vm.HasMore)
+            {
+                <button class="btn btn-outline btn-sm" style="margin-top: 1rem;"
+                        @onclick="_vm.LoadMoreAsync" disabled="@_vm.IsLoading">
+                    Load more
+                </button>
+            }
         }
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(_error))
+    @if (_vm.DeleteError is not null)
     {
-        <div class="alert alert-error">@_error</div>
+        <div class="alert alert-error">@_vm.DeleteError</div>
     }
 </div>
 
 @code {
-    [Inject] private OmniSiftApiClient Api { get; set; } = default!;
-
-    private List<DataSourceDto> _dataSources = [];
-    private bool _loading = true;
-    private bool _uploading;
-    private bool _deleting;
-    private string? _error;
-    private string? _uploadMessage;
-    private bool _uploadSuccess;
+    private DataSourcesViewModel _vm = default!;
     private IBrowserFile? _selectedFile;
     private string _webUrl = string.Empty;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        await LoadDataSources();
+        _vm = new DataSourcesViewModel(Api);
+        _vm.Changed += HandleChanged;
     }
 
-    private async Task LoadDataSources()
-    {
-        _loading = true;
-        _error = null;
-        StateHasChanged();
+    protected override Task OnInitializedAsync() => _vm.LoadAsync();
 
-        var result = await Api.GetDataSourcesAsync();
-        if (result.IsSuccess)
-            _dataSources = result.Value;
-        else
-            _error = $"Failed to load data sources: {result.Error.Message}";
+    private void HandleChanged() => InvokeAsync(StateHasChanged);
 
-        _loading = false;
-    }
-
-    private void HandleFileSelected(InputFileChangeEventArgs e)
-    {
-        _selectedFile = e.File;
-        _uploadMessage = null;
-    }
+    private void HandleFileSelected(InputFileChangeEventArgs e) => _selectedFile = e.File;
 
     private async Task UploadFile()
     {
-        if (_selectedFile is null) return;
+        if (_selectedFile is not { } file)
+            return;
 
-        _uploading = true;
-        _uploadMessage = null;
-        StateHasChanged();
+        var upload = new UploadFile(
+            file.Name,
+            file.Size,
+            file.ContentType,
+            () => file.OpenReadStream(maxAllowedSize: DataSourcesViewModel.MaxUploadBytes));
 
-        try
-        {
-            var stream = _selectedFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
-            var result = await Api.UploadFileAsync(stream, _selectedFile.Name);
-
-            _uploadSuccess = result.IsSuccess && result.Value.Status != IngestionStatuses.Failed;
-            _uploadMessage = result.IsSuccess ? result.Value.Message : $"Upload failed: {result.Error.Message}";
-
-            if (result.IsSuccess)
-            {
-                _selectedFile = null;
-                await LoadDataSources();
-            }
-        }
-        catch (IOException ex)
-        {
-            // Reading the browser file (e.g. larger than the 50 MB cap).
-            _uploadSuccess = false;
-            _uploadMessage = $"Upload failed: {ex.Message}";
-        }
-        finally
-        {
-            _uploading = false;
-        }
+        if (await _vm.UploadAsync(upload))
+            _selectedFile = null;
     }
 
     private async Task IngestWeb()
     {
-        if (string.IsNullOrWhiteSpace(_webUrl)) return;
-
-        _uploading = true;
-        _uploadMessage = null;
-        StateHasChanged();
-
-        var result = await Api.IngestWebAsync(_webUrl);
-
-        _uploadSuccess = result.IsSuccess && result.Value.Status == IngestionStatuses.Completed;
-        _uploadMessage = result.IsSuccess ? result.Value.Message : $"Web ingestion failed: {result.Error.Message}";
-
-        if (result.IsSuccess)
-        {
+        if (await _vm.IngestWebAsync(_webUrl))
             _webUrl = string.Empty;
-            await LoadDataSources();
-        }
-
-        _uploading = false;
     }
 
-    private async Task DeleteSource(Guid id)
+    private static string AlertClass(AlertKind kind) => kind switch
     {
-        _deleting = true;
-        StateHasChanged();
-
-        var result = await Api.DeleteDataSourceAsync(id);
-        _deleting = false;
-
-        if (result.IsSuccess)
-            await LoadDataSources();
-        else
-            _error = $"Delete failed: {result.Error.Message}";
-    }
+        AlertKind.Success => "alert-success",
+        AlertKind.Error => "alert-error",
+        _ => "alert-info"
+    };
 
     private static string TruncateUrl(string url) =>
         url.Length > 60 ? url[..57] + "..." : url;
+
+    public void Dispose()
+    {
+        _vm.Changed -= HandleChanged;
+        _vm.Dispose();
+    }
 }

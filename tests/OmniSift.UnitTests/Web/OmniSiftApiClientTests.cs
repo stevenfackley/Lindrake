@@ -64,7 +64,7 @@ public sealed class OmniSiftApiClientTests
         var changes = 0;
         harness.Auth.OnAuthChanged += () => changes++;
 
-        var result = await harness.Api.GetDataSourcesAsync();
+        var result = await harness.Api.GetDataSourcesAsync(0, 10);
 
         result.Error!.IsUnauthorized.Should().BeTrue();
         harness.Auth.IsAuthenticated.Should().BeFalse();
@@ -92,7 +92,7 @@ public sealed class OmniSiftApiClientTests
     {
         using var harness = new WebClientHarness(new FakeHttpMessageHandler(_ => throw new HttpRequestException("connection refused")));
 
-        var result = await harness.Api.GetDataSourcesAsync();
+        var result = await harness.Api.GetDataSourcesAsync(0, 10);
 
         result.Error!.StatusCode.Should().Be(0);
         result.Error.IsTransient.Should().BeTrue();
@@ -105,7 +105,7 @@ public sealed class OmniSiftApiClientTests
         using var harness = new WebClientHarness(new FakeHttpMessageHandler(_ =>
             FakeHttpMessageHandler.Json(HttpStatusCode.OK, "<html>not json</html>", "text/html")));
 
-        var result = await harness.Api.GetDataSourcesAsync();
+        var result = await harness.Api.GetDataSourcesAsync(0, 10);
 
         result.Error.Should().Be(ApiError.InvalidResponse(200));
     }
@@ -128,7 +128,7 @@ public sealed class OmniSiftApiClientTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        var act = () => harness.Api.GetDataSourcesAsync(cts.Token);
+        var act = () => harness.Api.GetDataSourcesAsync(0, 10, cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
     }

@@ -43,21 +43,37 @@ public sealed class OmniSiftApiClient(HttpClient httpClient, AuthStateService au
 
     // ── Data Sources ────────────────────────────────────────
 
-    public Task<ApiResult<List<DataSourceDto>>> GetDataSourcesAsync(CancellationToken cancellationToken = default) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Get, "api/datasources"), Json.ListDataSourceDto, cancellationToken);
+    /// <summary>One page of the tenant's data sources, newest first (the API caps <paramref name="take"/> at 500).</summary>
+    public Task<ApiResult<List<DataSourceDto>>> GetDataSourcesAsync(
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default) =>
+        SendAsync(
+            new HttpRequestMessage(HttpMethod.Get, $"api/datasources?skip={skip}&take={take}"),
+            Json.ListDataSourceDto,
+            cancellationToken);
 
     public Task<ApiResult<DataSourceDto>> GetDataSourceAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAsync(new HttpRequestMessage(HttpMethod.Get, $"api/datasources/{id}"), Json.DataSourceDto, cancellationToken);
 
+    /// <summary>
+    /// Uploads a file for background ingestion (202 + status <c>pending</c>; poll
+    /// <see cref="GetDataSourceAsync"/>). <paramref name="contentType"/> is the file's
+    /// real MIME type (see <see cref="UploadContentTypes"/>); <paramref name="sourceType"/>
+    /// overrides the server's detection when set.
+    /// </summary>
     public Task<ApiResult<IngestionResponse>> UploadFileAsync(
         Stream fileStream,
         string fileName,
+        string contentType,
         string? sourceType = null,
         CancellationToken cancellationToken = default)
     {
         var content = new MultipartFormDataContent();
         var streamContent = new StreamContent(fileStream);
-        streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        streamContent.Headers.ContentType = MediaTypeHeaderValue.TryParse(contentType, out var mediaType)
+            ? mediaType
+            : new MediaTypeHeaderValue(UploadContentTypes.Fallback);
         content.Add(streamContent, "file", fileName);
 
         if (!string.IsNullOrWhiteSpace(sourceType))

@@ -17,7 +17,7 @@ public sealed class AuthHandlerTests
         using var harness = NewHarness();
         var token = await harness.SignInAsync();
 
-        await harness.Api.GetDataSourcesAsync();
+        await harness.Api.GetDataSourcesAsync(0, 10);
 
         var authorization = harness.Handler.Requests.Single().Authorization;
         authorization!.Scheme.Should().Be("Bearer");
@@ -29,7 +29,7 @@ public sealed class AuthHandlerTests
     {
         using var harness = NewHarness();
 
-        await harness.Api.GetDataSourcesAsync();
+        await harness.Api.GetDataSourcesAsync(0, 10);
 
         harness.Handler.Requests.Single().Authorization.Should().BeNull();
     }
@@ -42,7 +42,7 @@ public sealed class AuthHandlerTests
         await harness.SignInAsync();
         time.Advance(TimeSpan.FromHours(2));
 
-        await harness.Api.GetDataSourcesAsync();
+        await harness.Api.GetDataSourcesAsync(0, 10);
 
         harness.Handler.Requests.Single().Authorization.Should().BeNull();
     }
@@ -53,7 +53,7 @@ public sealed class AuthHandlerTests
         using var harness = NewHarness();
         await harness.SignInAsync();
 
-        await harness.Api.GetDataSourcesAsync();
+        await harness.Api.GetDataSourcesAsync(0, 10);
 
         // The tenant travels in the token's tenant_id claim only.
         harness.Handler.Requests.Should().ContainSingle();
