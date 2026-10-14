@@ -15,6 +15,12 @@ namespace OmniSift.Api.Data.Projections;
 /// </summary>
 public static class DataSourceProjections
 {
+    /// <summary>Default page size of the data source list.</summary>
+    public const int DefaultTake = 200;
+
+    /// <summary>Largest page the data source list returns.</summary>
+    public const int MaxTake = 500;
+
     public static readonly Expression<Func<DataSource, DataSourceDto>> ToDto = d => new DataSourceDto
     {
         Id = d.Id,
@@ -30,4 +36,16 @@ public static class DataSourceProjections
         HasPii = d.HasPii,
         PiiFlags = d.PiiFlags
     };
+
+    /// <summary>
+    /// One page of <paramref name="source"/> as DTOs, newest first (ties broken by id
+    /// so pages are stable).
+    /// </summary>
+    public static IQueryable<DataSourceDto> ToDtoPage(this IQueryable<DataSource> source, int skip, int take) =>
+        source
+            .OrderByDescending(d => d.CreatedAt)
+            .ThenBy(d => d.Id)
+            .Skip(skip)
+            .Take(take)
+            .Select(ToDto);
 }

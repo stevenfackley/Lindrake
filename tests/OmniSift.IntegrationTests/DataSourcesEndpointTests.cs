@@ -52,7 +52,7 @@ public sealed class DataSourcesEndpointTests : IClassFixture<CustomWebApplicatio
     }
 
     [Fact]
-    public async Task ListAndExport_ReportChunkCountsNewestFirst()
+    public async Task ListDataSources_SkipTake_PagesNewestFirstWithChunkCounts()
     {
         var tenantId = Guid.NewGuid();
         var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -71,14 +71,25 @@ public sealed class DataSourcesEndpointTests : IClassFixture<CustomWebApplicatio
         }
 
         var client = _factory.CreateTenantClient(tenantId);
-        var list = await client.GetFromJsonAsync<List<DataSourceDto>>("/api/datasources");
-        list!.Select(s => (s.FileName, s.ChunkCount)).Should()
-            .Equal(("2.pdf", 2), ("1.pdf", 1), ("0.pdf", 0));
+        var page = await client.GetFromJsonAsync<List<DataSourceDto>>("/api/datasources?skip=1&take=1");
 
-        // The export used to hard-code ChunkCount = 0.
+        // Newest first: 2.pdf, 1.pdf, 0.pdf — skip one, take one.
+        page.Should().ContainSingle().Which.Should().Match<DataSourceDto>(s => s.FileName == "1.pdf" && s.ChunkCount == 1);
+
         var export = await client.GetFromJsonAsync<TenantExportDto>("/api/account/export");
         export!.DataSources.Select(s => (s.FileName, s.ChunkCount)).Should()
             .Equal(("2.pdf", 2), ("1.pdf", 1), ("0.pdf", 0));
+    }
+
+    [Theory]
+    [InlineData("take=0")]
+    [InlineData("take=501")]
+    [InlineData("skip=-1")]
+    public async Task ListDataSources_OutOfRangePaging_Returns400(string query)
+    {
+        var response = await _client.GetAsync($"/api/datasources?{query}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

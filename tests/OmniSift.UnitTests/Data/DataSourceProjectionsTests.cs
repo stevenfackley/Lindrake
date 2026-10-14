@@ -24,14 +24,23 @@ public sealed class DataSourceProjectionsTests : IDisposable
         .Options, Bound(TenantId));
 
     [Fact]
-    public void ToDto_CountsChunksInSql_WithoutSelectingChunkColumns()
+    public void ToDtoPage_CountsChunksInSql_WithoutSelectingChunkColumns()
     {
-        var sql = _npgsql.DataSources.Select(DataSourceProjections.ToDto).ToQueryString();
+        var sql = _npgsql.DataSources.ToDtoPage(skip: 0, take: 200).ToQueryString();
 
         sql.Should().ContainEquivalentOf("count(*)", because: "the chunk count is a COUNT subquery:\n" + sql)
             .And.Contain("FROM document_chunks");
         sql.Should().NotContain(".content", because: "chunk text must not be loaded:\n" + sql)
             .And.NotContain(".embedding", because: "chunk vectors must not be loaded:\n" + sql);
+    }
+
+    [Fact]
+    public void ToDtoPage_OrdersNewestFirstAndPages()
+    {
+        var sql = _npgsql.DataSources.ToDtoPage(skip: 40, take: 20).ToQueryString();
+
+        sql.Should().MatchRegex(@"ORDER BY \w+\.created_at DESC, \w+\.id")
+            .And.Contain("LIMIT").And.Contain("OFFSET");
     }
 
     [Fact]

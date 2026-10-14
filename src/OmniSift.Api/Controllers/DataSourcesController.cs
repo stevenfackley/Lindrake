@@ -198,14 +198,18 @@ public sealed class DataSourcesController(
     }
 
     /// <summary>
-    /// List all data sources for the current tenant.
+    /// List the current tenant's data sources, newest first, one page at a time
+    /// (<paramref name="take"/> defaults to <see cref="DataSourceProjections.DefaultTake"/>,
+    /// at most <see cref="DataSourceProjections.MaxTake"/>).
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<DataSourceDto>>> List(CancellationToken cancellationToken)
+    public async Task<ActionResult<List<DataSourceDto>>> List(
+        [FromQuery, Range(0, int.MaxValue)] int skip = 0,
+        [FromQuery, Range(1, DataSourceProjections.MaxTake)] int take = DataSourceProjections.DefaultTake,
+        CancellationToken cancellationToken = default)
     {
         var sources = await dbContext.DataSources
-            .OrderByDescending(ds => ds.CreatedAt)
-            .Select(DataSourceProjections.ToDto)
+            .ToDtoPage(skip, take)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         return Ok(sources);
