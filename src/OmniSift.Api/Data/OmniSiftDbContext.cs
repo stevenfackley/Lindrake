@@ -96,8 +96,8 @@ public class OmniSiftDbContext : DbContext
                 .HasColumnName("status")
                 .HasMaxLength(50)
                 .HasConversion(
-                    v => v.ToString().ToLowerInvariant(),
-                    v => Enum.Parse<IngestionStatus>(v, ignoreCase: true))
+                    v => v.ToWireString(),
+                    v => IngestionStatusExtensions.ParseWireString(v))
                 .HasDefaultValue(IngestionStatus.Pending);
 
             entity.Property(e => e.ErrorMessage).HasColumnName("error_message");

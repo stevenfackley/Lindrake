@@ -27,7 +27,7 @@ public static class DataSourceProjections
         SourceType = d.SourceType,
         FileName = d.FileName,
         OriginalUrl = d.OriginalUrl,
-        Status = d.Status.ToString().ToLowerInvariant(),
+        Status = d.Status.ToWireString(),
         ErrorMessage = d.ErrorMessage,
         Metadata = d.Metadata,
         CreatedAt = d.CreatedAt,

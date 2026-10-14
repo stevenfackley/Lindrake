@@ -150,7 +150,7 @@ public sealed class DataSourcesController(
         return Accepted(new IngestionResponse
         {
             DataSourceId = dataSource.Id,
-            Status = dataSource.Status.ToString().ToLowerInvariant(),
+            Status = dataSource.Status.ToWireString(),
             Message = "File accepted. Poll GET /api/datasources/{id} for ingestion status."
         });
     }
@@ -190,10 +190,10 @@ public sealed class DataSourcesController(
         return Ok(new IngestionResponse
         {
             DataSourceId = dataSource.Id,
-            Status = dataSource.Status.ToString().ToLowerInvariant(),
+            Status = dataSource.Status.ToWireString(),
             Message = dataSource.Status == IngestionStatus.Completed
                 ? "Web page ingested successfully."
-                : $"Ingestion {dataSource.Status.ToString().ToLowerInvariant()}: {dataSource.ErrorMessage}"
+                : $"Ingestion {dataSource.Status.ToWireString()}: {dataSource.ErrorMessage}"
         });
     }
 
