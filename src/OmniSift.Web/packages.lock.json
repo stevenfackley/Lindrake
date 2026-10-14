@@ -280,16 +280,8 @@
           "Microsoft.JSInterop": "10.0.12"
         }
       },
-      "System.ComponentModel.Annotations": {
-        "type": "Transitive",
-        "resolved": "5.0.0",
-        "contentHash": "dMkqfy2el8A8/I76n2Hi1oBFEbG1SfxD2l5nhwXV3XjlnOmwxJlQbYpJH4W51odnU9sARCSAgv7S3CyAFMkpYg=="
-      },
       "omnisift.shared": {
-        "type": "Project",
-        "dependencies": {
-          "System.ComponentModel.Annotations": "[5.0.0, )"
-        }
+        "type": "Project"
       }
     },
     "net10.0/browser-wasm": {}

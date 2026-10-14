@@ -16,6 +16,8 @@
     </PackageReference>
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+    <!-- Explicit: Npgsql 10.0.3 / Pgvector.EFCore 0.3.0 pull Relational 10.0.4; pin to the EF Core version so consumers do not hit MSB3277. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
     <PackageReference Include="Pgvector" Version="0.3.2" />
@@ -34,7 +36,7 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
 
     <!-- PDF Generation -->
-    <PackageReference Include="QuestPDF" Version="2025.6.3" />
+    <PackageReference Include="QuestPDF" Version="2025.7.0" />
 
     <!-- OpenAPI / Swagger -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
