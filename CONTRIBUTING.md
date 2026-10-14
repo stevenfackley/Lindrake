@@ -38,19 +38,22 @@ dotnet build OmniSift.sln
 dotnet test OmniSift.sln
 ```
 
-Tests use an in-memory database — no running PostgreSQL instance is required.
+Integration tests use EF Core InMemory and a fake chat-completion service — no running PostgreSQL instance or API keys are required.
 
 ### Running the Full Stack
 
 ```bash
-docker compose up --build
+docker compose --env-file .env.dev up --build
 ```
+
+`--env-file .env.dev` is required: the compose file interpolates the database name, password and JWT secret from the Compose environment, and without it the API cannot start.
 
 | Service | URL |
 |---|---|
-| Frontend (Blazor) | http://localhost:5080 |
+| Landing page | http://localhost:5080 |
+| App (Blazor) | http://localhost:5080/app/ |
 | Backend API | http://localhost:5000 |
-| Swagger | http://localhost:5000/swagger |
+| Swagger (Development only) | http://localhost:5000/swagger |
 | PostgreSQL | localhost:5432 |
 
 ### Running with Production Config (local)
@@ -82,8 +85,8 @@ src/OmniSift.Web/               # Blazor WebAssembly frontend
 src/OmniSift.Shared/            # Shared DTOs and contracts
 tests/OmniSift.UnitTests/       # xUnit unit tests
 tests/OmniSift.IntegrationTests/ # xUnit integration tests
-infra/db/                       # PostgreSQL schema and seed scripts
-docs/                           # Design documents (PDD, SDD)
+infra/db/                       # Superuser-only database setup (extensions, app role, grants)
+docs/                           # PDD, SDD, deploy guide, schema provisioning, roadmap
 secrets/                        # Docker secret files (*.txt gitignored)
 .env.dev                        # Dev environment defaults
 .env.test                       # Test/CI environment defaults
