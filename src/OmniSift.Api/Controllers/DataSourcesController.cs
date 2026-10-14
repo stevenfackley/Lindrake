@@ -122,7 +122,7 @@ public sealed class DataSourcesController(
         await auditLogger.LogAsync("upload", "data_source", dataSource.Id, cancellationToken).ConfigureAwait(false);
 
         // Enqueue for background processing. The worker carries tenantId
-        // and sets the PG session variable itself to preserve RLS.
+        // and binds its scope to that tenant (query filter + RLS).
         var workItem = new IngestionWorkItem(
             DataSourceId: dataSource.Id,
             TenantId: tenantId,

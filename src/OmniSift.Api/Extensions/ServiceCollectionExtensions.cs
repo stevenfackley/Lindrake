@@ -116,14 +116,18 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddDbContext<OmniSiftDbContext>(options =>
+        // Sets the RLS session variable whenever EF opens a connection (stateless).
+        services.AddSingleton<TenantConnectionInterceptor>();
+
+        services.AddDbContext<OmniSiftDbContext>((sp, options) =>
             options.UseNpgsql(
                 configuration.GetConnectionString("DefaultConnection"),
                 npgsql =>
                 {
                     npgsql.UseVector();
                     npgsql.EnableRetryOnFailure(3);
-                }));
+                })
+            .AddInterceptors(sp.GetRequiredService<TenantConnectionInterceptor>()));
 
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantContext, TenantContext>();

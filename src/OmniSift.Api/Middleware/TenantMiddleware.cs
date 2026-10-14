@@ -1,19 +1,19 @@
 // ============================================================
 // OmniSift.Api — Tenant Resolution Middleware
-// Derives the tenant from the authenticated JWT (tenant_id claim),
-// binds it to ITenantContext and sets the PostgreSQL session
-// variable for RLS enforcement.
+// Derives the tenant from the authenticated JWT (tenant_id claim)
+// and binds it to the request's ITenantContext.
 // ============================================================
 
-using OmniSift.Api.Data;
 using OmniSift.Api.Extensions;
 
 namespace OmniSift.Api.Middleware;
 
 /// <summary>
-/// Resolves the current tenant from the validated JWT's <c>tenant_id</c> claim,
-/// binds it to the request's <see cref="ITenantContext"/>, and sets the
-/// PostgreSQL session variable <c>app.current_tenant</c> for Row-Level Security.
+/// Resolves the current tenant from the validated JWT's <c>tenant_id</c> claim and
+/// binds it to the request's <see cref="ITenantContext"/>. That is all it does: the
+/// EF tenant query filter and <see cref="Data.TenantConnectionInterceptor"/> (which
+/// sets the RLS session variable whenever a connection opens) read the context, so
+/// no connection is held for the request.
 ///
 /// The tenant is taken ONLY from the authenticated identity — the previous
 /// <c>X-Tenant-Id</c> request header is no longer trusted, closing the
@@ -21,7 +21,7 @@ namespace OmniSift.Api.Middleware;
 /// </summary>
 public sealed class TenantMiddleware(RequestDelegate next, ILogger<TenantMiddleware> logger)
 {
-    public async Task InvokeAsync(HttpContext context, OmniSiftDbContext dbContext, ITenantContext tenantContext)
+    public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
     {
         // Skip tenant resolution for anonymous endpoints (health, Swagger, auth).
         var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
@@ -54,20 +54,7 @@ public sealed class TenantMiddleware(RequestDelegate next, ILogger<TenantMiddlew
         }
 
         tenantContext.Set(tenantId.Value);
-
-        // Scope every query on this request's connection to the tenant (RLS).
-        try
-        {
-            await dbContext.SetTenantSessionAsync(tenantId.Value, context.RequestAborted).ConfigureAwait(false);
-            logger.LogDebug("Tenant context set to {TenantId}", tenantId.Value);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to set tenant context for {TenantId}", tenantId.Value);
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            await context.Response.WriteAsJsonAsync(new { error = "Failed to establish tenant context." }).ConfigureAwait(false);
-            return;
-        }
+        logger.LogDebug("Tenant context set to {TenantId}", tenantId.Value);
 
         await next(context).ConfigureAwait(false);
     }

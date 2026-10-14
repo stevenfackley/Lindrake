@@ -3,8 +3,8 @@
 // Carries everything a background worker needs to run the
 // extract→chunk→embed pipeline outside an HTTP request.
 // The tenant ID is captured here because HttpContext is gone
-// by the time the worker runs; the worker must set the PG
-// session variable itself before touching the database.
+// by the time the worker runs; the worker binds its scope's
+// ITenantContext to it before touching the database.
 // ============================================================
 
 namespace OmniSift.Api.Services;
