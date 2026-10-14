@@ -25,11 +25,13 @@ public static class ClaimsPrincipalExtensions
     /// <summary>
     /// The tenant the token is scoped to (JWT <c>tenant_id</c> claim). This is the
     /// ONLY trusted source of tenant identity — the <c>X-Tenant-Id</c> request
-    /// header is never used for authorization. Null when missing or not a GUID.
+    /// header is never used for authorization. Null when missing, not a GUID, or
+    /// the empty GUID (no tenant can have that id, and <c>ITenantContext.Set</c>
+    /// rejects it).
     /// </summary>
     public static Guid? TryGetTenantId(this ClaimsPrincipal user)
     {
         var tenant = user.FindFirst(TenantIdClaim)?.Value;
-        return Guid.TryParse(tenant, out var id) ? id : null;
+        return Guid.TryParse(tenant, out var id) && id != Guid.Empty ? id : null;
     }
 }

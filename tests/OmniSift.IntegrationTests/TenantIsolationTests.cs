@@ -141,7 +141,7 @@ public sealed class TenantIsolationTests : IClassFixture<CustomWebApplicationFac
         await ShouldBeProblemAsync(response, HttpStatusCode.Forbidden);
     }
 
-    [Fact(Skip = "BUG: TenantMiddleware passes a Guid.Empty tenant_id claim to TenantContext.Set, which throws: 500, not 403")]
+    [Fact]
     public async Task ProtectedEndpoint_EmptyGuidTenantClaim_Returns403Problem()
     {
         var response = await SendWithClaimsAsync(

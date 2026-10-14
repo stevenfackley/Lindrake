@@ -52,19 +52,28 @@ public sealed class TenantMiddlewareTests
 
     [Theory]
     [InlineData(null)]
+    [InlineData("")]
     [InlineData("not-a-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
     public async Task InvokeAsync_AuthenticatedWithoutValidTenantClaim_Returns403ProblemDetails(string? claimValue)
     {
         var nextCalled = false;
-        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+        var logger = new Mock<ILogger<TenantMiddleware>>();
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, logger.Object);
+        var tenantContext = new TenantContext();
         var context = CreateContext("/api/datasources");
         context.User = claimValue is null
             ? Authenticated(new Claim("sub", Guid.NewGuid().ToString()))
             : Authenticated(new Claim("tenant_id", claimValue));
 
-        await middleware.InvokeAsync(context, new TenantContext());
+        await middleware.InvokeAsync(context, tenantContext);
 
         nextCalled.Should().BeFalse();
+        tenantContext.CurrentTenantId.Should().BeNull();
+        logger.Verify(
+            l => l.Log(LogLevel.Warning, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception?>(), It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
         context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
         context.Response.ContentType.Should().StartWith("application/problem+json");
 
@@ -91,8 +100,8 @@ public sealed class TenantMiddlewareTests
         tenantContext.TenantId.Should().Be(tenantId);
     }
 
-    private static TenantMiddleware CreateMiddleware(RequestDelegate next) =>
-        new(next, Mock.Of<ILogger<TenantMiddleware>>());
+    private static TenantMiddleware CreateMiddleware(RequestDelegate next, ILogger<TenantMiddleware>? logger = null) =>
+        new(next, logger ?? Mock.Of<ILogger<TenantMiddleware>>());
 
     private static DefaultHttpContext CreateContext(string path)
     {
