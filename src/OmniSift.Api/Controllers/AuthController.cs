@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OmniSift.Api.Data;
@@ -10,6 +11,7 @@ using OmniSift.Shared.DTOs;
 namespace OmniSift.Api.Controllers;
 
 [ApiController]
+[AllowAnonymous]
 [Route("api/[controller]")]
 public sealed class AuthController(
     OmniSiftDbContext dbContext,

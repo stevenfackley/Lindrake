@@ -58,6 +58,19 @@ public sealed class AuthenticationTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public async Task AnonymousEndpoint_WithTokenLackingTenantClaim_IsServed()
+    {
+        // [AllowAnonymous] endpoints skip tenant resolution entirely.
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", BuildTokenWithoutTenant());
+
+        var response = await client.GetAsync("/health");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task TenantIsolation_IsDerivedFromClaim_OnlySeesOwnTenant()
     {
         var ownerTenant = Guid.NewGuid();

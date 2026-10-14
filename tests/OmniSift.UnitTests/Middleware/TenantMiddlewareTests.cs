@@ -4,7 +4,9 @@
 // ============================================================
 
 using System.Security.Claims;
+using System.Text.Json;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -16,33 +18,25 @@ namespace OmniSift.UnitTests.Middleware;
 public sealed class TenantMiddlewareTests
 {
     [Fact]
-    public async Task InvokeAsync_HealthCheckPath_SkipsTenantResolution()
+    public async Task InvokeAsync_AllowAnonymousEndpoint_SkipsTenantResolution()
     {
+        // e.g. /health or /api/auth/login called with a token that has no tenant.
         var nextCalled = false;
         var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
         var context = CreateContext("/health");
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AllowAnonymousAttribute()), "anon"));
+        context.User = Authenticated(new Claim("sub", Guid.NewGuid().ToString()));
 
         await middleware.InvokeAsync(context, new TenantContext());
 
         nextCalled.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task InvokeAsync_SwaggerPath_SkipsTenantResolution()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
-        var context = CreateContext("/swagger/index.html");
-
-        await middleware.InvokeAsync(context, new TenantContext());
-
-        nextCalled.Should().BeTrue();
+        context.Response.StatusCode.Should().Be(StatusCodes.Status200OK);
     }
 
     [Fact]
     public async Task InvokeAsync_UnauthenticatedRequest_CallsNextWithoutTenantContext()
     {
-        // [Authorize] is responsible for the 401 on protected endpoints; the
+        // Authorization is responsible for the 401 on protected endpoints; the
         // middleware must not itself reject — it just continues without a tenant.
         var nextCalled = false;
         var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
@@ -56,18 +50,29 @@ public sealed class TenantMiddlewareTests
         tenant.Should().Throw<TenantContextMissingException>();
     }
 
-    [Fact]
-    public async Task InvokeAsync_AuthenticatedWithoutTenantClaim_Returns403()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("not-a-guid")]
+    public async Task InvokeAsync_AuthenticatedWithoutValidTenantClaim_Returns403ProblemDetails(string? claimValue)
     {
         var nextCalled = false;
         var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
         var context = CreateContext("/api/datasources");
-        context.User = Authenticated(new Claim("sub", Guid.NewGuid().ToString()));
+        context.User = claimValue is null
+            ? Authenticated(new Claim("sub", Guid.NewGuid().ToString()))
+            : Authenticated(new Claim("tenant_id", claimValue));
 
         await middleware.InvokeAsync(context, new TenantContext());
 
         nextCalled.Should().BeFalse();
-        context.Response.StatusCode.Should().Be(403);
+        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        context.Response.ContentType.Should().StartWith("application/problem+json");
+
+        context.Response.Body.Position = 0;
+        using var problem = await JsonDocument.ParseAsync(context.Response.Body);
+        problem.RootElement.GetProperty("status").GetInt32().Should().Be(403);
+        problem.RootElement.GetProperty("detail").GetString().Should().Be(TenantMiddleware.MissingTenantDetail);
+        problem.RootElement.TryGetProperty("error", out _).Should().BeFalse();
     }
 
     [Fact]

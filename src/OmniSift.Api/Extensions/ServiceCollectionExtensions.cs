@@ -6,6 +6,7 @@
 using System.Net.Http.Headers;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -361,7 +362,17 @@ public static class ServiceCollectionExtensions
             .Configure<IOptions<SupabaseOptions>, IOptions<JwtOptions>, IHostEnvironment>(
                 (options, supabase, jwt, environment) =>
                     ConfigureJwtBearer(options, supabase.Value, jwt.Value, environment));
-        services.AddAuthorization();
+
+        // Every controller endpoint requires a tenant-scoped identity unless it is
+        // [AllowAnonymous] (MapControllers().RequireAuthorization() applies this
+        // policy, so a controller that forgets [Authorize] is still protected).
+        // Not a FallbackPolicy: that also covers unmatched routes, turning their
+        // 404s into 401s.
+        services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .RequireClaim(ClaimsPrincipalExtensions.TenantIdClaim)
+                .Build());
 
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();
         services.AddSingleton<JwtTokenService>();

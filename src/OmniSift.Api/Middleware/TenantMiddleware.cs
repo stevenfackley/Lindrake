@@ -4,6 +4,8 @@
 // and binds it to the request's ITenantContext.
 // ============================================================
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using OmniSift.Api.Extensions;
 
 namespace OmniSift.Api.Middleware;
@@ -21,35 +23,27 @@ namespace OmniSift.Api.Middleware;
 /// </summary>
 public sealed class TenantMiddleware(RequestDelegate next, ILogger<TenantMiddleware> logger)
 {
+    internal const string MissingTenantDetail = "Token does not carry a valid tenant_id claim.";
+
     public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
     {
-        // Skip tenant resolution for anonymous endpoints (health, Swagger, auth).
-        var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
-        if (path.StartsWith("/health") || path.StartsWith("/swagger") || path.StartsWith("/api/auth"))
+        // Anonymous endpoints (health, /api/auth) need no tenant. Unauthenticated
+        // requests to protected endpoints were already rejected by authorization;
+        // anything else unauthenticated (e.g. an unmatched route) carries no tenant.
+        if (context.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>() is not null
+            || context.User.Identity?.IsAuthenticated != true)
         {
             await next(context).ConfigureAwait(false);
             return;
         }
 
-        // Unauthenticated requests to protected endpoints are already rejected by
-        // the [Authorize] authorization middleware before reaching here. If an
-        // anonymous endpoint flows through, just continue without a tenant context.
-        if (context.User.Identity?.IsAuthenticated != true)
-        {
-            await next(context).ConfigureAwait(false);
-            return;
-        }
-
-        // Tenant identity comes exclusively from the validated token.
+        // Tenant identity comes exclusively from the validated token. Authorization
+        // requires the claim to exist; this also rejects one that is not a GUID.
         var tenantId = context.User.TryGetTenantId();
         if (tenantId is null)
         {
             logger.LogWarning("Authenticated request to {Path} has no valid tenant_id claim", context.Request.Path);
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new
-            {
-                error = "Token does not carry a valid tenant_id claim."
-            }).ConfigureAwait(false);
+            await WriteForbiddenAsync(context).ConfigureAwait(false);
             return;
         }
 
@@ -57,6 +51,33 @@ public sealed class TenantMiddleware(RequestDelegate next, ILogger<TenantMiddlew
         logger.LogDebug("Tenant context set to {TenantId}", tenantId.Value);
 
         await next(context).ConfigureAwait(false);
+    }
+
+    private static async Task WriteForbiddenAsync(HttpContext context)
+    {
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status403Forbidden,
+            Title = "Forbidden",
+            Detail = MissingTenantDetail,
+            Instance = context.Request.Path
+        };
+
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+
+        var problemDetails = context.RequestServices?.GetService<IProblemDetailsService>();
+        var written = problemDetails is not null && await problemDetails.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = context,
+            ProblemDetails = problem
+        }).ConfigureAwait(false);
+
+        if (!written)
+        {
+            await context.Response.WriteAsJsonAsync(
+                problem, options: null, contentType: "application/problem+json", context.RequestAborted)
+                .ConfigureAwait(false);
+        }
     }
 }
 

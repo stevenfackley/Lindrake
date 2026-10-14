@@ -91,8 +91,9 @@ public static class WebApplicationExtensions
         // was removed: it allowed tenant spoofing.
         app.UseTenantMiddleware();
 
-        app.MapControllers();
-        app.MapHealthChecks("/health");
+        // Default policy (tenant-scoped identity) on every controller; [AllowAnonymous] opts out.
+        app.MapControllers().RequireAuthorization();
+        app.MapHealthChecks("/health").AllowAnonymous();
 
         return app;
     }
