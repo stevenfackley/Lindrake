@@ -107,22 +107,24 @@ The background ingestion worker does the same binding (step 3) itself: each work
 
 ### 3.3 Row-Level Security Policies
 
-RLS is enabled and forced on `data_sources`, `document_chunks`, `query_history` (InitialCreate) and `audit_log` (`AddAuditLogRowLevelSecurity`). The original tables use one policy per table:
+RLS is enabled and forced on `data_sources`, `document_chunks`, `query_history` (InitialCreate) and `audit_log` (`AddAuditLogRowLevelSecurity`). The original tables use one policy per table (predicate as altered by `FailClosedTenantPolicies`):
 
 ```sql
 ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;
 ALTER TABLE {table} FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_{table} ON {table}
     FOR ALL
-    USING (tenant_id = current_setting('app.current_tenant', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::uuid);
+    USING (tenant_id = (SELECT NULLIF(current_setting('app.current_tenant', true), '')::uuid))
+    WITH CHECK (tenant_id = (SELECT NULLIF(current_setting('app.current_tenant', true), '')::uuid));
 ```
+
+`NULLIF` matters: once a session has set `app.current_tenant`, Npgsql's `DISCARD ALL` on pool reuse leaves it `''`, not NULL, and `''::uuid` is an error; with `NULLIF` an unbound connection matches no rows.
 
 `audit_log` has separate SELECT, INSERT and DELETE policies and no UPDATE policy, so the audit trail is append-only even for the table owner (DELETE stays for the account erase). Its policies read the setting through `NULLIF(..., '')`, so an unbound connection matches no rows.
 
 `users` deliberately has no RLS: HS256 registration must check email uniqueness across all tenants before a tenant exists. `tenants` has no RLS and no query filter.
 
-RLS only applies because the API connects as the non-superuser `lindrake_app` role (`infra/db/init.sql`); a superuser bypasses it.
+RLS only applies because the API connects as a non-superuser role without BYPASSRLS: `lindrake_app` locally (`infra/db/init.sql`), `lindrake` on qavren-db (`provision-app.ps1`). A superuser bypasses it.
 
 ### 3.4 Database Schema
 
@@ -420,7 +422,7 @@ Options are bound with data-annotation validation and `ValidateOnStart`; `Initia
 | `api` | Custom, multi-stage .NET 10 (model-fetch, build, `aspnet:10.0` runtime, non-root) | 5000 → 8080 | db (healthy) |
 | `web` | Custom, .NET 10 SDK build + `nginx:alpine` runtime | 5080 → 80 | api |
 
-Production uses the `docker-compose.prod.yml` overlay with GHCR images built by the manually dispatched `deploy.yml`. See [DEPLOY.md](./DEPLOY.md).
+Production uses the `docker-compose.prod.yml` overlay with GHCR images built by the manually dispatched `deploy.yml`. The overlay has no `db`: production data lives in qavren-db (schema `lindrake`, Supavisor session pooler), and `deploy.yml` writes the API's connection string from `LINDRAKE_DB_URL_PROD`. See [DEPLOY.md](./DEPLOY.md).
 
 ### 8.2 Multi-Stage Docker Builds
 
@@ -440,6 +442,7 @@ Production uses the `docker-compose.prod.yml` overlay with GHCR images built by 
 |---|---|---|
 | **Unit Tests** | xUnit + Moq + FluentAssertions | API services, options, data layer, plugins, Web client services and view models |
 | **Integration Tests** | xUnit + `WebApplicationFactory`, EF Core InMemory, fake chat completion | HTTP endpoints, auth modes, tenant isolation, error shapes, rate limiting |
+| **Postgres Integration Tests** | Same host on a real Postgres (`ConnectionStrings__PostgreSQL`; skipped without it), one database per class, local and qavren-db layouts | RLS and the tenant interceptor, pgvector + pg_trgm hybrid search, `ExecuteDelete` erase, FK cascades, migrations |
 
 CI runs the full unit and integration suites on every pull request and push to `main`.
 

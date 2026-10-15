@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Data platform: qavren-db (2026-10-14)
+
+Deployed data moves to qavren-db, the shared Supabase Postgres ([ADR](DECISIONS.md#2026-10-14--qavren-db-as-the-data-platform-session-pooling-postgres-test-lane)). What that changes:
+
+- **No database container in production.** `docker-compose.prod.yml` removes the `db` service and the api's dependency on it, and sets `Database__Schema=lindrake`. `secrets/postgres_password.txt` and the `POSTGRES_*` keys in `.env.prod` are no longer used. A host that ran the old overlay must copy its data to qavren-db first: the deploy's `up --remove-orphans` removes the old `db` container (its volume stays).
+- **Connection string from `LINDRAKE_DB_URL_PROD`.** `deploy.yml` writes `secrets/ConnectionStrings__DefaultConnection.txt` from that GitHub secret on every deploy (Supavisor session pooler, port 5432, `SSL Mode=Require`) and fails when `DEPLOY_HOST` is set but the secret is not.
+- **New settings.** `Database:Schema` (default `public`) places `__EFMigrationsHistory`, and startup migrations refuse to run when the connection's `current_schema()` differs. `Database:MaxPoolSize` (default 10) replaces `Maximum Pool Size` in every connection string. `ConnectionStrings:Migrations` (optional) is used only by the startup migrations.
+- **Fixed:** the `data_sources`, `document_chunks` and `query_history` policies failed with `22P02 invalid input syntax for type uuid` for an unbound scope on a pooled connection a tenant had used (Npgsql's reset leaves the setting `''`). Migration `FailClosedTenantPolicies` reads it through `NULLIF`, as `audit_log` already did: no rows instead of an error.
+- **Postgres test lane.** `tests/Lindrake.IntegrationTests/Postgres` (24 tests) runs the API on a real Postgres when `ConnectionStrings__PostgreSQL` is set, in the compose and the qavren-db layouts; CI runs it on `pgvector/pgvector:pg16`. Without the variable the tests are skipped.
+
 ### Renamed to Lindrake (2026-10-14)
 
 OmniSift is now Lindrake ([ADR](DECISIONS.md#2026-10-14--renamed-omnisift-to-lindrake)). What that changes for anyone running it:
