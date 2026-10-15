@@ -149,16 +149,31 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # ssh-action forwards `envs` as `export NAME='value'` on the remote shell, so a
+      # quote in the generated role password would break the hand-off. Base64 has
+      # no shell metacharacters; the host decodes it. The encoded value is masked
+      # so it cannot leak through step outputs or logs.
+      - name: Encode the database connection string
+        if: steps.check.outputs.ready == 'true'
+        id: enc
+        env:
+          LINDRAKE_DB_URL: ${{ secrets.LINDRAKE_DB_URL_PROD }}
+        run: |
+          set -euo pipefail
+          B64=$(printf '%s' "$LINDRAKE_DB_URL" | base64 -w0)
+          echo "::add-mask::$B64"
+          echo "b64=$B64" >> "$GITHUB_OUTPUT"
+
       - name: Deploy via SSH
         if: steps.check.outputs.ready == 'true'
         uses: appleboy/ssh-action@v1.2.5
         env:
-          LINDRAKE_DB_URL: ${{ secrets.LINDRAKE_DB_URL_PROD }}
+          LINDRAKE_DB_URL_B64: ${{ steps.enc.outputs.b64 }}
         with:
           host:     ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key:      ${{ secrets.DEPLOY_SSH_KEY }}
-          envs:     LINDRAKE_DB_URL
+          envs:     LINDRAKE_DB_URL_B64
           script: |
             set -euo pipefail
             cd "${{ secrets.DEPLOY_WORK_DIR }}"
@@ -168,7 +183,8 @@ jobs:
             # one secret update + one deploy. The API reads it from
             # /run/secrets/ConnectionStrings__DefaultConnection.
             mkdir -p secrets
-            ( umask 077 && printf '%s' "$LINDRAKE_DB_URL" > secrets/ConnectionStrings__DefaultConnection.txt )
+            ( umask 077 && printf '%s' "$LINDRAKE_DB_URL_B64" | base64 -d > secrets/ConnectionStrings__DefaultConnection.txt )
+            [ -s secrets/ConnectionStrings__DefaultConnection.txt ] || { echo "decoded connection string is empty"; exit 1; }
 
             # Pull the new images (tagged latest AND the immutable SHA tag)
             docker compose \
