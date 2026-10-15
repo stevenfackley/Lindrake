@@ -84,6 +84,23 @@ public sealed class RowLevelSecurityTests : IClassFixture<PublicSchemaPostgresFi
     }
 
     [PostgresFact]
+    public async Task AppRole_AfterThePoolResetsTheSession_SeesNoRows()
+    {
+        var owner = await PostgresSeed.TenantWithDataAsync(Factory);
+        await using var connection = await _fixture.OpenAsAppRoleAsync(pooling: false);
+
+        // What Npgsql does before reusing a pooled connection. Once set in a session,
+        // the setting reads back as '' (not NULL) after the reset.
+        await SetTenantAsync(connection, owner.TenantId);
+        await PostgresFixture.ExecuteAsync(connection, "DISCARD ALL");
+        (await PostgresFixture.ScalarAsync<string>(connection,
+            "SELECT current_setting('app.current_tenant', true)")).Should().BeEmpty();
+
+        foreach (var table in TenantTables)
+            (await CountAsync(connection, table, tenantId: null)).Should().Be(0, $"{table} fails closed");
+    }
+
+    [PostgresFact]
     public async Task AuditLogUpdate_AsAppRole_IsDenied()
     {
         var owner = await PostgresSeed.TenantWithDataAsync(Factory);

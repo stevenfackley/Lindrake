@@ -42,6 +42,26 @@ public sealed class TenantConnectionInterceptorTests : IClassFixture<SingleConne
         againA.ChunkTenants.Should().HaveCount(1).And.AllBeEquivalentTo(a.TenantId);
     }
 
+    [PostgresFact]
+    public async Task UnboundScope_OnTheConnectionATenantJustUsed_SeesNoTenantRows()
+    {
+        var a = await PostgresSeed.TenantWithDataAsync(Factory, chunkCount: 2);
+        var bound = await ReadAsync(a.TenantId);
+
+        // Unbound scopes (startup, health checks, HS256 register) set nothing; Npgsql's
+        // reset leaves app.current_tenant as '' on the reused connection.
+        using var scope = Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
+        var backendPid = await db.Database
+            .SqlQuery<int>($"SELECT pg_backend_pid() AS \"Value\"").SingleAsync();
+
+        // Ignores LindrakeDbContext.TenantFilter on purpose: RLS alone must fail closed.
+        var chunks = await db.DocumentChunks.IgnoreQueryFilters([LindrakeDbContext.TenantFilter]).CountAsync();
+
+        backendPid.Should().Be(bound.BackendPid);
+        chunks.Should().Be(0);
+    }
+
     /// <summary>
     /// What one tenant-bound scope sees: its backend, the session setting and the
     /// tenant of every chunk visible to it with the EF tenant filter off, so RLS on
