@@ -9,14 +9,24 @@ name: deploy
 #   DEPLOY_WORK_DIR    — Absolute path on host where docker-compose files live
 #                        e.g. /srv/lindrake
 #
-# These four secrets are ONLY needed for the `deploy` job (SSH step).
+#   LINDRAKE_DB_URL_PROD — Npgsql connection string to qavren-db prod as role
+#                        lindrake, over the Supavisor session pooler (port 5432,
+#                        SSL Mode=Require). Written to
+#                        secrets/ConnectionStrings__DefaultConnection.txt on
+#                        every deploy. (A test environment would take
+#                        LINDRAKE_DB_URL_TEST, qavren-db test, the same way;
+#                        none is wired yet.)
+#
+# These secrets are ONLY needed for the `deploy` job (SSH step).
 # The `build-push` job works without them — it uses only GITHUB_TOKEN.
 #
 # On the server, the following must be present before first deploy:
 #   $DEPLOY_WORK_DIR/docker-compose.yml
 #   $DEPLOY_WORK_DIR/docker-compose.prod.yml
 #   $DEPLOY_WORK_DIR/.env.prod
-#   $DEPLOY_WORK_DIR/secrets/*.txt    (populated from your secrets manager)
+#   $DEPLOY_WORK_DIR/secrets/*.txt    (populated from your secrets manager;
+#                                      the connection string comes from
+#                                      LINDRAKE_DB_URL_PROD, see above)
 # ──────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -125,10 +135,16 @@ jobs:
     steps:
       - name: Check deploy target is configured
         id: check
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          LINDRAKE_DB_URL: ${{ secrets.LINDRAKE_DB_URL_PROD }}
         run: |
-          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
+          if [ -z "$DEPLOY_HOST" ]; then
             echo "DEPLOY_HOST not set — infra not provisioned yet, skipping deploy."
             echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$LINDRAKE_DB_URL" ]; then
+            echo "::error::LINDRAKE_DB_URL_PROD is not set: the API would start without a database."
+            exit 1
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
@@ -136,13 +152,23 @@ jobs:
       - name: Deploy via SSH
         if: steps.check.outputs.ready == 'true'
         uses: appleboy/ssh-action@v1.2.5
+        env:
+          LINDRAKE_DB_URL: ${{ secrets.LINDRAKE_DB_URL_PROD }}
         with:
           host:     ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key:      ${{ secrets.DEPLOY_SSH_KEY }}
+          envs:     LINDRAKE_DB_URL
           script: |
             set -euo pipefail
             cd "${{ secrets.DEPLOY_WORK_DIR }}"
+
+            # The API's database: qavren-db (schema lindrake) over the session
+            # pooler. Rewritten every deploy so rotating LINDRAKE_DB_URL_PROD is
+            # one secret update + one deploy. The API reads it from
+            # /run/secrets/ConnectionStrings__DefaultConnection.
+            mkdir -p secrets
+            ( umask 077 && printf '%s' "$LINDRAKE_DB_URL" > secrets/ConnectionStrings__DefaultConnection.txt )
 
             # Pull the new images (tagged latest AND the immutable SHA tag)
             docker compose \
@@ -150,7 +176,7 @@ jobs:
               -f docker-compose.prod.yml \
               pull web api
 
-            # Restart only web and api (db has its own data volume — don't touch it)
+            # Restart web and api; the prod overlay has no db service (qavren-db)
             docker compose \
               -f docker-compose.yml \
               -f docker-compose.prod.yml \
