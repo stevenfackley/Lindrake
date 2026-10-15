@@ -17,4 +17,9 @@ jobs:
       # Not an AOT target (EF Core, Semantic Kernel, Swashbuckle; JIT aspnet image).
       # The reusable AOT lane fell back to the Blazor WASM csproj and failed NETSDK1203.
       aot-rid: ""
+      # Real-Postgres integration lane (tests/Lindrake.IntegrationTests/Postgres):
+      # the lane starts a Postgres service and exports ConnectionStrings__PostgreSQL
+      # (superuser). pgvector image: the suite creates vector, pg_trgm, uuid-ossp.
+      run-postgres: true
+      postgres-image: pgvector/pgvector:pg16
     secrets: inherit
