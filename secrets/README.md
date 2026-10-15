@@ -10,35 +10,35 @@ Create each file containing only the secret value (no trailing newline needed):
 
 | File | Content |
 |---|---|
-| `postgres_password.txt` | PostgreSQL password for the `lindrake` superuser |
 | `Anthropic__ApiKey.txt` | Anthropic API key (`sk-ant-...`) |
 | `OpenAI__ApiKey.txt` | OpenAI API key (`sk-...`); only used with `Embedding__Provider=OpenAi`, may be empty |
 | `Tavily__ApiKey.txt` | Tavily search API key (`tvly-...`) |
 | `Jwt__Secret.txt` | HS256 signing secret, used only when `Supabase__Url` is empty and `JWT__ALLOWLOCALIDENTITYPROVIDER=true` (min 32 bytes — generate with `openssl rand -base64 48`) |
-| `ConnectionStrings__DefaultConnection.txt` | Full Npgsql connection string (see below) |
+| `ConnectionStrings__DefaultConnection.txt` | Full Npgsql connection string to qavren-db (see below). `deploy.yml` writes it from the `LINDRAKE_DB_URL_PROD` GitHub secret on every deploy |
 
 ### Connection string format
 
+Production data lives in qavren-db, the shared Supabase Postgres: schema `lindrake`, login role `lindrake` (provisioned by `qavren-db/tools/provision-app.ps1`, which prints the password once). Connect through the Supavisor **session** pooler, port 5432, with TLS:
+
 ```
-Host=db;Port=5432;Database=lindrake;Username=lindrake_app;Password=<lindrake_app password>
+Host=<pooler host>;Port=5432;Database=postgres;Username=lindrake.<project ref>;Password=<lindrake password>;SSL Mode=Require
 ```
 
-The app connects as `lindrake_app` (not the superuser) so Row-Level Security applies. `infra/db/init.sql` creates that role with the password in `POSTGRES_APP_PASSWORD`, which production does not set, so the role starts without a password, independent of `postgres_password.txt`. Set it with `ALTER ROLE lindrake_app WITH PASSWORD '...'` before the first API start (see `docs/DEPLOY.md`, First-time database setup).
+Use the user name the pooler expects (Supavisor's is `<role>.<project ref>`). Session mode, not the transaction pooler on 6543: the API sets the RLS tenant with a session-level `set_config` when a connection opens (DECISIONS.md, 2026-10-14). The role is not a superuser and has no BYPASSRLS, so Row-Level Security applies.
 
 ## Quick setup for local prod testing
 
 ```bash
 mkdir -p secrets
-echo "your_postgres_password"              > secrets/postgres_password.txt
 echo "sk-ant-..."                          > secrets/Anthropic__ApiKey.txt
 echo "sk-..."                              > secrets/OpenAI__ApiKey.txt
 echo "tvly-..."                            > secrets/Tavily__ApiKey.txt
 openssl rand -base64 48                    > secrets/Jwt__Secret.txt
-echo "Host=db;Port=5432;Database=lindrake;Username=lindrake_app;Password=your_app_password" \
+printf '%s' "Host=<pooler host>;Port=5432;Database=postgres;Username=lindrake.<project ref>;Password=<password>;SSL Mode=Require" \
                                            > secrets/ConnectionStrings__DefaultConnection.txt
 ```
 
-Then follow `docs/DEPLOY.md`: write `.env.prod` (at least `POSTGRES_USER`, `POSTGRES_DB`, and `Supabase__Url` or `JWT__ALLOWLOCALIDENTITYPROVIDER=true`), start `db`, set the `lindrake_app` password to `your_app_password` as the superuser, then:
+Then follow `docs/DEPLOY.md`: write `.env.prod` (at least `Supabase__Url` or `JWT__ALLOWLOCALIDENTITYPROVIDER=true`), then:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d

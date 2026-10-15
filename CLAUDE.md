@@ -4,31 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Lindrake is a multi-tenant research SaaS: .NET 10 ASP.NET Core Web API + Blazor WebAssembly client + Postgres 16 with pgvector and pg_trgm. Users upload documents or ingest web pages; a Semantic Kernel agent answers questions over hybrid (vector + keyword) search, Tavily web search and the Wayback Machine, with citations and exportable reports. CI runs on every PR and push to `main`. `deploy.yml` (GHCR build/push + SSH deploy) is `workflow_dispatch` only; its SSH step no-ops until the `DEPLOY_*` secrets exist.
+Lindrake is a multi-tenant research SaaS: .NET 10 ASP.NET Core Web API + Blazor WebAssembly client + Postgres 16 with pgvector and pg_trgm. Users upload documents or ingest web pages; a Semantic Kernel agent answers questions over hybrid (vector + keyword) search, Tavily web search and the Wayback Machine, with citations and exportable reports. CI runs on every PR and push to `main`. `deploy.yml` (GHCR build/push + SSH deploy) is `workflow_dispatch` only; its SSH step no-ops until the `DEPLOY_*` secrets exist. Deployed data lives in **qavren-db** (shared Supabase Postgres: schema `lindrake`, role `lindrake`, provisioned by `qavren-db/tools/provision-app.ps1`); local development keeps the compose `db`.
 
 ## Repo layout
 
 - `src/Lindrake.Api/`
   - `Program.cs` composes `Extensions/ServiceCollectionExtensions.cs` (one `AddLindrake*` module per concern) and `Extensions/WebApplicationExtensions.cs` (`InitializeLindrake`: options validation, `Database.Migrate()`, ONNX model load; `UseLindrakePipeline`: middleware + endpoints).
   - `Controllers/` thin HTTP adapters. `Options/` startup-validated options + validators. `Infrastructure/` `GlobalExceptionHandler`, domain exceptions (`LindrakeException` carries the status code), `LocalIdentityProviderConvention`, rate-limit policy names, the `Testing` environment.
-  - `Data/` `LindrakeDbContext` (tenant query filters), `TenantConnectionInterceptor` (RLS session variable), `TimestampInterceptor`, `Projections/` (EF-translated DTO projections), `Migrations/`.
+  - `Data/` `LindrakeDbContext` (tenant query filters), `LindrakeDatabase` (shared `UseLindrakeNpgsql` config + `MigrateLindrakeDatabase`), `TenantConnectionInterceptor` (RLS session variable), `TimestampInterceptor`, `Projections/` (EF-translated DTO projections), `Migrations/`.
   - `Services/Ingestion/` `IngestionPipeline`, SSRF-guarded `WebPageFetcher`, `OutboundAddressFilter`. `Services/Extraction/` `TextExtractorRegistry` (the only list of supported source types). `Services/Search/` `HybridSearchService`. `Services/Agent/` `ResearchAgentService`, `AgentSseWriter`, `ChatHistoryFactory`, invocation tracker, query-history recorder, built-in `ResearchProfiles`. `Services/Reports/` `ReportDocument` + Markdown/PDF renderers. Extractors, embeddings, chunker, PII scanner and the ingestion channel/worker sit directly in `Services/`.
   - `Plugins/` Semantic Kernel plugins (`VectorSearch`, `WebScraper`, `WaybackMachine`; names in `AgentPlugins`).
 - `src/Lindrake.Web/` Blazor WASM. `Pages/`, `Layout/`, `Components/` (route guard, `Alert`, `AsyncStatus`), `ViewModels/` (page logic, unit-tested), `Services/` (typed `LindrakeApiClient` returning `ApiResult`, `AuthHandler`, `AuthStateService`, `SseParser`, `ApiBaseAddress`). `docker-entrypoint.d/40-render-appsettings.sh` writes `wwwroot/appsettings.json` from `API_BASE_URL` at container start (empty = same origin).
 - `src/Lindrake.Shared/` DTOs + `LindrakeJsonContext` (source-generated, camelCase).
 - `tests/Lindrake.UnitTests/` xUnit + Moq + FluentAssertions; covers API and Web (references both).
-- `tests/Lindrake.IntegrationTests/` `WebApplicationFactory` in the `Testing` environment, EF Core InMemory, fake chat completion.
-- `infra/db/init.sql` superuser-only setup (extensions, `lindrake_app` role, grants); EF migrations own the schema. See `docs/schema-provisioning.md`.
-- `docker-compose.yml` dev stack: `db` (pgvector/pgvector:pg16), `api` (:5000), `web` (nginx :5080, landing at `/`, app at `/app/`). `docker-compose.prod.yml` overlay: GHCR images, Docker secrets, healthchecks.
+- `tests/Lindrake.IntegrationTests/` `WebApplicationFactory` in the `Testing` environment, EF Core InMemory, fake chat completion. `Postgres/`: the real-Postgres suite (`[PostgresFact]`, skipped unless `ConnectionStrings__PostgreSQL` is set; one database per class via `PostgresFixture`, in the compose layout and the qavren-db layout; `CustomWebApplicationFactory.PostgresConnectionString` keeps the real Npgsql registration).
+- `infra/db/init.sql` superuser-only setup for the local compose `db` (extensions, `lindrake_app` role, grants); EF migrations own the schema. See `docs/schema-provisioning.md`.
+- `docker-compose.yml` dev stack: `db` (pgvector/pgvector:pg16), `api` (:5000), `web` (nginx :5080, landing at `/`, app at `/app/`). `docker-compose.prod.yml` overlay: GHCR images, Docker secrets, healthchecks, no `db` (qavren-db; `Database__Schema=lindrake`).
 
 ## Stack details
 
 - **.NET 10.0.103** (`global.json`, rollForward: latestFeature); `LangVersion` preview.
-- **Database:** Postgres 16 + pgvector (`vector(384)`, HNSW) + pg_trgm (GIN). EF Core 10 + Npgsql; snake_case names are mapped explicitly in `LindrakeDbContext` (no naming-convention package). Migrations run at API startup, except in `Testing`.
+- **Database:** Postgres + pgvector (`vector(384)`, HNSW) + pg_trgm (GIN). EF Core 10 + Npgsql; snake_case names are mapped explicitly in `LindrakeDbContext` (no naming-convention package). Migrations run at API startup (`MigrateLindrakeDatabase`, over `ConnectionStrings:Migrations` when set), except in `Testing`.
+- **qavren-db:** runtime and migrations both use the Supavisor **session** pooler (`:5432`, `SSL Mode=Require`), never the transaction pooler: the interceptor's `set_config` is session state (DECISIONS.md, 2026-10-14). `Database:MaxPoolSize` (default 10) replaces the connection string's pool size. No `HasDefaultSchema` (it changes the snapshot): tables follow the role's `search_path`; `Database:Schema` (default `public`) places `__EFMigrationsHistory` and must equal `current_schema()` or startup migrations refuse. Extensions live in qavren-db's `extensions` schema. Connection string secret: `LINDRAKE_DB_URL_PROD` (`LINDRAKE_DB_URL_TEST` for a test environment).
 - **Embeddings:** local ONNX `bge-small-en-v1.5` (384-dim, CLS pooling, 512-token window) by default; the API image downloads it at build time; locally run `pwsh scripts/fetch-embedding-model.ps1`. `Embedding:Provider=OpenAi` needs a column migration first (startup refuses the dimension mismatch). Chunking is 480/48 tokens of the active model.
 - **LLM:** `Anthropic:ModelId` via Semantic Kernel's OpenAI connector against `https://api.anthropic.com/v1/`. No key = agent/entity endpoints answer 503.
 - **Auth:** `Supabase:Url` set = validate Supabase ES256/RS256 tokens via OIDC discovery and remove `/api/auth/*`. Empty = in-house HS256 IdP (`Jwt:Secret` ≥ 32 bytes), allowed in Development/Testing, elsewhere only with `Jwt:AllowLocalIdentityProvider=true` and a non-default secret (`JwtOptionsValidator`). Tenant comes only from the `tenant_id` claim; the default authorization policy requires it on every controller unless `[AllowAnonymous]`.
-- **Tenant isolation:** EF global query filter on every `ITenantOwned` entity (unbound scope = `Guid.Empty` = no rows) + `TenantConnectionInterceptor` setting `app.current_tenant` on each connection open + RLS on `data_sources`, `document_chunks`, `query_history`, `audit_log` (append-only: no UPDATE policy). `users` has no RLS by design (HS256 register checks email uniqueness across tenants; see the `AddAuditLogRowLevelSecurity` migration); `tenants` has none either. The app must connect as `lindrake_app`, not the superuser, or RLS is bypassed.
+- **Tenant isolation:** EF global query filter on every `ITenantOwned` entity (unbound scope = `Guid.Empty` = no rows) + `TenantConnectionInterceptor` setting `app.current_tenant` on each connection open + RLS on `data_sources`, `document_chunks`, `query_history`, `audit_log` (append-only: no UPDATE policy). `users` has no RLS by design (HS256 register checks email uniqueness across tenants; see the `AddAuditLogRowLevelSecurity` migration); `tenants` has none either. The app must connect as a non-superuser role without BYPASSRLS (`lindrake_app` locally, `lindrake` on qavren-db), or RLS is bypassed. Policies read the tenant through `NULLIF(..., '')`, so an unbound or pool-reset connection sees no rows.
 - **Errors:** RFC 7807 ProblemDetails only. Throw an `LindrakeException` subclass for client-facing failures; anything else becomes a generic 500.
 - **Observability:** Serilog (compact JSON console) + OpenTelemetry tracing/metrics (OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, console otherwise).
 - **CI:** consumes `stevenfackley/gh-actions/.github/workflows/ci-dotnet.yml@v1`, `project-name: Lindrake`, `aot-rid: ""`.
@@ -51,6 +52,11 @@ dotnet test -c Release
 # Test (single — xUnit filter)
 dotnet test --filter "FullyQualifiedName~SomeTestClass.SomeTest"
 
+# Postgres suite against the compose db (superuser lindrake; skipped when the variable is unset)
+docker compose up -d db
+ConnectionStrings__PostgreSQL="Host=localhost;Port=5432;Database=lindrake;Username=lindrake;Password=lindrake_dev" \
+  dotnet test tests/Lindrake.IntegrationTests --filter "FullyQualifiedName~Lindrake.IntegrationTests.Postgres"
+
 # Format check (CI runs it but does not fail on it)
 dotnet format --verify-no-changes --no-restore
 
@@ -72,7 +78,7 @@ push main / PR
   ▼
 ci  (uses stevenfackley/gh-actions/.../ci-dotnet.yml@v1, project-name: Lindrake)
   ├─ resolve-solution
-  ├─ Build & Test                       (build with -p:TreatWarningsAsErrors=true; dotnet format --verify-no-changes is continue-on-error; no Postgres service: tests use InMemory)
+  ├─ Build & Test                       (build with -p:TreatWarningsAsErrors=true; dotnet format --verify-no-changes is continue-on-error; run-postgres: pgvector/pgvector:pg16 service + ConnectionStrings__PostgreSQL for the Postgres suite)
   ├─ Dependency & Telemetry Audit       (vulnerable packages, banned telemetry packages, secret-shape grep)
   └─ Native AOT Publish                 (skipped: aot-rid is "" — the app is not AOT-compatible, see DECISIONS.md)
 
@@ -81,7 +87,7 @@ workflow_dispatch only
   ▼
 deploy
   ├─ build-push  (GHCR lindrake-web / lindrake-api, tags latest + prod-<sha7>)
-  └─ deploy      (SSH: compose pull + up web api; skipped while DEPLOY_HOST is unset)
+  └─ deploy      (SSH: writes the connection-string secret from LINDRAKE_DB_URL_PROD, compose pull + up web api; skipped while DEPLOY_HOST is unset)
 ```
 
 ## Conventions

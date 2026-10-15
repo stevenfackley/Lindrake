@@ -38,7 +38,15 @@ dotnet build Lindrake.sln
 dotnet test Lindrake.sln
 ```
 
-Integration tests use EF Core InMemory and a fake chat-completion service — no running PostgreSQL instance or API keys are required.
+Integration tests use a fake chat-completion service and need no API keys. Most run on EF Core InMemory. The Postgres suite (`tests/Lindrake.IntegrationTests/Postgres`) needs a superuser connection to a pgvector server in `ConnectionStrings__PostgreSQL` and is skipped without it; CI always runs it. Against the compose `db` (Git Bash; in PowerShell set `$env:ConnectionStrings__PostgreSQL` first):
+
+```bash
+docker compose up -d db
+ConnectionStrings__PostgreSQL="Host=localhost;Port=5432;Database=lindrake;Username=lindrake;Password=lindrake_dev" \
+  dotnet test tests/Lindrake.IntegrationTests --filter "FullyQualifiedName~Lindrake.IntegrationTests.Postgres"
+```
+
+Each test class creates and drops its own database (`lindrake_it_<id>`); the suite also creates the roles `lindrake_test_app` and `lindrake_qdb`, which stay until `docker compose down -v`.
 
 ### Running the Full Stack
 

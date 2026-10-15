@@ -1,6 +1,6 @@
 # Lindrake — Deploy Guide
 
-Stack: ASP.NET Core Web API (`api`) + Blazor WASM served by nginx (`web`) + Postgres 16/pgvector (`db`).
+Stack: ASP.NET Core Web API (`api`) + Blazor WASM served by nginx (`web`). Data: Postgres with pgvector and pg_trgm, in **qavren-db** (the shared Supabase Postgres, schema `lindrake`) for deployments and in the compose `db` container for local development. See [Database (qavren-db)](#database-qavren-db).
 
 ---
 
@@ -52,7 +52,7 @@ Each run tags images with:
 
 ### Job 2 — `deploy` (no-op until secrets are set)
 
-A first step checks `DEPLOY_HOST`; when it is empty the job logs that infra is not provisioned and skips the SSH step. Otherwise it SSHes to the production host and runs:
+A first step checks `DEPLOY_HOST`; when it is empty the job logs that infra is not provisioned and skips the SSH step. When `DEPLOY_HOST` is set but `LINDRAKE_DB_URL_PROD` is not, the job fails. Otherwise it SSHes to the production host, writes `secrets/ConnectionStrings__DefaultConnection.txt` from `LINDRAKE_DB_URL_PROD` (mode 600), and runs:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml pull web api
@@ -80,8 +80,11 @@ None beyond the built-in `GITHUB_TOKEN` — it has `packages: write` automatical
 | `DEPLOY_USER` | SSH username (must be in the `docker` group) |
 | `DEPLOY_SSH_KEY` | PEM-encoded private SSH key (passphrase-free) |
 | `DEPLOY_WORK_DIR` | Absolute path on host where compose files live, e.g. `/srv/lindrake` |
+| `LINDRAKE_DB_URL_PROD` | Npgsql connection string to qavren-db prod as role `lindrake`, over the session pooler: `Host=<pooler host>;Port=5432;Database=postgres;Username=lindrake.<project ref>;Password=<password>;SSL Mode=Require`. Written to the API's connection-string secret file on every deploy |
 
-Until these are set, the `deploy` job's SSH step is skipped; `build-push` still runs and images are pushed to GHCR.
+Until `DEPLOY_HOST` is set, the `deploy` job's SSH step is skipped; `build-push` still runs and images are pushed to GHCR.
+
+A test environment would use `LINDRAKE_DB_URL_TEST` (qavren-db test, `aws-1-us-east-1.pooler.supabase.com`) the same way; the workflow offers only `production` today.
 
 ---
 
@@ -94,17 +97,16 @@ docker-compose.yml         # copied from repo
 docker-compose.prod.yml    # copied from repo
 .env.prod                  # production settings; do NOT commit real values
 secrets/
-  postgres_password.txt
   Anthropic__ApiKey.txt
   OpenAI__ApiKey.txt
   Tavily__ApiKey.txt
   Jwt__Secret.txt
-  ConnectionStrings__DefaultConnection.txt
+  ConnectionStrings__DefaultConnection.txt   # written by deploy.yml (LINDRAKE_DB_URL_PROD)
 ```
 
 ### .env.prod
 
-`docker-compose.prod.yml` replaces each service's `env_file` with `.env.prod` alone (`env_file: !override`) and replaces the `db` and `api` `environment` blocks, so nothing from `.env.dev` or the base file's dev mappings reaches production; `.env.dev` is not needed on the host. The `!override` / `!reset` tags need **Docker Compose 2.24.4 or later**; older versions do not apply them. Check the merged result with `docker compose -f docker-compose.yml -f docker-compose.prod.yml config`.
+`docker-compose.prod.yml` removes the `db` service (`db: !reset null`) and the api's dependency on it, replaces each service's `env_file` with `.env.prod` alone (`env_file: !override`) and replaces the `api` `environment` block (which sets `Database__Schema=lindrake`), so nothing from `.env.dev` or the base file's dev mappings reaches production; `.env.dev` is not needed on the host. The `!override` / `!reset` tags need **Docker Compose 2.24.4 or later**; older versions do not apply them. Check the merged result with `docker compose -f docker-compose.yml -f docker-compose.prod.yml config`.
 
 `.env.prod` is passed to every service. Set at least:
 
@@ -112,43 +114,43 @@ secrets/
 |---|---|
 | `Supabase__Url=https://<project>.supabase.co` | Production auth. The Supabase project must emit a `tenant_id` custom claim. |
 | *or* `JWT__ALLOWLOCALIDENTITYPROVIDER=true` | Run the in-house HS256 provider deliberately instead. Requires a unique `Jwt__Secret` of at least 32 bytes (`secrets/Jwt__Secret.txt`); the public development default is rejected. With neither key the API refuses to start in Production. `Jwt__Issuer` / `Jwt__Audience` default to `Lindrake` (`appsettings.json`); set them here to change that. |
-| `POSTGRES_USER=lindrake`, `POSTGRES_DB=lindrake` | Superuser and database the postgres image creates on the first start of an empty volume; without them it uses `postgres`/`postgres`. Must match the database in `ConnectionStrings__DefaultConnection.txt`. |
 | `API_BASE_URL=https://api.example.com` | Only when the API is on a different origin. Unset or empty = same origin, the recommended setup. |
 | `Cors__AllowedOrigins__0=...` | Only when `API_BASE_URL` is a different origin from the web app. |
 
-Do not put `POSTGRES_PASSWORD` in `.env.prod`: the overlay blanks it and passes `POSTGRES_PASSWORD_FILE` (the postgres image exits when both are set). The superuser password comes from `secrets/postgres_password.txt`.
+No `POSTGRES_*` setting belongs in `.env.prod`: there is no database container in production.
 
-Compose `${...}` interpolation (`IMAGE_TAG`, `IMAGE_API`, `IMAGE_WEB`, and `POSTGRES_USER` / `POSTGRES_DB` in the db healthcheck) reads the shell environment or a `.env` file next to the compose files, never `env_file`. `deploy.yml` passes no `--env-file`, so put such values in `$DEPLOY_WORK_DIR/.env` if you need them.
+Compose `${...}` interpolation (`IMAGE_TAG`, `IMAGE_API`, `IMAGE_WEB`) reads the shell environment or a `.env` file next to the compose files, never `env_file`. `deploy.yml` passes no `--env-file`, so put such values in `$DEPLOY_WORK_DIR/.env` if you need them.
 
 ### Populating secrets on first deploy
 
 ```bash
 # Example — source from environment or your secrets manager
-echo -n "$PG_PASSWORD"         > secrets/postgres_password.txt
 echo -n "$ANTHROPIC_KEY"       > secrets/Anthropic__ApiKey.txt
 echo -n "$OPENAI_KEY"          > secrets/OpenAI__ApiKey.txt    # may be empty with ONNX embeddings
 echo -n "$TAVILY_KEY"          > secrets/Tavily__ApiKey.txt
 echo -n "$(openssl rand -hex 32)" > secrets/Jwt__Secret.txt     # used only by the HS256 provider
-echo -n "Host=db;Port=5432;Database=lindrake;Username=lindrake_app;Password=$APP_DB_PASSWORD" \
-                                > secrets/ConnectionStrings__DefaultConnection.txt
 chmod 600 secrets/*.txt
 ```
 
+`secrets/ConnectionStrings__DefaultConnection.txt` is written by `deploy.yml` from `LINDRAKE_DB_URL_PROD`; for a manual deploy write it the same way (`printf '%s' "$LINDRAKE_DB_URL" > ...`).
+
 `secrets/*.txt` is gitignored. In automated pipelines, write these files from Vault, AWS Secrets Manager, Azure Key Vault, etc., at deploy time before running compose. Create every file the overlay lists, even one whose value is unused in your auth/embedding mode.
 
-### First-time database setup
+### Database (qavren-db)
 
-`infra/db/init.sql` runs once, on an empty data volume, as the superuser. It creates every extension the migrations use (`uuid-ossp`, `vector`, `pg_trgm`) and the `lindrake_app` role, whose password it takes from `POSTGRES_APP_PASSWORD`. The prod overlay does not set that variable, so in production the role is created **without a password** and cannot log in (the init log says so) until you set one by hand, as the superuser, before the API starts for the first time:
+Deployments keep no database of their own. Lindrake's data lives in **qavren-db**, the shared Supabase Postgres (`stevenfackley/qavren-db`): one schema and one login role per app, Postgres grants as the wall between apps, extensions enabled project-wide in the `extensions` schema. Lindrake's are schema `lindrake` and role `lindrake`.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d db
-# wait until healthy, then (POSTGRES_USER defaults to lindrake):
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec db \
-  psql -U lindrake -d lindrake \
-  -c "ALTER ROLE lindrake_app WITH PASSWORD '<APP_DB_PASSWORD>';"
-```
+1. **Provision** (once per environment, from the qavren-db repo): `pwsh tools/provision-app.ps1 -App lindrake -Env test -Apply`, then `-Env prod`. It creates the role (no superuser, no BYPASSRLS) and the schema it owns, sets the role's `search_path` to `lindrake, extensions` and grants USAGE on `extensions`. It prints the password once: store it straight away as the `LINDRAKE_DB_URL_PROD` (or `LINDRAKE_DB_URL_TEST`) GitHub secret.
+2. **Extensions:** the migrations need `vector`, `pg_trgm` and `uuid-ossp`, and the role cannot create extensions. They must already be enabled in the project's `extensions` schema (and listed in qavren-db's `apps/lindrake.yaml` so the restore drill recreates them); the migrations' `CREATE EXTENSION IF NOT EXISTS` then no-ops.
+3. **Connection string:** the Supavisor **session** pooler, port 5432 (the direct `db.<ref>.supabase.co` host is IPv6-only), with TLS:
+   `Host=<pooler host>;Port=5432;Database=postgres;Username=lindrake.<project ref>;Password=<password>;SSL Mode=Require`.
+   Not the transaction pooler on 6543: the RLS tenant is a session-level setting made when a connection opens, which transaction pooling does not keep with the client ([DECISIONS.md](../DECISIONS.md), 2026-10-14). Session mode holds a server connection per open client connection, so the API caps its pool with `Database:MaxPoolSize` (default 10; it replaces any `Maximum Pool Size` in the connection string).
+4. **Schema:** the prod overlay sets `Database__Schema=lindrake`. Tables are created unqualified and land in the role's `search_path`; `Database:Schema` puts `__EFMigrationsHistory` in the same schema, and startup migrations refuse to run when the connection's `current_schema()` is anything else.
+5. **First start:** the API applies the migrations as `lindrake` (see [Database migrations](#database-migrations)); `lindrake` owns the tables and `FORCE ROW LEVEL SECURITY` binds it too.
 
-The password must match the one in `ConnectionStrings__DefaultConnection.txt`. See [schema-provisioning.md](./schema-provisioning.md).
+**Moving off a deploy-host `db` container** (a host that ran the overlay before 2026-10-14): copy the data into qavren-db first (qavren-db's `docs/migration-playbook.md`). `deploy.yml` runs `up --remove-orphans`, which removes the old `db` container; its volume stays until you delete it.
+
+See [schema-provisioning.md](./schema-provisioning.md) for what each environment's provisioning owns.
 
 ---
 
@@ -164,7 +166,7 @@ Docker file-based secrets keep sensitive values out of env vars and image layers
 # 1. Pull latest images
 docker compose -f docker-compose.yml -f docker-compose.prod.yml pull web api
 
-# 2. Restart web and api (leave db running)
+# 2. Restart web and api (the overlay has no db: qavren-db)
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   up -d --no-deps --remove-orphans web api
 
@@ -173,7 +175,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 docker compose -f docker-compose.yml -f docker-compose.prod.yml logs api --tail 50
 ```
 
-First-time full start (after the database setup above):
+First-time full start (after the qavren-db steps above):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
@@ -183,7 +185,6 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 | Service | Check |
 |---------|-------|
-| `db` | `pg_isready` |
 | `api` | `GET /health` over bash `/dev/tcp`, healthy only on HTTP 200 (`/health` answers 503 when the database check fails). The `aspnet:10.0` runtime image has no `curl` or `wget`. |
 | `web` | `wget http://127.0.0.1/app/` (not `localhost`: busybox resolves it to `::1` first and nginx listens on IPv4 only) |
 
@@ -224,7 +225,7 @@ IMAGE_TAG=prod-3810ff9 docker compose -f docker-compose.yml -f docker-compose.pr
 
 | Service | Internal | Host port (base file) | With the prod overlay |
 |---------|----------|-----------------------|-----------------------|
-| `db` (Postgres) | 5432 | 5432 | not published (`ports: !reset []`) |
+| `db` (Postgres, local only) | 5432 | 5432 | no `db` service (qavren-db) |
 | `api` (ASP.NET) | 8080 | 5000 | `127.0.0.1:5000` |
 | `web` (nginx) | 80 | 5080 | `127.0.0.1:5080` |
 
@@ -256,9 +257,9 @@ docker compose up -d --no-deps web api
 
 ## Database migrations
 
-EF Core migrations are applied automatically when the API starts: `InitializeLindrake` (`src/Lindrake.Api/Extensions/WebApplicationExtensions.cs`) validates options, then calls `Database.Migrate()` as the connection-string user (`lindrake_app`). A failed migration fails the boot. There is no `--migrate` flag; restarting the `api` container is how migrations are applied. The `Testing` environment skips this.
+EF Core migrations are applied automatically when the API starts: `InitializeLindrake` (`src/Lindrake.Api/Extensions/WebApplicationExtensions.cs`) validates options, then calls `LindrakeDatabase.MigrateLindrakeDatabase`, which checks that the connection's `current_schema()` is `Database:Schema` and runs `Database.Migrate()` as the connection's role (`lindrake` on qavren-db, `lindrake_app` locally). It uses `ConnectionStrings:Migrations` when set, otherwise `ConnectionStrings:DefaultConnection`; on qavren-db both are the session pooler, so the optional one is only for a different endpoint or role. A failed migration fails the boot. There is no `--migrate` flag; restarting the `api` container is how migrations are applied. The `Testing` environment skips this.
 
-To apply them from a workstation instead (requires the `dotnet-ef` tool, which is not in a tool manifest: `dotnet tool install --global dotnet-ef`):
+To apply them from a workstation instead (requires the `dotnet-ef` tool, which is not in a tool manifest: `dotnet tool install --global dotnet-ef`; set `Database__Schema` too when it is not `public`):
 
 ```bash
 ConnectionStrings__DefaultConnection="Host=localhost;Database=lindrake;Username=lindrake_app;Password=<password>" \
@@ -305,7 +306,7 @@ EF migration for the column first.
 
 A live demo at a public URL is planned but deferred pending infrastructure provisioning (server, domain, TLS, secrets management). Once infra is ready:
 
-1. Prepare the host as described above (files, `.env.prod`, secrets, first-time database setup).
+1. Provision qavren-db and set `LINDRAKE_DB_URL_PROD` ([Database (qavren-db)](#database-qavren-db)); prepare the host as described above (files, `.env.prod`, secrets).
 2. Set the four `DEPLOY_*` GitHub secrets listed above.
 3. Run the `deploy` workflow from the Actions tab (`workflow_dispatch`).
 

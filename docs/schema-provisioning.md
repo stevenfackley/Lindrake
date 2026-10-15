@@ -1,6 +1,8 @@
 # Schema Provisioning Analysis
 
-**Status:** implemented (2026-06-18); updated 2026-10-14 (later migrations, `pg_trgm` moved into `init.sql`, role password)
+**Status:** implemented (2026-06-18); updated 2026-10-14 (later migrations, `pg_trgm` moved into `init.sql`, role password, production on qavren-db)
+
+This page is about the **local compose `db`**, where `infra/db/init.sql` plays the provisioning role. Deployments use qavren-db instead: see [Production: qavren-db](#production-qavren-db-2026-10-14).
 
 ## The conflict
 
@@ -11,7 +13,7 @@ Two mechanisms both provision the Lindrake schema on a fresh database:
 | `infra/db/init.sql` | The image's bootstrap superuser (`POSTGRES_USER`, `lindrake` in the compose files) | `docker-entrypoint-initdb.d` at container first-boot (empty data volume only) | Every extension (`uuid-ossp`, `vector`, `pg_trgm`), role creation, GRANTs. |
 | EF migrations (`InitialCreate` and later) | `lindrake_app` (non-superuser) | `InitializeLindrake` (`Extensions/WebApplicationExtensions.cs`) → `Database.Migrate()` at API startup | Tables, indexes (HNSW, `pg_trgm` GIN), RLS policies, seed tenant. (`InitialCreate` and `AddPgTrgmExtensionAndIndex` also emit `CREATE EXTENSION IF NOT EXISTS` for the three extensions — those no-op because `init.sql` created them first.) |
 
-Migrations after `InitialCreate`: `AddPgTrgmExtensionAndIndex` (extension + GIN trigram index on `document_chunks.content`), `AddAuditLogAndUsers` (`audit_log`, `users`), `AddDataSourcePiiFlags` (`has_pii`, `pii_flags`), `AddAuditLogRowLevelSecurity` (append-only RLS on `audit_log`).
+Migrations after `InitialCreate`: `AddPgTrgmExtensionAndIndex` (extension + GIN trigram index on `document_chunks.content`), `AddAuditLogAndUsers` (`audit_log`, `users`), `AddDataSourcePiiFlags` (`has_pii`, `pii_flags`), `AddAuditLogRowLevelSecurity` (append-only RLS on `audit_log`), `FailClosedTenantPolicies` (the `InitialCreate` policies read the tenant through `NULLIF(..., '')`, so a pooled connection reset by Npgsql matches no rows instead of failing the `uuid` cast).
 
 On a fresh `docker compose up` both ran in sequence, creating duplicate tables, indexes, and RLS policies. Postgres `CREATE TABLE` is not idempotent — the second run threw errors that were swallowed inside `InitialCreate` only because Migrate() detects the migration is already applied (it checks `__EFMigrationsHistory`). But this was fragile: if the table creation order or the history table raced, errors surfaced.
 
@@ -66,7 +68,31 @@ HINT:  Must have CREATE privilege on current database to create this extension.
 
 `init.sql` now creates it next to the other two. A database initialized before that fix already has `pg_trgm` if its API ever started; if it never did, create the extension once as the superuser (`CREATE EXTENSION IF NOT EXISTS pg_trgm;`) or recreate the volume.
 
+## Production: qavren-db (2026-10-14)
+
+Deployments do not run `init.sql`. Their database is qavren-db, the shared Supabase Postgres, where provisioning is split the same way, by other owners:
+
+| Concern | Local compose `db` | qavren-db |
+|---|---|---|
+| Extensions (`uuid-ossp`, `vector`, `pg_trgm`) | `init.sql`, in `public` | Enabled once project-wide by the qavren-db admin, in the `extensions` schema; declare them in qavren-db's `apps/lindrake.yaml` |
+| Login role | `lindrake_app` (`init.sql`) | `lindrake` (`qavren-db/tools/provision-app.ps1`): no superuser, no BYPASSRLS, `search_path = lindrake, extensions` |
+| Schema | `public` (`GRANT USAGE, CREATE` to `lindrake_app`) | `lindrake`, owned by the role; no CREATE on `public` |
+| Tables, indexes, RLS, seed | EF migrations as `lindrake_app` | EF migrations as `lindrake` |
+| `Database:Schema` | `public` (default) | `lindrake` (set by `docker-compose.prod.yml`) |
+
+The migrations name no schema, so their tables land in the first `search_path` schema, and the extension types and operator classes (`vector`, `vector_cosine_ops`, `gin_trgm_ops`, `word_similarity`) resolve through `extensions` in the role's `search_path`. `LindrakeDbContext` deliberately has no `HasDefaultSchema`: it would change the model snapshot (EF reports pending model changes and would move every table). `Database:Schema` instead places `__EFMigrationsHistory` (`MigrationsHistoryTable`) and is compared with `current_schema()` before startup migrations run, so a role whose `search_path` points elsewhere stops the boot instead of scattering tables. The history table's schema exists before the first migration (the role owns it), so the role needs no database-level CREATE.
+
 ## Verification path
+
+### Postgres integration suite (both layouts)
+
+`tests/Lindrake.IntegrationTests/Postgres` creates a database per test class from a superuser connection, provisions it like the compose `db` (`PublicSchemaPostgresFixture`, mirroring `init.sql`) or like qavren-db (`QavrenSchemaPostgresFixture`, mirroring `provision.sql.tmpl` with extensions in `extensions`), and runs the migrations through the API's own startup code as a non-superuser role. CI runs it on every PR; locally:
+
+```bash
+docker compose up -d db
+ConnectionStrings__PostgreSQL="Host=localhost;Port=5432;Database=lindrake;Username=lindrake;Password=lindrake_dev" \
+  dotnet test tests/Lindrake.IntegrationTests --filter "FullyQualifiedName~Lindrake.IntegrationTests.Postgres"
+```
 
 ### Docker path (init.sql + Migrate())
 ```bash
@@ -93,7 +119,7 @@ dotnet ef database update \
 ```
 This proves EF can stand alone without init.sql. The tradeoff: in production you'd still need init.sql (or a one-time superuser script) to create `lindrake_app` before the app starts.
 
-## TODO: production hardening
+## TODO
 
-- Production does not set `POSTGRES_APP_PASSWORD`, so `lindrake_app` starts without a password; the operator runs `ALTER ROLE lindrake_app WITH PASSWORD '...'` as the superuser and puts that password in the `ConnectionStrings__DefaultConnection` secret (see `docs/DEPLOY.md`, First-time database setup). Reading it from a Docker secret in `init.sql` would remove that manual step.
-- Consider extracting the role-creation block into a separate `infra/db/create-role.sql` script that can be run by a DBA without re-running the full init sequence.
+- `init.sql` serves the local compose `db` only since production moved to qavren-db (2026-10-14); the role-creation and password steps it once needed for production are gone with the prod `db` container.
+- One role both migrates and serves requests (as on qavren-db, where the app role owns its schema). Splitting a DDL owner from a DML-only runtime role would use `ConnectionStrings:Migrations`; qavren-db's provisioning would have to create the second role.

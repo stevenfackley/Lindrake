@@ -7,7 +7,6 @@ using Lindrake.Api.Infrastructure;
 using Lindrake.Api.Middleware;
 using Lindrake.Api.Options;
 using Lindrake.Api.Services;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Serilog;
 
@@ -16,9 +15,10 @@ namespace Lindrake.Api.Extensions;
 public static class WebApplicationExtensions
 {
     /// <summary>
-    /// Applies EF migrations and eagerly loads the ONNX embedding model.
-    /// Skipped in Testing — integration tests use InMemory, which doesn't support
-    /// Migrate(); seeding is handled by CustomWebApplicationFactory.CreateHost.
+    /// Applies EF migrations (over <c>ConnectionStrings:Migrations</c> when set,
+    /// otherwise the runtime connection) and eagerly loads the ONNX embedding model.
+    /// Skipped in Testing: the InMemory suite seeds in CustomWebApplicationFactory,
+    /// the Postgres suite migrates through <see cref="LindrakeDatabase.MigrateLindrakeDatabase"/>.
     /// </summary>
     public static WebApplication InitializeLindrake(this WebApplication app)
     {
@@ -29,8 +29,9 @@ public static class WebApplicationExtensions
         // Run()) so a misconfiguration fails before the database is migrated.
         app.Services.GetService<IStartupValidator>()?.Validate();
 
+        app.Services.MigrateLindrakeDatabase();
+
         using var scope = app.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<LindrakeDbContext>().Database.Migrate();
 
         // Fail fast: force the ONNX model to load at startup (mirrors Migrate()
         // above) so a misconfigured local provider refuses to boot rather than

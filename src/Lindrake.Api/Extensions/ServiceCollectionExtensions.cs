@@ -124,14 +124,17 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<TimestampInterceptor>();
 
+        // Database:Schema / Database:MaxPoolSize (qavren-db: schema lindrake, session pooler).
+        // Bound from the configuration passed in, like the connection string below.
+        services.AddOptions<DatabaseOptions>()
+            .Bind(configuration.GetSection(DatabaseOptions.Section))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddDbContext<LindrakeDbContext>((sp, options) =>
-            options.UseNpgsql(
-                configuration.GetConnectionString("DefaultConnection"),
-                npgsql =>
-                {
-                    npgsql.UseVector();
-                    npgsql.EnableRetryOnFailure(3);
-                })
+            options.UseLindrakeNpgsql(
+                configuration.GetConnectionString(LindrakeDatabase.DefaultConnectionName),
+                sp.GetRequiredService<IOptions<DatabaseOptions>>().Value)
             .AddInterceptors(
                 sp.GetRequiredService<TenantConnectionInterceptor>(),
                 sp.GetRequiredService<TimestampInterceptor>()));

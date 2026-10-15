@@ -6,33 +6,36 @@
 # (env_file lists are appended, port lists are merged, build is kept).
 #
 # What this overlay does on top of the base (docker-compose.yml):
+#   - Removes the db service: the base file's Postgres is for local development
+#     only. Production data lives in qavren-db (schema lindrake, role lindrake),
+#     reached over the Supavisor session pooler; the api no longer depends on db
 #   - Replaces every env_file with .env.prod alone: nothing from .env.dev
 #     reaches production
-#   - Replaces the db and api environment, so the base file's dev values
-#     (database password, connection string, JWT secret, API keys) are gone
+#   - Replaces the api environment, so the base file's dev values (connection
+#     string, JWT secret, API keys) are gone
 #   - Removes build: runs the pre-built GHCR images (deploy.yml pulls them
 #     before `up`)
-#   - Publishes no db port, and api and web on 127.0.0.1 only, for a reverse
-#     proxy on the same host (see docs/DEPLOY.md, Ports)
+#   - Publishes api and web on 127.0.0.1 only, for a reverse proxy on the same
+#     host (see docs/DEPLOY.md, Ports)
 #   - Injects secrets via Docker file-based secrets (see secrets/ directory)
 #   - Adds healthchecks on api and web
 #   - Enforces restart: always on every service
 #
 # Required files on the host before first deploy:
 #   .env.prod               — non-secret settings (docs/DEPLOY.md, .env.prod).
-#                             MUST set POSTGRES_USER and POSTGRES_DB (read on the
-#                             first start of an empty volume), and either
-#                             Supabase__Url, or JWT__ALLOWLOCALIDENTITYPROVIDER=true
+#                             MUST set either Supabase__Url, or
+#                             JWT__ALLOWLOCALIDENTITYPROVIDER=true
 #                             (in-house HS256 provider, needs a unique 32+ byte
 #                             Jwt__Secret): with neither, the API refuses to start
 #                             in Production.
 #   secrets/*.txt           — one file per secret, raw value, no trailing newline
-#     postgres_password.txt
 #     Anthropic__ApiKey.txt
 #     OpenAI__ApiKey.txt
 #     Tavily__ApiKey.txt
 #     Jwt__Secret.txt
-#     ConnectionStrings__DefaultConnection.txt
+#     ConnectionStrings__DefaultConnection.txt   (written by deploy.yml from the
+#                             LINDRAKE_DB_URL_PROD GitHub secret: qavren-db over the
+#                             session pooler, port 5432, SSL Mode=Require)
 #
 # GHCR image names (pushed by .github/workflows/deploy.yml):
 #   ghcr.io/<owner>/lindrake-web:<tag>
@@ -40,33 +43,16 @@
 # The deploy workflow uses the 'latest' tag by default.
 
 services:
-  db:
-    image: pgvector/pgvector:pg16
-    restart: always
-    env_file: !override
-      - .env.prod
-    secrets:
-      - postgres_password
-    environment: !override
-      # POSTGRES_PASSWORD_FILE is natively supported by the postgres image and
-      # keeps the plaintext out of env vars. POSTGRES_PASSWORD is blanked so a
-      # value left in .env.prod cannot collide with it: the image exits when
-      # both are set.
-      POSTGRES_PASSWORD: ""
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    ports: !reset []
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lindrake} -d ${POSTGRES_DB:-lindrake}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
+  # Local development only (docs/DEPLOY.md, Database): production uses qavren-db.
+  db: !reset null
 
   api:
     # Pre-built image from GHCR; override with IMAGE_API / IMAGE_TAG env vars
     image: ${IMAGE_API:-ghcr.io/stevenfackley/lindrake-api}:${IMAGE_TAG:-latest}
     build: !reset null
     restart: always
+    # The base file waits for its local db; production has none.
+    depends_on: !reset {}
     env_file: !override
       - .env.prod
     ports: !override
@@ -80,6 +66,9 @@ services:
     environment: !override
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      # qavren-db: the lindrake role's schema (its search_path is lindrake,
+      # extensions); startup migrations refuse to run if the two disagree.
+      Database__Schema: lindrake
       # Secrets are not env vars here: the API reads /run/secrets/ via
       # AddKeyPerFile (file name Section__Key -> config key Section:Key).
     healthcheck:
@@ -120,8 +109,6 @@ services:
 # Each file must contain only the raw secret value (no trailing newline).
 # In CI/CD, write these files from your secrets manager at deploy time.
 secrets:
-  postgres_password:
-    file: ./secrets/postgres_password.txt
   Anthropic__ApiKey:
     file: ./secrets/Anthropic__ApiKey.txt
   OpenAI__ApiKey:

@@ -22,7 +22,7 @@ Lindrake was called OmniSift until 2026-10-14 ([why](DECISIONS.md#2026-10-14--re
 | **Frontend** | Blazor WebAssembly (.NET 10), served by nginx under `/app/` |
 | **Backend API** | ASP.NET Core, .NET 10 (C# 14, `LangVersion` preview) |
 | **AI Orchestration** | Microsoft Semantic Kernel (automatic function calling) |
-| **Database** | PostgreSQL 16 + pgvector + pg_trgm (EF Core 10 / Npgsql) |
+| **Database** | PostgreSQL + pgvector + pg_trgm (EF Core 10 / Npgsql); deployments on qavren-db (shared Supabase Postgres, schema `lindrake`), local compose `db` for development |
 | **Containerization** | Docker & Docker Compose |
 | **LLM** | Anthropic Claude: `Anthropic:ModelId`, default `claude-sonnet-4-20250514`, called through Semantic Kernel's OpenAI connector against Anthropic's OpenAI-compatible endpoint |
 | **Embeddings** | Local ONNX `bge-small-en-v1.5` (384 dimensions, 512-token window). OpenAI `text-embedding-3-large` remains selectable, see [Embeddings](#embeddings) |
@@ -83,7 +83,7 @@ Locally there is no Supabase project, so the API runs the in-house HS256 identit
 Lindrake/
 ├── Lindrake.sln                       # Solution file
 ├── docker-compose.yml                 # Dev stack: db + api + web (defaults = .env.dev values)
-├── docker-compose.prod.yml            # Prod overlay: GHCR images, Docker secrets, healthchecks
+├── docker-compose.prod.yml            # Prod overlay: GHCR images, Docker secrets, healthchecks, no db (qavren-db)
 ├── .env.example                       # Environment variable reference
 ├── .env.dev                           # Development defaults (committed)
 ├── .env.test                          # Test defaults (committed)
@@ -95,7 +95,7 @@ Lindrake/
 │       ├── deploy.yml                 # Manual: build + push GHCR images, SSH deploy
 │       └── dependabot-auto-merge.yml
 ├── docs/                              # PDD, SDD, deploy guide, schema provisioning, roadmap
-├── infra/db/init.sql                  # Superuser-only setup: extensions, lindrake_app role, grants
+├── infra/db/init.sql                  # Local db superuser setup: extensions, lindrake_app role, grants
 ├── landing/                           # Static marketing site served at /
 ├── scripts/                           # Test runner, embedding-model fetch, secret scan
 ├── secrets/README.md                  # How to populate Docker secret files
@@ -122,7 +122,7 @@ Lindrake/
 │       └── Dockerfile
 └── tests/
     ├── Lindrake.UnitTests/            # xUnit + Moq + FluentAssertions (API and Web)
-    └── Lindrake.IntegrationTests/     # WebApplicationFactory + EF Core InMemory
+    └── Lindrake.IntegrationTests/     # WebApplicationFactory + EF Core InMemory; Postgres/ real-Postgres suite
 ```
 
 ---
@@ -179,7 +179,7 @@ The default provider is the local ONNX model (`Embedding:Provider=Onnx`), so emb
 - **Production:** set `Supabase:Url`; the API validates Supabase-issued ES256/RS256 tokens via OIDC discovery (audience `authenticated`), and the Supabase project must emit a `tenant_id` custom claim. `/api/auth/*` does not exist in this mode.
 - **Development / Testing:** with `Supabase:Url` empty, the in-house HS256 identity provider (`/api/auth/register`, `/api/auth/login`) issues tokens signed with `Jwt:Secret` (at least 32 bytes). Outside Development/Testing it starts only with `Jwt:AllowLocalIdentityProvider=true` and a unique secret; otherwise the API refuses to start.
 - Every controller requires an authenticated identity with a `tenant_id` claim unless it is marked `[AllowAnonymous]`.
-- Isolation is enforced twice: an EF Core global query filter on every tenant-owned entity (an unbound scope matches no rows) and PostgreSQL Row-Level Security keyed on `app.current_tenant`, which an EF connection interceptor sets each time a connection opens. The app connects as the non-superuser `lindrake_app` role so RLS applies.
+- Isolation is enforced twice: an EF Core global query filter on every tenant-owned entity (an unbound scope matches no rows) and PostgreSQL Row-Level Security keyed on `app.current_tenant`, which an EF connection interceptor sets each time a connection opens. The app connects as a non-superuser role without BYPASSRLS (`lindrake_app` locally, `lindrake` on qavren-db) so RLS applies.
 
 ## 🌐 API Conventions
 
@@ -216,7 +216,15 @@ dotnet test tests/Lindrake.UnitTests/Lindrake.UnitTests.csproj -f net10.0
 dotnet test tests/Lindrake.IntegrationTests/Lindrake.IntegrationTests.csproj -f net10.0
 ```
 
-Integration tests run the API in the `Testing` environment on EF Core InMemory with a fake chat-completion service; no PostgreSQL or API keys are needed. CI runs the full unit and integration suites on every pull request and push to `main`.
+Integration tests run the API in the `Testing` environment with a fake chat-completion service and no API keys. Most run on EF Core InMemory; the Postgres suite (`tests/Lindrake.IntegrationTests/Postgres`: RLS, the tenant interceptor, hybrid search, cascades, migrations in the local and qavren-db layouts) runs when `ConnectionStrings__PostgreSQL` names a superuser connection to a pgvector server, and is skipped otherwise. Against the compose `db`:
+
+```bash
+docker compose up -d db
+ConnectionStrings__PostgreSQL="Host=localhost;Port=5432;Database=lindrake;Username=lindrake;Password=lindrake_dev" \
+  dotnet test tests/Lindrake.IntegrationTests --filter "FullyQualifiedName~Lindrake.IntegrationTests.Postgres"
+```
+
+CI runs the full unit and integration suites, the Postgres suite included (a `pgvector/pgvector:pg16` service), on every pull request and push to `main`.
 
 ## 📝 Documentation
 
