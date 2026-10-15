@@ -28,7 +28,8 @@ namespace Lindrake.IntegrationTests;
 
 /// <summary>
 /// Custom WebApplicationFactory that replaces PostgreSQL with an in-memory
-/// database and mocks external services (embedding, LLM).
+/// database (unless <see cref="PostgresConnectionString"/> is set) and mocks
+/// external services (embedding, LLM).
 ///
 /// Authentication: the Testing environment leaves Supabase:Url unset, so the API
 /// validates the legacy in-house HS256 tokens. Tests mint those tokens via
@@ -64,6 +65,15 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     /// <summary>Last-word service overrides for a test (runs after the defaults below).</summary>
     public Action<IServiceCollection>? ConfigureTestServices { get; init; }
 
+    /// <summary>
+    /// Set by the Postgres suite (<see cref="Postgres.PostgresFixture"/>): the API keeps
+    /// its real Npgsql registration (<see cref="TenantConnectionInterceptor"/> and
+    /// <see cref="TimestampInterceptor"/> included) against this connection string
+    /// instead of switching to InMemory, and nothing is seeded here (the fixture runs
+    /// the migrations, whose seed includes <see cref="TestTenantId"/>). Null = InMemory.
+    /// </summary>
+    public string? PostgresConnectionString { get; init; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -76,28 +86,15 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:Issuer"] = TestJwtIssuer,
                 ["Jwt:Audience"] = TestJwtAudience,
                 // Supabase:Url intentionally unset → in-house HS256 validation path.
+                ["ConnectionStrings:" + LindrakeDatabase.DefaultConnectionName] = PostgresConnectionString,
             });
             config.AddInMemoryCollection(ExtraSettings);
         });
 
         builder.ConfigureServices(services =>
         {
-            // Replace PostgreSQL with InMemory. EF Core allows one provider per
-            // context, and AddDbContext's UseNpgsql lives on in the context's
-            // IDbContextOptionsConfiguration, so remove exactly what AddDbContext
-            // registered (by type, not by name) and register the context again.
-            services.RemoveAll<LindrakeDbContext>();
-            services.RemoveAll<DbContextOptions<LindrakeDbContext>>();
-            services.RemoveAll<DbContextOptions>();
-            services.RemoveAll<IDbContextOptionsConfiguration<LindrakeDbContext>>();
-
-            // One database per factory (per class fixture, or per test for tests
-            // that build their own factory); tests isolate further by tenant.
-            var dbName = "Lindrake_IntegrationTests_" + Guid.NewGuid();
-            services.AddDbContext<LindrakeDbContext>((sp, options) => options
-                .UseInMemoryDatabase(dbName)
-                .ReplaceService<IModelCustomizer, InMemoryModelCustomizer>()
-                .AddInterceptors(sp.GetRequiredService<TimestampInterceptor>()));
+            if (PostgresConnectionString is null)
+                UseInMemoryDatabase(services);
 
             // Replace embedding service with a mock that returns dummy vectors
             services.RemoveAll<IEmbeddingService>();
@@ -132,9 +129,33 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         });
     }
 
+    /// <summary>
+    /// Replaces PostgreSQL with InMemory. EF Core allows one provider per context, and
+    /// AddDbContext's UseNpgsql lives on in the context's IDbContextOptionsConfiguration,
+    /// so remove exactly what AddDbContext registered (by type, not by name) and
+    /// register the context again.
+    /// </summary>
+    private static void UseInMemoryDatabase(IServiceCollection services)
+    {
+        services.RemoveAll<LindrakeDbContext>();
+        services.RemoveAll<DbContextOptions<LindrakeDbContext>>();
+        services.RemoveAll<DbContextOptions>();
+        services.RemoveAll<IDbContextOptionsConfiguration<LindrakeDbContext>>();
+
+        // One database per factory (per class fixture, or per test for tests
+        // that build their own factory); tests isolate further by tenant.
+        var dbName = "Lindrake_IntegrationTests_" + Guid.NewGuid();
+        services.AddDbContext<LindrakeDbContext>((sp, options) => options
+            .UseInMemoryDatabase(dbName)
+            .ReplaceService<IModelCustomizer, InMemoryModelCustomizer>()
+            .AddInterceptors(sp.GetRequiredService<TimestampInterceptor>()));
+    }
+
     protected override IHost CreateHost(IHostBuilder builder)
     {
         var host = base.CreateHost(builder);
+        if (PostgresConnectionString is not null)
+            return host;
 
         // Seed the test database after the host is fully built so Serilog's
         // ReloadableLogger is not frozen prematurely by a premature BuildServiceProvider call.
