@@ -127,7 +127,9 @@ public sealed class DataSourcesViewModelTests
             var path when path.StartsWith("/api/datasources?", StringComparison.Ordinal) => Json(HttpStatusCode.OK, "[]"),
             _ => Json(HttpStatusCode.OK, Source(UploadId, "processing"))
         }));
-        using var vm = new DataSourcesViewModel(harness.Api, new PollingOptions(TimeSpan.FromMilliseconds(5), TimeSpan.FromMilliseconds(100)));
+        // A 1 s cap leaves room for at least one 5 ms poll on a slow CI runner; with 100 ms
+        // the deadline could fire before the first status request, failing the count check.
+        using var vm = new DataSourcesViewModel(harness.Api, new PollingOptions(TimeSpan.FromMilliseconds(5), TimeSpan.FromSeconds(1)));
 
         await vm.UploadAsync(Pdf());
         await vm.WhenPollingIdleAsync().WaitAsync(TimeSpan.FromSeconds(10));
