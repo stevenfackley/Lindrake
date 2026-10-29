@@ -1,6 +1,7 @@
 # Fleet rule: monthly, grouped, at most 3 open PRs per ecosystem, so routine
-# bumps stay cheap on Actions minutes and reviewable. Security updates are not
-# subject to the schedule and open as soon as an advisory lands.
+# bumps stay cheap on Actions minutes and reviewable. Groups take minor and
+# patch updates only; a major bump arrives as its own PR. Security updates are
+# not subject to the schedule and open as soon as an advisory lands.
 version: 2
 updates:
   - package-ecosystem: nuget
@@ -10,10 +11,13 @@ updates:
     groups:
       dotnet-runtime:
         patterns: ["Microsoft.Extensions.*", "Microsoft.AspNetCore.*"]
+        update-types: ["minor", "patch"]
       ef-core:
         patterns: ["Microsoft.EntityFrameworkCore*", "Npgsql.EntityFrameworkCore.*"]
+        update-types: ["minor", "patch"]
       testing:
         patterns: ["xunit*", "coverlet.*", "Microsoft.NET.Test.*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: docker
     directory: /src/Lindrake.Api
@@ -22,6 +26,7 @@ updates:
     groups:
       api-images:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: docker
     directory: /src/Lindrake.Web
@@ -30,6 +35,7 @@ updates:
     groups:
       web-images:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -38,3 +44,4 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+        update-types: ["minor", "patch"]

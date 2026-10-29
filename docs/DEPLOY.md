@@ -156,7 +156,7 @@ See [schema-provisioning.md](./schema-provisioning.md) for what each environment
 
 ## Secret files
 
-Docker file-based secrets keep sensitive values out of env vars and image layers. The API reads `/run/secrets/` via `AddKeyPerFile` in `Program.cs` (file name `Section__Key` → config key `Section:Key`), added after environment variables so a secret file wins over any environment variable of the same key. The Postgres image reads `POSTGRES_PASSWORD_FILE` natively.
+Docker file-based secrets keep sensitive values out of env vars and image layers. The API reads `/run/secrets/` via `AddKeyPerFile` in `Program.cs` (file name `Section__Key` → config key `Section:Key`), added after environment variables so a secret file wins over any environment variable of the same key.
 
 ---
 
