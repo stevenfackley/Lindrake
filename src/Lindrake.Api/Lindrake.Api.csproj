@@ -14,7 +14,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.14" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
     <!-- Explicit: Npgsql 10.0.3 / Pgvector.EFCore 0.3.0 pull Relational 10.0.4; pin to the EF Core version so consumers do not hit MSB3277. -->
@@ -35,7 +35,7 @@
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
 
     <!-- Auth -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
 
     <!-- PDF Generation -->
@@ -45,7 +45,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.0" />
 
     <!-- HTTP Resilience (retry, timeout, circuit breaker via Polly) -->
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
 
     <!-- Serilog structured logging -->
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
