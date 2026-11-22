@@ -30,11 +30,7 @@ public sealed class MarkdownReportRenderer : IReportRenderer<string>
         sb.AppendLine();
 
         // ── Conversation turns ─────────────────────────────────
-        var assistantTurns = document.Messages
-            .Where(m => string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        if (assistantTurns.Count == 0)
+        if (!document.Messages.Any(m => m.IsAssistant))
         {
             sb.AppendLine("*No assistant responses to report.*");
         }
@@ -64,7 +60,7 @@ public sealed class MarkdownReportRenderer : IReportRenderer<string>
             var turnNumber = 0;
             foreach (var msg in document.Messages)
             {
-                if (string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase))
+                if (msg.IsUser)
                 {
                     turnNumber++;
                     sb.AppendLine($"## Query {turnNumber}");
@@ -72,7 +68,7 @@ public sealed class MarkdownReportRenderer : IReportRenderer<string>
                     sb.AppendLine($"> {EscapeBlockquote(msg.Content)}");
                     sb.AppendLine();
                 }
-                else if (string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+                else if (msg.IsAssistant)
                 {
                     sb.AppendLine("### Answer");
                     sb.AppendLine();
@@ -122,10 +118,9 @@ public sealed class MarkdownReportRenderer : IReportRenderer<string>
 
     private static string FormatInlineCitation(int fn, SourceCitation c)
     {
-        var label = c.Title ?? c.Url ?? "(unknown)";
-        var scoreStr = c.RelevanceScore.HasValue
-            ? " — score: " + c.RelevanceScore.Value.ToString("F3", CultureInfo.InvariantCulture)
-            : string.Empty;
+        var label = ReportCitations.Label(c);
+        var score = ReportCitations.Score(c);
+        var scoreStr = score is not null ? " — score: " + score : string.Empty;
         var linkPart = c.Url is not null
             ? $" [link]({c.Url})"
             : string.Empty;
