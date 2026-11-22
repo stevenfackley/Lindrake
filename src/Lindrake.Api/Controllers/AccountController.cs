@@ -1,6 +1,7 @@
 using Lindrake.Api.Data;
 using Lindrake.Api.Data.Projections;
 using Lindrake.Api.Middleware;
+using Lindrake.Api.Models;
 using Lindrake.Api.Services;
 using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -87,17 +88,9 @@ public sealed class AccountController(
         }
         else
         {
-            // ExecuteDelete needs a relational provider (EF InMemory in tests): load
-            // and remove instead. One SaveChanges (in LogAsync) commits both.
-            dbContext.DocumentChunks.RemoveRange(await dbContext.DocumentChunks
-                .Where(c => c.TenantId == tenantId).ToListAsync(cancellationToken).ConfigureAwait(false));
-            dbContext.DataSources.RemoveRange(await dbContext.DataSources
-                .Where(ds => ds.TenantId == tenantId).ToListAsync(cancellationToken).ConfigureAwait(false));
-            dbContext.QueryHistories.RemoveRange(await dbContext.QueryHistories
-                .Where(q => q.TenantId == tenantId).ToListAsync(cancellationToken).ConfigureAwait(false));
-            dbContext.AuditLogs.RemoveRange(await dbContext.AuditLogs
-                .Where(a => a.TenantId == tenantId).ToListAsync(cancellationToken).ConfigureAwait(false));
-
+            // No transaction on EF InMemory (tests): one SaveChanges (in LogAsync)
+            // commits the removals and the audit entry together.
+            await EraseTenantRowsAsync(tenantId, cancellationToken).ConfigureAwait(false);
             await LogEraseAsync(tenantId, cancellationToken).ConfigureAwait(false);
         }
 
@@ -105,9 +98,7 @@ public sealed class AccountController(
     }
 
     /// <summary>
-    /// Deletes the tenant's rows set-based (no entity is loaded) and records the
-    /// erase, committing both together. Destructive, so every delete keeps an
-    /// explicit tenant predicate on top of the query filter.
+    /// Erases the tenant's rows and records the erase, committing both together.
     /// </summary>
     private async Task EraseInTransactionAsync(Guid tenantId, CancellationToken cancellationToken)
     {
@@ -117,19 +108,40 @@ public sealed class AccountController(
         var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         await using (transaction.ConfigureAwait(false))
         {
-            await dbContext.DocumentChunks.Where(c => c.TenantId == tenantId)
-                .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
-            await dbContext.DataSources.Where(ds => ds.TenantId == tenantId)
-                .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
-            await dbContext.QueryHistories.Where(q => q.TenantId == tenantId)
-                .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
-            await dbContext.AuditLogs.Where(a => a.TenantId == tenantId)
-                .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
-
+            await EraseTenantRowsAsync(tenantId, cancellationToken).ConfigureAwait(false);
             await LogEraseAsync(tenantId, cancellationToken).ConfigureAwait(false);
 
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// The one list of what the erase empties: every tenant-owned table except
+    /// <c>users</c> (the account itself stays), children before parents.
+    /// </summary>
+    private async Task EraseTenantRowsAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        await EraseTenantRowsAsync(dbContext.DocumentChunks, tenantId, cancellationToken).ConfigureAwait(false);
+        await EraseTenantRowsAsync(dbContext.DataSources, tenantId, cancellationToken).ConfigureAwait(false);
+        await EraseTenantRowsAsync(dbContext.QueryHistories, tenantId, cancellationToken).ConfigureAwait(false);
+        await EraseTenantRowsAsync(dbContext.AuditLogs, tenantId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Deletes the tenant's rows of <paramref name="set"/>: set-based on a relational
+    /// provider (no entity is loaded); EF InMemory has no ExecuteDelete, so there they
+    /// are loaded and removed, and the caller's SaveChanges deletes them. Destructive,
+    /// so the delete keeps an explicit tenant predicate on top of the query filter.
+    /// </summary>
+    private async Task EraseTenantRowsAsync<T>(DbSet<T> set, Guid tenantId, CancellationToken cancellationToken)
+        where T : class, ITenantOwned
+    {
+        var rows = set.Where(e => e.TenantId == tenantId);
+
+        if (dbContext.Database.IsRelational())
+            await rows.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        else
+            set.RemoveRange(await rows.ToListAsync(cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
