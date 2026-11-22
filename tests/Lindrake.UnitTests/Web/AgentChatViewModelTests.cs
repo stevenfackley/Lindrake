@@ -189,7 +189,10 @@ public sealed class AgentChatViewModelTests
         vm.IsGeneratingReport.Should().BeFalse();
         var request = harness.Handler.Requests.Last();
         request.PathAndQuery.Should().Be("/api/agent/report/pdf");
-        request.Body.Should().Contain("\"title\":\"Lindrake Research Report\"").And.Contain("\"role\":\"assistant\"");
+        request.Body.Should().Contain("\"role\":\"assistant\"");
+        // No title: the API applies the deployment's ResearchProfile:ReportTitle to a blank one.
+        using var json = JsonDocument.Parse(request.Body);
+        json.RootElement.TryGetProperty("title", out var title).Should().BeFalse("the request sent title {0}", title);
     }
 
     [Fact]

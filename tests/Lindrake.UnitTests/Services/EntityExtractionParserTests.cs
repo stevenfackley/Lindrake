@@ -4,12 +4,52 @@
 // ============================================================
 
 using FluentAssertions;
+using Lindrake.Api.Models;
 using Lindrake.Api.Services;
+using Lindrake.UnitTests.TestSupport;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace Lindrake.UnitTests.Services;
 
 public sealed class EntityExtractionParserTests
 {
+    [Fact]
+    public async Task ExtractAsync_UnreadableModelAnswer_LogsAWarningWithoutTheAnswer()
+    {
+        // The response is still an empty graph; the log is what tells a parse
+        // failure apart from a document with no entities.
+        const string answer = """{"nodes": [Michael Byrne]}""";
+        var tenantId = Guid.NewGuid();
+        var databaseName = "entities-" + Guid.NewGuid();
+        await using (var seed = InMemoryDb.ForTenant(databaseName, tenantId))
+        {
+            var source = new DataSource { TenantId = tenantId, SourceType = "text", FileName = "notes.txt" };
+            seed.DataSources.Add(source);
+            seed.DocumentChunks.Add(new DocumentChunk
+            {
+                TenantId = tenantId,
+                DataSourceId = source.Id,
+                Content = "Michael Byrne, born Cork, 1871"
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        var builder = Kernel.CreateBuilder();
+        builder.Services.AddSingleton<IChatCompletionService>(new ScriptedChatCompletionService(answer));
+        var logger = new RecordingLogger<EntityExtractionService>();
+        await using var db = InMemoryDb.ForTenant(databaseName, tenantId);
+        var sut = new EntityExtractionService(db, builder.Build(), logger);
+
+        var graph = await sut.ExtractAsync(tenantId, CancellationToken.None);
+
+        graph.Nodes.Should().BeEmpty();
+        logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning)
+            .Which.Message.Should().NotContain("Michael Byrne");
+    }
+
     [Fact]
     public void ParseGraphJson_WellFormedJson_ReturnsGraph()
     {
