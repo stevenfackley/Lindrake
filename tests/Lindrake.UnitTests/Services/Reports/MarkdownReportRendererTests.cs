@@ -280,6 +280,98 @@ public sealed class MarkdownReportRendererTests
         md.Should().Contain("This is an excerpt.");
     }
 
+    [Fact]
+    public void Build_InlineSources_LabelByTitleThenUrlThenUnknown_WithTheScore()
+    {
+        var req = new ReportDocument
+        {
+            GeneratedAt = FixedNow,
+            Messages =
+            [
+                new ReportMessage
+                {
+                    Role = "assistant",
+                    Content = "Found.",
+                    Citations =
+                    [
+                        new SourceCitation { Type = "web", Title = "Parish register", Url = "https://example.test/reg", RelevanceScore = 0.92 },
+                        new SourceCitation { Type = "web", Url = "https://example.test/census" },
+                        new SourceCitation { Type = "document" }
+                    ]
+                }
+            ]
+        };
+        var md = Renderer.Render(req);
+
+        var nl = Environment.NewLine;
+        md.Should().Contain("- [1] **Parish register** — score: 0.920 [link](https://example.test/reg)" + nl)
+            .And.Contain("- [2] **https://example.test/census** [link](https://example.test/census)" + nl)
+            .And.Contain("- [3] **(unknown)**" + nl);
+    }
+
+    // ── Roles ────────────────────────────────────────────────
+
+    [Fact]
+    public void Build_RolesMatchIgnoringCase()
+    {
+        var req = new ReportDocument
+        {
+            GeneratedAt = FixedNow,
+            Messages =
+            [
+                new ReportMessage { Role = "USER", Content = "Where was Michael born?" },
+                new ReportMessage { Role = "Assistant", Content = "In Cork." }
+            ]
+        };
+        var md = Renderer.Render(req);
+
+        md.Should().Contain("## Query 1").And.Contain("> Where was Michael born?")
+            .And.Contain("### Answer").And.Contain("In Cork.")
+            .And.NotContain("No assistant responses to report.");
+    }
+
+    [Fact]
+    public void Build_OtherRole_IsNotRendered_ButItsCitationsReachTheBibliography()
+    {
+        // Footnote numbers are assigned over every turn's citations, whatever the role.
+        var req = new ReportDocument
+        {
+            GeneratedAt = FixedNow,
+            Messages =
+            [
+                new ReportMessage
+                {
+                    Role = "system",
+                    Content = "Hidden system turn",
+                    Citations = [new SourceCitation { Type = "web", Title = "System source" }]
+                },
+                new ReportMessage { Role = "assistant", Content = "In Cork." }
+            ]
+        };
+        var md = Renderer.Render(req);
+
+        md.Should().NotContain("Hidden system turn");
+        md[md.IndexOf("## Sources Bibliography", StringComparison.Ordinal)..]
+            .Should().Contain("[1] | **Type:** web | **Title:** System source");
+    }
+
+    [Fact]
+    public void Build_OnlyUserAndOtherRoles_ReturnsPlaceholderText()
+    {
+        var req = new ReportDocument
+        {
+            GeneratedAt = FixedNow,
+            Messages =
+            [
+                new ReportMessage { Role = "user", Content = "Question" },
+                new ReportMessage { Role = "system", Content = "Note" }
+            ]
+        };
+        var md = Renderer.Render(req);
+
+        md.Should().Contain("No assistant responses to report.").And.NotContain("## Query 1");
+    }
+
     // ── Empty messages ───────────────────────────────────────
 
     [Fact]

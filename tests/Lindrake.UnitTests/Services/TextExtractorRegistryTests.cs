@@ -75,7 +75,7 @@ public sealed class TextExtractorRegistryTests
         sourceType.Should().Be(expected);
     }
 
-    // The Blazor client sends application/octet-stream for every upload.
+    // The Web client's fallback MIME type for a file it has no type for.
     [Theory]
     [InlineData("report.pdf", "pdf")]
     [InlineData("REPORT.PDF", "pdf")]

@@ -3,7 +3,6 @@
 // The QuestPDF license is set once, in AddLindrakeReports().
 // ============================================================
 
-using System.Globalization;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -47,7 +46,7 @@ public sealed class PdfReportRenderer : IReportRenderer<byte[]>
                     var turnNumber = 0;
                     foreach (var msg in document.Messages)
                     {
-                        if (string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase))
+                        if (msg.IsUser)
                         {
                             turnNumber++;
                             col.Item().PaddingTop(6).Text($"Query {turnNumber}")
@@ -58,7 +57,7 @@ public sealed class PdfReportRenderer : IReportRenderer<byte[]>
                                 .Text(msg.Content)
                                 .FontSize(11).Italic();
                         }
-                        else if (string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+                        else if (msg.IsAssistant)
                         {
                             col.Item().Text("Answer").FontSize(13).SemiBold();
                             col.Item().Text(msg.Content).FontSize(11);
@@ -68,10 +67,9 @@ public sealed class PdfReportRenderer : IReportRenderer<byte[]>
                                 col.Item().PaddingTop(4).Text("Sources:").FontSize(10).SemiBold();
                                 foreach (var c in msg.Citations)
                                 {
-                                    var label = c.Title ?? c.Url ?? "(unknown)";
-                                    var scoreStr = c.RelevanceScore.HasValue
-                                        ? " — " + c.RelevanceScore.Value.ToString("F3", CultureInfo.InvariantCulture)
-                                        : string.Empty;
+                                    var label = ReportCitations.Label(c);
+                                    var score = ReportCitations.Score(c);
+                                    var scoreStr = score is not null ? " — " + score : string.Empty;
                                     col.Item().PaddingLeft(12).Text($"• {label}{scoreStr}")
                                         .FontSize(9).FontColor(Colors.Grey.Darken3);
                                 }

@@ -56,6 +56,22 @@ public sealed class AccountEndpointTests : IClassFixture<CustomWebApplicationFac
     }
 
     [Fact]
+    public void DeleteAccountData_CoversEveryTenantOwnedEntityButUsers()
+    {
+        // The erase test above seeds and checks exactly these types. A new tenant-owned
+        // entity fails this until AccountController's erase list and SeedAsync name it.
+        using var scope = _factory.CreateTenantScope(Guid.NewGuid());
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
+
+        var tenantOwned = db.Model.GetEntityTypes()
+            .Select(e => e.ClrType)
+            .Where(t => typeof(ITenantOwned).IsAssignableFrom(t) && t != typeof(AppUser));
+
+        tenantOwned.Should().BeEquivalentTo(
+            [typeof(DocumentChunk), typeof(DataSource), typeof(QueryHistory), typeof(AuditLog)]);
+    }
+
+    [Fact]
     public async Task DeleteAccountData_WithoutConfirmation_Returns400AndDeletesNothing()
     {
         var tenantId = Guid.NewGuid();

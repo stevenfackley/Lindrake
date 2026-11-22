@@ -13,10 +13,34 @@ namespace Lindrake.Api.Services.Reports;
 /// <summary>A single conversation turn to export.</summary>
 public sealed record ReportMessage
 {
-    /// <summary>"user" or "assistant"</summary>
+    /// <summary>"user" or "assistant", in any case; a turn with another role is not rendered.</summary>
     public string Role { get; init; } = string.Empty;
     public string Content { get; init; } = string.Empty;
     public IReadOnlyList<SourceCitation> Citations { get; init; } = [];
+
+    /// <summary>A query turn: <see cref="Role"/> is "user", ignoring case.</summary>
+    public bool IsUser => string.Equals(Role, "user", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>An answer turn: <see cref="Role"/> is "assistant", ignoring case.</summary>
+    public bool IsAssistant => string.Equals(Role, "assistant", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>How every report renderer names and scores a <see cref="SourceCitation"/>.</summary>
+public static class ReportCitations
+{
+    /// <summary>The citation's title, else its URL, else "(unknown)".</summary>
+    public static string Label(SourceCitation citation)
+    {
+        ArgumentNullException.ThrowIfNull(citation);
+        return citation.Title ?? citation.Url ?? "(unknown)";
+    }
+
+    /// <summary>The relevance score to three decimals (culture-invariant), or null when there is none.</summary>
+    public static string? Score(SourceCitation citation)
+    {
+        ArgumentNullException.ThrowIfNull(citation);
+        return citation.RelevanceScore?.ToString("F3", CultureInfo.InvariantCulture);
+    }
 }
 
 /// <summary>A research report: title, generation time and the conversation.</summary>
