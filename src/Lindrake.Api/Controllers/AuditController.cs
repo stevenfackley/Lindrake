@@ -1,4 +1,5 @@
 using Lindrake.Api.Data;
+using Lindrake.Api.Data.Projections;
 using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,17 +18,7 @@ public sealed class AuditController(LindrakeDbContext dbContext) : ControllerBas
         var entries = await dbContext.AuditLogs
             .OrderByDescending(a => a.CreatedAt)
             .Take(100)
-            .Select(a => new AuditLogDto
-            {
-                Id = a.Id,
-                TenantId = a.TenantId,
-                UserId = a.UserId,
-                Action = a.Action,
-                ResourceType = a.ResourceType,
-                ResourceId = a.ResourceId,
-                IpAddress = a.IpAddress,
-                CreatedAt = a.CreatedAt
-            })
+            .Select(AuditLogProjections.ToDto)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         return Ok(entries);

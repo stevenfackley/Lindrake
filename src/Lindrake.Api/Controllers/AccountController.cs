@@ -44,17 +44,7 @@ public sealed class AccountController(
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var auditLog = await dbContext.AuditLogs
-            .Select(a => new AuditLogDto
-            {
-                Id = a.Id,
-                TenantId = a.TenantId,
-                UserId = a.UserId,
-                Action = a.Action,
-                ResourceType = a.ResourceType,
-                ResourceId = a.ResourceId,
-                IpAddress = a.IpAddress,
-                CreatedAt = a.CreatedAt
-            })
+            .Select(AuditLogProjections.ToDto)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         return Ok(new TenantExportDto
