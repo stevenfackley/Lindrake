@@ -22,13 +22,15 @@ public sealed record PollingOptions(TimeSpan Interval, TimeSpan Timeout)
 /// status polling until the background ingestion finishes), web ingestion and
 /// deletion. Raises <see cref="Changed"/> after every state change; the page
 /// re-renders on it. <see cref="Dispose"/> cancels in-flight calls and polls.
+/// The polling interval and cap are measured on <c>time</c> (the system clock when null).
 /// </summary>
-public sealed class DataSourcesViewModel(LindrakeApiClient api, PollingOptions? polling = null) : IDisposable
+public sealed class DataSourcesViewModel(LindrakeApiClient api, PollingOptions? polling = null, TimeProvider? time = null) : IDisposable
 {
     /// <summary>Rows per request (the API defaults to 200, caps at 500).</summary>
     public const int PageSize = 200;
 
     private readonly PollingOptions _polling = polling ?? PollingOptions.Default;
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
     private readonly CancellationTokenSource _disposed = new();
     private readonly List<Task> _polls = [];
     private readonly List<DataSourceDto> _items = [];
@@ -236,14 +238,14 @@ public sealed class DataSourcesViewModel(LindrakeApiClient api, PollingOptions? 
         // Show the new pending row straight away, then follow its status.
         await LoadPageAsync(skip: 0).ConfigureAwait(false);
 
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_disposed.Token);
-        deadline.CancelAfter(_polling.Timeout);
+        using var cap = new CancellationTokenSource(_polling.Timeout, _time);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_disposed.Token, cap.Token);
 
         try
         {
             while (true)
             {
-                await Task.Delay(_polling.Interval, deadline.Token).ConfigureAwait(false);
+                await Task.Delay(_polling.Interval, _time, deadline.Token).ConfigureAwait(false);
 
                 var result = await api.GetDataSourceAsync(id, deadline.Token).ConfigureAwait(false);
                 if (!result.IsSuccess)
