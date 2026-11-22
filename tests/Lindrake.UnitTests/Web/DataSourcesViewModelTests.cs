@@ -190,7 +190,7 @@ public sealed class DataSourcesViewModelTests
         using var vm = new DataSourcesViewModel(harness.Api, FastPolling);
         var opened = false;
 
-        var accepted = await vm.UploadAsync(new UploadFile("big.pdf", DataSourcesViewModel.MaxUploadBytes + 1, "application/pdf", () =>
+        var accepted = await vm.UploadAsync(new UploadFile("big.pdf", IngestionLimits.MaxUploadBytes + 1, "application/pdf", () =>
         {
             opened = true;
             return Stream.Null;

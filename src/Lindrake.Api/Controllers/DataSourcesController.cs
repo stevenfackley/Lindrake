@@ -34,11 +34,6 @@ public sealed class DataSourcesController(
     IAuditLogger auditLogger,
     ILogger<DataSourcesController> logger) : ControllerBase
 {
-    /// <summary>
-    /// Maximum upload file size (50 MB).
-    /// </summary>
-    private const long MaxFileSize = 50 * 1024 * 1024;
-
     /// <summary>Column widths of data_sources.file_name / source_type.</summary>
     private const int MaxFileNameLength = 512;
     private const int MaxSourceTypeLength = 50;
@@ -49,7 +44,7 @@ public sealed class DataSourcesController(
     /// Returns 202 Accepted immediately; poll GET /api/datasources/{id} for status.
     /// </summary>
     [HttpPost("upload")]
-    [RequestSizeLimit(MaxFileSize)]
+    [RequestSizeLimit(IngestionLimits.MaxUploadBytes)]
     public async Task<ActionResult<IngestionResponse>> Upload(
         IFormFile file,
         [FromForm, MaxLength(MaxSourceTypeLength)] string? sourceType,
@@ -60,10 +55,10 @@ public sealed class DataSourcesController(
             return Problem(detail: "No file provided or file is empty.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (file.Length > MaxFileSize)
+        if (file.Length > IngestionLimits.MaxUploadBytes)
         {
             return Problem(
-                detail: $"File size exceeds the maximum allowed size of {MaxFileSize / (1024 * 1024)} MB.",
+                detail: $"File size exceeds the maximum allowed size of {IngestionLimits.MaxUploadBytes / (1024 * 1024)} MB.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
 

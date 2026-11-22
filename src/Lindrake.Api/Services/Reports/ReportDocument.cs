@@ -19,10 +19,10 @@ public sealed record ReportMessage
     public IReadOnlyList<SourceCitation> Citations { get; init; } = [];
 
     /// <summary>A query turn: <see cref="Role"/> is "user", ignoring case.</summary>
-    public bool IsUser => string.Equals(Role, "user", StringComparison.OrdinalIgnoreCase);
+    public bool IsUser => string.Equals(Role, ChatRoles.User, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>An answer turn: <see cref="Role"/> is "assistant", ignoring case.</summary>
-    public bool IsAssistant => string.Equals(Role, "assistant", StringComparison.OrdinalIgnoreCase);
+    public bool IsAssistant => string.Equals(Role, ChatRoles.Assistant, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>How every report renderer names and scores a <see cref="SourceCitation"/>.</summary>

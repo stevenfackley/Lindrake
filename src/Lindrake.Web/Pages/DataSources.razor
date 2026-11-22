@@ -179,7 +179,7 @@
             file.Name,
             file.Size,
             file.ContentType,
-            () => file.OpenReadStream(maxAllowedSize: DataSourcesViewModel.MaxUploadBytes));
+            () => file.OpenReadStream(maxAllowedSize: IngestionLimits.MaxUploadBytes));
 
         if (await _vm.UploadAsync(upload))
             _selectedFile = null;

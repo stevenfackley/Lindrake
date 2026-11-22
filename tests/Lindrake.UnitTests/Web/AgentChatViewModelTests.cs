@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Shared.DTOs;
 using Lindrake.UnitTests.TestSupport;
 using Lindrake.Web.ViewModels;
 using static Lindrake.UnitTests.TestSupport.FakeHttpMessageHandler;

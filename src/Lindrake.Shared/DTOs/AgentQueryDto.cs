@@ -16,9 +16,13 @@ public sealed record AgentQueryRequest
     /// The natural language research query.
     /// </summary>
     [Required]
-    [MinLength(3, ErrorMessage = "Query must be at least 3 characters.")]
-    [MaxLength(5000, ErrorMessage = "Query must not exceed 5000 characters.")]
+    [MinLength(MinQueryLength, ErrorMessage = "Query must be at least 3 characters.")]
+    [MaxLength(MaxQueryLength, ErrorMessage = "Query must not exceed 5000 characters.")]
     public string Query { get; init; } = string.Empty;
+
+    /// <summary>Bounds on <see cref="Query"/> length, in characters (both inclusive).</summary>
+    public const int MinQueryLength = 3;
+    public const int MaxQueryLength = 5000;
 
     /// <summary>
     /// Optional conversation history for multi-turn context. Bounded so a client
@@ -41,7 +45,7 @@ public sealed record ConversationMessage
     public const int MaxContentLength = 32_000;
 
     [Required]
-    [AllowedValues("user", "assistant", ErrorMessage = "Role must be 'user' or 'assistant'.")]
+    [AllowedValues(ChatRoles.User, ChatRoles.Assistant, ErrorMessage = "Role must be 'user' or 'assistant'.")]
     public string Role { get; init; } = string.Empty;
 
     [Required]
