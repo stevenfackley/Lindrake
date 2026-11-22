@@ -190,7 +190,7 @@ public sealed class DataSourcesViewModelTests
         using var vm = new DataSourcesViewModel(harness.Api, FastPolling);
         var opened = false;
 
-        var accepted = await vm.UploadAsync(new UploadFile("big.pdf", DataSourcesViewModel.MaxUploadBytes + 1, "application/pdf", () =>
+        var accepted = await vm.UploadAsync(new UploadFile("big.pdf", IngestionLimits.MaxUploadBytes + 1, "application/pdf", () =>
         {
             opened = true;
             return Stream.Null;
@@ -200,6 +200,31 @@ public sealed class DataSourcesViewModelTests
         opened.Should().BeFalse();
         harness.Handler.Requests.Should().BeEmpty();
         vm.SubmitStatus!.Kind.Should().Be(AlertKind.Error);
+    }
+
+    [Fact]
+    public async Task Upload_OneByteOverFiftyMegabytes_IsRefusedNamingTheLimit()
+    {
+        using var harness = new WebClientHarness(new FakeHttpMessageHandler(_ => Accepted()));
+        using var vm = new DataSourcesViewModel(harness.Api, FastPolling);
+
+        var accepted = await vm.UploadAsync(new UploadFile("big.pdf", 52_428_801, "application/pdf", () => Stream.Null));
+
+        accepted.Should().BeFalse();
+        harness.Handler.Requests.Should().BeEmpty();
+        vm.SubmitStatus.Should().Be(StatusMessage.Error("big.pdf is larger than the 50 MB limit."));
+    }
+
+    [Fact]
+    public async Task Upload_ExactlyFiftyMegabytes_IsSent()
+    {
+        using var harness = new WebClientHarness(new FakeHttpMessageHandler(_ =>
+            Problem(HttpStatusCode.UnsupportedMediaType, "Unsupported file type 'application/pdf'.")));
+        using var vm = new DataSourcesViewModel(harness.Api, FastPolling);
+
+        await vm.UploadAsync(new UploadFile("big.pdf", 52_428_800, "application/pdf", () => new MemoryStream([1])));
+
+        harness.Handler.Requests.Should().ContainSingle();
     }
 
     [Fact]

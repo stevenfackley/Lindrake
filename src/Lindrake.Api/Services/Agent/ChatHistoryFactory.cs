@@ -26,12 +26,12 @@ public sealed class ChatHistoryFactory(
         history.AddSystemMessage(profileOptions.Value.SystemPrompt);
 
         var messages = (request.ConversationHistory ?? [])
-            .Where(m => IsRole(m, "user") || IsRole(m, "assistant"))
+            .Where(m => IsRole(m, ChatRoles.User) || IsRole(m, ChatRoles.Assistant))
             .TakeLast(agentOptions.Value.MaxHistoryMessages);
 
         foreach (var message in messages)
         {
-            if (IsRole(message, "user"))
+            if (IsRole(message, ChatRoles.User))
                 history.AddUserMessage(message.Content);
             else
                 history.AddAssistantMessage(message.Content);

@@ -48,7 +48,9 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         row.TenantId.Should().Be(tenantId);
         row.SourceType.Should().Be("pdf");
         row.FileName.Should().Be("census-1901.pdf");
-        (await db.AuditLogs.SingleAsync(a => a.ResourceId == body.DataSourceId)).Action.Should().Be("upload");
+        var audit = await db.AuditLogs.SingleAsync(a => a.ResourceId == body.DataSourceId);
+        audit.Action.Should().Be("upload");
+        audit.ResourceType.Should().Be("data_source");
     }
 
     [Theory]
@@ -148,7 +150,9 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         await ShouldBeProblemAsync(await client.DeleteAsync($"/api/datasources/{id}"), HttpStatusCode.NotFound);
         using var scope = _factory.CreateTenantScope(tenantId);
         var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
-        (await db.AuditLogs.SingleAsync(a => a.ResourceId == id)).Action.Should().Be("delete");
+        var audit = await db.AuditLogs.SingleAsync(a => a.ResourceId == id);
+        audit.Action.Should().Be("delete");
+        audit.ResourceType.Should().Be("data_source");
     }
 
     [Fact]
@@ -242,7 +246,9 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
         using var scope = factory.CreateTenantScope(tenantId);
         var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
         (await db.DataSources.SingleAsync(ds => ds.Id == body.DataSourceId)).SourceType.Should().Be("web");
-        (await db.AuditLogs.SingleAsync(a => a.ResourceId == body.DataSourceId)).Action.Should().Be("ingest_web");
+        var audit = await db.AuditLogs.SingleAsync(a => a.ResourceId == body.DataSourceId);
+        audit.Action.Should().Be("ingest_web");
+        audit.ResourceType.Should().Be("data_source");
     }
 
     private async Task<HttpResponseMessage> UploadAsync(Guid tenantId, string fileName, string contentType)

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
+using Lindrake.Shared.DTOs;
 using Lindrake.UnitTests.TestSupport;
 using Lindrake.Web.ViewModels;
 using static Lindrake.UnitTests.TestSupport.FakeHttpMessageHandler;
@@ -172,6 +173,20 @@ public sealed class AgentChatViewModelTests
         using var vm = new AgentChatViewModel(harness.Api);
 
         vm.CanSend(query).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(3, 0, true)]
+    [InlineData(5000, 0, true)]
+    [InlineData(5000, 2, true)]
+    [InlineData(5001, 0, false)]
+    public void CanSend_AppliesTheApiQueryBoundsToTheTrimmedQuery(int length, int padding, bool expected)
+    {
+        using var harness = new WebClientHarness(new FakeHttpMessageHandler(_ => Stream(Final)));
+        using var vm = new AgentChatViewModel(harness.Api);
+        var spaces = new string(' ', padding);
+
+        vm.CanSend(spaces + new string('q', length) + spaces).Should().Be(expected);
     }
 
     [Fact]

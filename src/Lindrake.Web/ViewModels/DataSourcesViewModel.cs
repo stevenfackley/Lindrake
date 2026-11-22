@@ -25,9 +25,6 @@ public sealed record PollingOptions(TimeSpan Interval, TimeSpan Timeout)
 /// </summary>
 public sealed class DataSourcesViewModel(LindrakeApiClient api, PollingOptions? polling = null) : IDisposable
 {
-    /// <summary>The API's upload limit (50 MB).</summary>
-    public const long MaxUploadBytes = 50L * 1024 * 1024;
-
     /// <summary>Rows per request (the API defaults to 200, caps at 500).</summary>
     public const int PageSize = 200;
 
@@ -72,9 +69,9 @@ public sealed class DataSourcesViewModel(LindrakeApiClient api, PollingOptions? 
         if (IsSubmitting)
             return false;
 
-        if (file.Size > MaxUploadBytes)
+        if (file.Size > IngestionLimits.MaxUploadBytes)
         {
-            SubmitStatus = StatusMessage.Error($"{file.Name} is larger than the {MaxUploadBytes / (1024 * 1024)} MB limit.");
+            SubmitStatus = StatusMessage.Error($"{file.Name} is larger than the {IngestionLimits.MaxUploadBytes / (1024 * 1024)} MB limit.");
             Notify();
             return false;
         }

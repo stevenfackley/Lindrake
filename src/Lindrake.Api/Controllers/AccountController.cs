@@ -18,9 +18,6 @@ public sealed class AccountController(
     ITenantContext tenantContext,
     IAuditLogger auditLogger) : ControllerBase
 {
-    /// <summary>Audit action recorded by DELETE /api/account/data.</summary>
-    internal const string EraseAuditAction = "delete_account_data";
-
     [HttpGet("export")]
     public async Task<ActionResult<TenantExportDto>> Export(CancellationToken cancellationToken)
     {
@@ -139,5 +136,5 @@ public sealed class AccountController(
     /// tenant's trail afterwards shows exactly that the erase happened.
     /// </summary>
     private Task LogEraseAsync(Guid tenantId, CancellationToken cancellationToken) =>
-        auditLogger.LogAsync(EraseAuditAction, "account", tenantId, cancellationToken);
+        auditLogger.LogAsync(AuditActions.DeleteAccountData, AuditResources.Account, tenantId, cancellationToken);
 }

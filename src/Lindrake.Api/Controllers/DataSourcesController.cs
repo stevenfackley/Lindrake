@@ -34,11 +34,6 @@ public sealed class DataSourcesController(
     IAuditLogger auditLogger,
     ILogger<DataSourcesController> logger) : ControllerBase
 {
-    /// <summary>
-    /// Maximum upload file size (50 MB).
-    /// </summary>
-    private const long MaxFileSize = 50 * 1024 * 1024;
-
     /// <summary>Column widths of data_sources.file_name / source_type.</summary>
     private const int MaxFileNameLength = 512;
     private const int MaxSourceTypeLength = 50;
@@ -49,7 +44,7 @@ public sealed class DataSourcesController(
     /// Returns 202 Accepted immediately; poll GET /api/datasources/{id} for status.
     /// </summary>
     [HttpPost("upload")]
-    [RequestSizeLimit(MaxFileSize)]
+    [RequestSizeLimit(IngestionLimits.MaxUploadBytes)]
     public async Task<ActionResult<IngestionResponse>> Upload(
         IFormFile file,
         [FromForm, MaxLength(MaxSourceTypeLength)] string? sourceType,
@@ -60,10 +55,10 @@ public sealed class DataSourcesController(
             return Problem(detail: "No file provided or file is empty.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (file.Length > MaxFileSize)
+        if (file.Length > IngestionLimits.MaxUploadBytes)
         {
             return Problem(
-                detail: $"File size exceeds the maximum allowed size of {MaxFileSize / (1024 * 1024)} MB.",
+                detail: $"File size exceeds the maximum allowed size of {IngestionLimits.MaxUploadBytes / (1024 * 1024)} MB.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
@@ -120,7 +115,7 @@ public sealed class DataSourcesController(
         dbContext.DataSources.Add(dataSource);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        await auditLogger.LogAsync("upload", "data_source", dataSource.Id, cancellationToken).ConfigureAwait(false);
+        await auditLogger.LogAsync(AuditActions.Upload, AuditResources.DataSource, dataSource.Id, cancellationToken).ConfigureAwait(false);
 
         // Enqueue for background processing. The worker carries tenantId
         // and binds its scope to that tenant (query filter + RLS).
@@ -184,7 +179,7 @@ public sealed class DataSourcesController(
         dbContext.DataSources.Add(dataSource);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        await auditLogger.LogAsync("ingest_web", "data_source", dataSource.Id, cancellationToken).ConfigureAwait(false);
+        await auditLogger.LogAsync(AuditActions.IngestWeb, AuditResources.DataSource, dataSource.Id, cancellationToken).ConfigureAwait(false);
 
         using var stream = new MemoryStream(page, writable: false);
         dataSource = await ingestionPipeline.RunAsync(dataSource, stream, cancellationToken).ConfigureAwait(false);
@@ -249,7 +244,7 @@ public sealed class DataSourcesController(
         dbContext.DataSources.Remove(source);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        await auditLogger.LogAsync("delete", "data_source", id, cancellationToken).ConfigureAwait(false);
+        await auditLogger.LogAsync(AuditActions.Delete, AuditResources.DataSource, id, cancellationToken).ConfigureAwait(false);
 
         logger.LogInformation(
             "Deleted DataSource {DataSourceId} for tenant {TenantId}",

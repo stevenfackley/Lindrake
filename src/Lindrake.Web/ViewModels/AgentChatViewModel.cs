@@ -9,13 +9,6 @@ using Lindrake.Web.Services;
 
 namespace Lindrake.Web.ViewModels;
 
-/// <summary>Roles of <see cref="ConversationMessage.Role"/> (validated case-sensitively by the API).</summary>
-public static class ChatRoles
-{
-    public const string User = "user";
-    public const string Assistant = "assistant";
-}
-
 /// <summary>One bubble in the chat.</summary>
 public sealed record ChatMessage(string Role, string Content)
 {
@@ -35,10 +28,6 @@ public sealed record ChatMessage(string Role, string Content)
 /// </summary>
 public sealed class AgentChatViewModel(LindrakeApiClient api) : IDisposable
 {
-    /// <summary>The API's query length bounds.</summary>
-    public const int MinQueryLength = 3;
-    public const int MaxQueryLength = 5000;
-
     public const string IncompleteResponseMessage = "The response ended before it was complete. Please try again.";
 
     private readonly List<ChatMessage> _messages = [];
@@ -60,9 +49,10 @@ public sealed class AgentChatViewModel(LindrakeApiClient api) : IDisposable
     /// <summary>The last failure (agent error frame, HTTP error, report failure).</summary>
     public string? Error { get; private set; }
 
+    /// <summary>Not streaming, and the trimmed query is within the API's length bounds.</summary>
     public bool CanSend(string? query) =>
         !IsStreaming
-        && query?.Trim() is { Length: >= MinQueryLength and <= MaxQueryLength };
+        && query?.Trim() is { Length: >= AgentQueryRequest.MinQueryLength and <= AgentQueryRequest.MaxQueryLength };
 
     /// <summary>
     /// Asks the agent and streams the answer. On the <c>final</c> event the exchange
