@@ -84,7 +84,7 @@ public sealed class EntityExtractionService(
             .ConfigureAwait(false);
 
         var raw = result.Content ?? string.Empty;
-        var graph = ParseGraphJson(raw);
+        var graph = ParseGraphJson(raw, logger);
 
         // Sort timeline ascending after parsing
         var sortedTimeline = graph.Timeline.OrderBy(e => e.Date).ToList();
@@ -99,11 +99,12 @@ public sealed class EntityExtractionService(
     /// <summary>
     /// Parses raw LLM output into an <see cref="EntityGraphResponse"/>.
     /// Handles code fences, surrounding prose, missing fields, and malformed JSON.
+    /// An answer that holds no graph gives an empty one and a warning on <paramref name="logger"/>.
     /// </summary>
-    internal static EntityGraphResponse ParseGraphJson(string raw)
+    internal static EntityGraphResponse ParseGraphJson(string raw, ILogger? logger = null)
     {
         if (string.IsNullOrWhiteSpace(raw))
-            return new EntityGraphResponse();
+            return Unreadable(logger, "it was empty");
 
         try
         {
@@ -127,14 +128,14 @@ public sealed class EntityExtractionService(
             var start = text.IndexOf('{');
             var end = text.LastIndexOf('}');
             if (start < 0 || end < 0 || end <= start)
-                return new EntityGraphResponse();
+                return Unreadable(logger, "it held no JSON object");
 
             text = text[start..(end + 1)];
 
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var parsed = JsonSerializer.Deserialize<RawGraph>(text, opts);
             if (parsed is null)
-                return new EntityGraphResponse();
+                return Unreadable(logger, "it was JSON null");
 
             var nodes = parsed.Nodes?.Select(n => new EntityNode
             {
@@ -167,10 +168,20 @@ public sealed class EntityExtractionService(
                 Timeline = sorted
             };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return new EntityGraphResponse();
+            return Unreadable(logger, "it was not valid graph JSON", ex);
         }
+    }
+
+    // The answer itself is not logged: it is drawn from the tenant's documents.
+    private static EntityGraphResponse Unreadable(ILogger? logger, string reason, Exception? exception = null)
+    {
+        logger?.LogWarning(
+            exception,
+            "Entity extraction got an unreadable model answer ({Reason}); returning an empty graph.",
+            reason);
+        return new EntityGraphResponse();
     }
 
     // ── Private deserialization shapes ──────────────────────────
