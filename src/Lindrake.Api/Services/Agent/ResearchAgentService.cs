@@ -34,7 +34,7 @@ public sealed class ResearchAgentService(
 
         var chatService = kernel.GetChatCompletionOrThrow();
         var stopwatch = Stopwatch.StartNew();
-        LogStarted(request, "agent_query");
+        LogStarted(request, AuditActions.AgentQuery);
 
         var message = await chatService.GetChatMessageContentAsync(
             chatHistoryFactory.Create(request),
@@ -42,7 +42,7 @@ public sealed class ResearchAgentService(
             kernel,
             cancellationToken).ConfigureAwait(false);
 
-        return await CompleteAsync(request, message.Content, stopwatch, "agent_query").ConfigureAwait(false);
+        return await CompleteAsync(request, message.Content, stopwatch, AuditActions.AgentQuery).ConfigureAwait(false);
     }
 
     public IAsyncEnumerable<AgentStreamEvent> StreamAsync(AgentQueryRequest request, CancellationToken cancellationToken)
@@ -61,7 +61,7 @@ public sealed class ResearchAgentService(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        LogStarted(request, "agent_query_stream");
+        LogStarted(request, AuditActions.AgentQueryStream);
 
         var fullText = new StringBuilder();
 
@@ -81,7 +81,7 @@ public sealed class ResearchAgentService(
         // Recorded before the completion event is handed out: once the consumer has
         // it, it may stop enumerating (or the client may be gone), and nothing after
         // the last yield would run.
-        var result = await CompleteAsync(request, fullText.ToString(), stopwatch, "agent_query_stream")
+        var result = await CompleteAsync(request, fullText.ToString(), stopwatch, AuditActions.AgentQueryStream)
             .ConfigureAwait(false);
 
         yield return new AgentStreamEvent.Completed(result);

@@ -48,6 +48,6 @@ public sealed class QueryHistoryRecorder(
         dbContext.QueryHistories.Add(entry);
         await dbContext.SaveChangesAsync(timeout.Token).ConfigureAwait(false);
 
-        await auditLogger.LogAsync(auditAction, "query_history", entry.Id, timeout.Token).ConfigureAwait(false);
+        await auditLogger.LogAsync(auditAction, AuditResources.QueryHistory, entry.Id, timeout.Token).ConfigureAwait(false);
     }
 }

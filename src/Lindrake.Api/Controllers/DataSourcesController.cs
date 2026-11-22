@@ -115,7 +115,7 @@ public sealed class DataSourcesController(
         dbContext.DataSources.Add(dataSource);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        await auditLogger.LogAsync("upload", "data_source", dataSource.Id, cancellationToken).ConfigureAwait(false);
+        await auditLogger.LogAsync(AuditActions.Upload, AuditResources.DataSource, dataSource.Id, cancellationToken).ConfigureAwait(false);
 
         // Enqueue for background processing. The worker carries tenantId
         // and binds its scope to that tenant (query filter + RLS).
@@ -179,7 +179,7 @@ public sealed class DataSourcesController(
         dbContext.DataSources.Add(dataSource);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        await auditLogger.LogAsync("ingest_web", "data_source", dataSource.Id, cancellationToken).ConfigureAwait(false);
+        await auditLogger.LogAsync(AuditActions.IngestWeb, AuditResources.DataSource, dataSource.Id, cancellationToken).ConfigureAwait(false);
 
         using var stream = new MemoryStream(page, writable: false);
         dataSource = await ingestionPipeline.RunAsync(dataSource, stream, cancellationToken).ConfigureAwait(false);
@@ -244,7 +244,7 @@ public sealed class DataSourcesController(
         dbContext.DataSources.Remove(source);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        await auditLogger.LogAsync("delete", "data_source", id, cancellationToken).ConfigureAwait(false);
+        await auditLogger.LogAsync(AuditActions.Delete, AuditResources.DataSource, id, cancellationToken).ConfigureAwait(false);
 
         logger.LogInformation(
             "Deleted DataSource {DataSourceId} for tenant {TenantId}",
