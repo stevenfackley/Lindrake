@@ -39,7 +39,6 @@ public sealed class AgentChatViewModel(LindrakeApiClient api) : IDisposable
     public const int MinQueryLength = 3;
     public const int MaxQueryLength = 5000;
 
-    public const string ReportTitle = "Lindrake Research Report";
     public const string IncompleteResponseMessage = "The response ended before it was complete. Please try again.";
 
     private readonly List<ChatMessage> _messages = [];
@@ -175,9 +174,9 @@ public sealed class AgentChatViewModel(LindrakeApiClient api) : IDisposable
 
         try
         {
+            // No Title: the API uses the deployment's ResearchProfile:ReportTitle.
             var request = new GenerateReportRequest
             {
-                Title = ReportTitle,
                 Messages = [.. _messages.Select(m => new ReportTurn
                 {
                     Role = m.Role,
