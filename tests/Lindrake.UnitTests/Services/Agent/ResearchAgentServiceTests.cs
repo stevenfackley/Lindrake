@@ -69,6 +69,23 @@ public sealed class ResearchAgentServiceTests
         history.ResponseText.Should().Be("Hello world");
         var audit = await verify.AuditLogs.SingleAsync();
         audit.Action.Should().Be("agent_query");
+        audit.ResourceType.Should().Be("query_history");
+        audit.ResourceId.Should().Be(history.Id);
+    }
+
+    [Fact]
+    public async Task StreamAsync_RecordsQueryHistoryAndAuditEntry()
+    {
+        var kernel = KernelWith(new ScriptedChatCompletionService("Hello ", "world"));
+
+        await CollectAsync(CreateService(kernel).StreamAsync(Request, CancellationToken.None));
+
+        await using var verify = InMemoryDb.ForTenant(_databaseName, _tenantId);
+        var history = await verify.QueryHistories.SingleAsync();
+        history.ResponseText.Should().Be("Hello world");
+        var audit = await verify.AuditLogs.SingleAsync();
+        audit.Action.Should().Be("agent_query_stream");
+        audit.ResourceType.Should().Be("query_history");
         audit.ResourceId.Should().Be(history.Id);
     }
 
