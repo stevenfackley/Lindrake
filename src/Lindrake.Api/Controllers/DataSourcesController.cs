@@ -184,6 +184,8 @@ public sealed class DataSourcesController(
         dbContext.DataSources.Add(dataSource);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await auditLogger.LogAsync("ingest_web", "data_source", dataSource.Id, cancellationToken).ConfigureAwait(false);
+
         using var stream = new MemoryStream(page, writable: false);
         dataSource = await ingestionPipeline.RunAsync(dataSource, stream, cancellationToken).ConfigureAwait(false);
 

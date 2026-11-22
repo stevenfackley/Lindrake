@@ -1,8 +1,9 @@
 // ============================================================
 // Integration Tests — Data source lifecycle
 // Upload → row + audit, read back with its chunk count, delete,
-// paging bounds, and the web-ingestion SSRF guard (literal
-// addresses only, so no test touches the network).
+// paging bounds, web ingestion's row + audit (fake fetcher) and
+// its SSRF guard (literal addresses only, so no test touches the
+// network).
 // ============================================================
 
 using System.Net;
@@ -12,10 +13,13 @@ using System.Text;
 using FluentAssertions;
 using Lindrake.Api.Data;
 using Lindrake.Api.Models;
+using Lindrake.Api.Services.Ingestion;
 using Lindrake.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Moq;
 using static Lindrake.IntegrationTests.ProblemAssertions;
 
 namespace Lindrake.IntegrationTests;
@@ -211,6 +215,34 @@ public sealed class DataSourceLifecycleTests : IClassFixture<CustomWebApplicatio
 
         await ShouldBeProblemAsync(response, HttpStatusCode.BadRequest);
         (await CountDataSourcesAsync(tenantId)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task WebIngestion_FetchedPage_RecordsRowAndAudit()
+    {
+        // The fetcher is faked, so no test touches the network.
+        var fetcher = new Mock<IWebPageFetcher>();
+        fetcher.Setup(f => f.FetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Encoding.UTF8.GetBytes("<html><body><p>Michael Byrne, born Cork, 1871.</p></body></html>"));
+        using var factory = new CustomWebApplicationFactory
+        {
+            ConfigureTestServices = services =>
+            {
+                services.RemoveAll<IWebPageFetcher>();
+                services.AddSingleton(fetcher.Object);
+            }
+        };
+        var tenantId = Guid.NewGuid();
+
+        var response = await factory.CreateTenantClient(tenantId)
+            .PostAsJsonAsync("/api/datasources/web", new WebIngestionRequest { Url = "https://example.com/byrne.html" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = (await response.Content.ReadFromJsonAsync<IngestionResponse>())!;
+        using var scope = factory.CreateTenantScope(tenantId);
+        var db = scope.ServiceProvider.GetRequiredService<LindrakeDbContext>();
+        (await db.DataSources.SingleAsync(ds => ds.Id == body.DataSourceId)).SourceType.Should().Be("web");
+        (await db.AuditLogs.SingleAsync(a => a.ResourceId == body.DataSourceId)).Action.Should().Be("ingest_web");
     }
 
     private async Task<HttpResponseMessage> UploadAsync(Guid tenantId, string fileName, string contentType)
