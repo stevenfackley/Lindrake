@@ -229,7 +229,7 @@ Known limitation: the channel is in-memory, so uploads that are queued but not y
 | **email** (`.eml`, `.mbox`) | MimeKit (+ HtmlAgilityPack for HTML bodies) | Per message: subject, from, to, date, body; `.msg` rejected |
 | plain text (`.txt`, `.md`) | — | Plain-text extractor (added in batch 6) |
 
-Adding a format is one `ITextExtractor` registration in `AddLindrakeIngestion` plus its MIME/extension mapping in `TextExtractorRegistry`.
+Adding a format is one `ITextExtractor` registration in `AddLindrakeIngestion`, its MIME mapping in `TextExtractorRegistry`, and its extension in `Lindrake.Shared`'s `UploadFormats`, which both the Web client's `UploadContentTypes` and the registry's extension fallback read.
 
 ### 4.3 Chunking Algorithm
 

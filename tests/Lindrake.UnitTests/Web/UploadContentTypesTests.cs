@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Lindrake.Api.Services;
 using Lindrake.Api.Services.Extraction;
+using Lindrake.Shared.DTOs;
 using Lindrake.Web.Services;
 using Moq;
 
@@ -27,17 +28,10 @@ public sealed class UploadContentTypesTests
         UploadContentTypes.ForFileName(fileName, browserType).Should().Be(expected);
     }
 
+    public static TheoryData<string> UploadExtensions => new(UploadFormats.MimeTypeByExtension.Keys);
+
     [Theory]
-    [InlineData(".pdf")]
-    [InlineData(".csv")]
-    [InlineData(".json")]
-    [InlineData(".html")]
-    [InlineData(".htm")]
-    [InlineData(".docx")]
-    [InlineData(".eml")]
-    [InlineData(".mbox")]
-    [InlineData(".txt")]
-    [InlineData(".md")]
+    [MemberData(nameof(UploadExtensions))]
     public void TheMimeTypeSent_ResolvesToTheSameSourceTypeAsTheExtension(string extension)
     {
         var registry = new TextExtractorRegistry(

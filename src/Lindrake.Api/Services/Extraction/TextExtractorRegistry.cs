@@ -7,6 +7,7 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
+using Lindrake.Shared.DTOs;
 
 namespace Lindrake.Api.Services.Extraction;
 
@@ -52,20 +53,14 @@ public sealed class TextExtractorRegistry : ITextExtractorRegistry
             ["text/markdown"] = SourceTypes.Text
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
+    // Each upload format's extension resolves to the source type of the MIME type
+    // the client sends for it. Declared after SourceTypeByMimeType (static fields
+    // initialize in order); a format whose MIME type is unmapped fails type init.
     private static readonly FrozenDictionary<string, string> SourceTypeByExtension =
-        new Dictionary<string, string>
-        {
-            [".pdf"] = SourceTypes.Pdf,
-            [".csv"] = SourceTypes.Sms,
-            [".json"] = SourceTypes.Sms,
-            [".html"] = SourceTypes.Web,
-            [".htm"] = SourceTypes.Web,
-            [".docx"] = SourceTypes.Docx,
-            [".eml"] = SourceTypes.Email,
-            [".mbox"] = SourceTypes.Email,
-            [".txt"] = SourceTypes.Text,
-            [".md"] = SourceTypes.Text
-        }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+        UploadFormats.MimeTypeByExtension.ToFrozenDictionary(
+            format => format.Key,
+            format => SourceTypeByMimeType[format.Value],
+            StringComparer.OrdinalIgnoreCase);
 
     private readonly FrozenDictionary<string, ITextExtractor> _extractors;
 
@@ -103,8 +98,8 @@ public sealed class TextExtractorRegistry : ITextExtractorRegistry
         string? candidate;
         if (string.IsNullOrEmpty(mediaType) || mediaType.Equals(OctetStream, StringComparison.OrdinalIgnoreCase))
         {
-            // Generic or missing MIME type (the Blazor client sends octet-stream for
-            // every upload) — fall back to the file extension.
+            // Generic or missing MIME type (the Web client falls back to octet-stream
+            // for a file it has no type for) — fall back to the file extension.
             var extension = Path.GetExtension(fileName);
             if (string.IsNullOrEmpty(extension) || !SourceTypeByExtension.TryGetValue(extension, out candidate))
                 return false;
