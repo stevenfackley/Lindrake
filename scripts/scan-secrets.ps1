@@ -27,7 +27,7 @@ $patterns = @(
 
 foreach ($p in $Paths) {
     if (-not (Test-Path $p)) { continue }
-    $hits = Select-String -Path (Get-ChildItem $p -Recurse -File).FullName `
+    $hits = Select-String -LiteralPath (Get-ChildItem $p -Recurse -File).FullName `
         -Pattern $patterns -AllMatches 2>$null
     if ($hits) {
         Write-Host "::error::Secret-shape match:" -ForegroundColor Red
