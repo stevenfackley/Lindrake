@@ -11,6 +11,26 @@ public sealed class DataSourcesViewModelTests
 {
     private static readonly Guid UploadId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
     private static readonly PollingOptions FastPolling = new(TimeSpan.FromMilliseconds(5), TimeSpan.FromSeconds(10));
+    private static readonly DateTimeOffset Now = new(2030, 6, 1, 12, 0, 0, TimeSpan.Zero);
+
+    // Real time, and only a hang guard: a passing run never waits on it. Polling itself
+    // runs on the ManualTimeProvider each test hands to the view model.
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Completes once the view model is asleep between polls: its cap timer and its interval
+    /// timer are both pending on the fake clock. Moving the clock any earlier would race it.
+    /// </summary>
+    private static Task AsleepAsync(ManualTimeProvider time) => time.WhenTimersPendingAsync(2).WaitAsync(HangGuard);
+
+    /// <summary>Lets <paramref name="by"/> pass on the fake clock once the view model is asleep.</summary>
+    private static async Task ElapseAsync(ManualTimeProvider time, TimeSpan by)
+    {
+        await AsleepAsync(time);
+        time.Advance(by);
+    }
+
+    private static Task IdleAsync(DataSourcesViewModel vm) => vm.WhenPollingIdleAsync().WaitAsync(HangGuard);
 
     private static string Source(Guid id, string status, int chunks = 0, string? error = null) =>
         $$"""{"id":"{{id}}","sourceType":"pdf","fileName":"report.pdf","status":"{{status}}","chunkCount":{{chunks}}{{(error is null ? "" : $",\"errorMessage\":\"{error}\"")}}}""";
@@ -87,11 +107,14 @@ public sealed class DataSourcesViewModelTests
             },
             _ => throw new InvalidOperationException($"Unexpected {request.Method} {request.PathAndQuery}")
         }));
-        using var vm = new DataSourcesViewModel(harness.Api, FastPolling);
+        var time = new ManualTimeProvider(Now);
+        using var vm = new DataSourcesViewModel(harness.Api, FastPolling, time);
 
         (await vm.UploadAsync(Pdf(), sourceType: "pdf")).Should().BeTrue();
         vm.IsSubmitting.Should().BeFalse();
-        await vm.WhenPollingIdleAsync();
+        await ElapseAsync(time, FastPolling.Interval);
+        await ElapseAsync(time, FastPolling.Interval);
+        await IdleAsync(vm);
 
         var upload = harness.Handler.Requests.First(r => r.PathAndQuery == "/api/datasources/upload");
         upload.Body.Should().Contain("Content-Type: application/pdf")
@@ -110,10 +133,12 @@ public sealed class DataSourcesViewModelTests
             var path when path.StartsWith("/api/datasources?", StringComparison.Ordinal) => Json(HttpStatusCode.OK, "[]"),
             _ => Json(HttpStatusCode.OK, Source(UploadId, "failed", error: "No text found."))
         }));
-        using var vm = new DataSourcesViewModel(harness.Api, FastPolling);
+        var time = new ManualTimeProvider(Now);
+        using var vm = new DataSourcesViewModel(harness.Api, FastPolling, time);
 
         await vm.UploadAsync(Pdf());
-        await vm.WhenPollingIdleAsync();
+        await ElapseAsync(time, FastPolling.Interval);
+        await IdleAsync(vm);
 
         vm.SubmitStatus.Should().Be(StatusMessage.Error("report.pdf failed: No text found."));
     }
@@ -127,16 +152,21 @@ public sealed class DataSourcesViewModelTests
             var path when path.StartsWith("/api/datasources?", StringComparison.Ordinal) => Json(HttpStatusCode.OK, "[]"),
             _ => Json(HttpStatusCode.OK, Source(UploadId, "processing"))
         }));
-        // A 1 s cap leaves room for at least one 5 ms poll on a slow CI runner; with 100 ms
-        // the deadline could fire before the first status request, failing the count check.
-        using var vm = new DataSourcesViewModel(harness.Api, new PollingOptions(TimeSpan.FromMilliseconds(5), TimeSpan.FromSeconds(1)));
+        // A 5 s cap over a 2 s interval: polls at 2 s and 4 s, and the cap falls a second
+        // before the third, so the clock never has the cap and a poll due at the same instant.
+        var time = new ManualTimeProvider(Now);
+        var polling = new PollingOptions(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5));
+        using var vm = new DataSourcesViewModel(harness.Api, polling, time);
 
         await vm.UploadAsync(Pdf());
-        await vm.WhenPollingIdleAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        await ElapseAsync(time, polling.Interval);
+        await ElapseAsync(time, polling.Interval);
+        await ElapseAsync(time, TimeSpan.FromSeconds(1));
+        await IdleAsync(vm);
 
         vm.SubmitStatus!.Kind.Should().Be(AlertKind.Info);
         vm.SubmitStatus.Text.Should().Contain("still being ingested");
-        harness.Handler.Requests.Count(r => r.PathAndQuery == $"/api/datasources/{UploadId}").Should().BeGreaterThan(0);
+        harness.Handler.Requests.Count(r => r.PathAndQuery == $"/api/datasources/{UploadId}").Should().Be(2);
     }
 
     [Fact]
@@ -151,10 +181,13 @@ public sealed class DataSourcesViewModelTests
                 ? Problem(HttpStatusCode.ServiceUnavailable)
                 : Json(HttpStatusCode.OK, Source(UploadId, "completed", chunks: 1))
         }));
-        using var vm = new DataSourcesViewModel(harness.Api, FastPolling);
+        var time = new ManualTimeProvider(Now);
+        using var vm = new DataSourcesViewModel(harness.Api, FastPolling, time);
 
         await vm.UploadAsync(Pdf());
-        await vm.WhenPollingIdleAsync();
+        await ElapseAsync(time, FastPolling.Interval);
+        await ElapseAsync(time, FastPolling.Interval);
+        await IdleAsync(vm);
 
         itemPolls.Should().Be(2);
         vm.SubmitStatus!.Kind.Should().Be(AlertKind.Success);
@@ -169,15 +202,20 @@ public sealed class DataSourcesViewModelTests
             var path when path.StartsWith("/api/datasources?", StringComparison.Ordinal) => Json(HttpStatusCode.OK, "[]"),
             _ => Json(HttpStatusCode.OK, Source(UploadId, "processing"))
         }));
-        var vm = new DataSourcesViewModel(harness.Api, new PollingOptions(TimeSpan.FromMilliseconds(20), TimeSpan.FromMinutes(2)));
+        var time = new ManualTimeProvider(Now);
+        var polling = new PollingOptions(TimeSpan.FromMilliseconds(20), TimeSpan.FromMinutes(2));
+        var vm = new DataSourcesViewModel(harness.Api, polling, time);
         var changesAfterDispose = 0;
 
         await vm.UploadAsync(Pdf());
+        await AsleepAsync(time);
         vm.Dispose();
         vm.Changed += () => changesAfterDispose++;
-        await vm.WhenPollingIdleAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        await IdleAsync(vm);
         var requestsAtStop = harness.Handler.Requests.Count;
-        await Task.Delay(100);
+        // Nothing is left on the clock to wake it, however far time moves on.
+        time.PendingTimers.Should().Be(0);
+        time.Advance(polling.Timeout);
 
         harness.Handler.Requests.Count.Should().Be(requestsAtStop, "no request is made once the page is gone");
         vm.SubmitStatus!.Text.Should().NotContain("still being ingested");
